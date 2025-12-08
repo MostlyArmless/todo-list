@@ -20,9 +20,10 @@ def test_register_user(client):
 
 def test_register_duplicate_email(client, auth_headers):
     """Test registration with duplicate email fails."""
+    # Try to register with the same email as the auth_headers user
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": "test@example.com", "password": "password123", "name": "Duplicate"},
+        json={"email": auth_headers.email, "password": "password123", "name": "Duplicate"},
     )
     assert response.status_code == 400
     assert "already registered" in response.json()["detail"]
@@ -31,7 +32,7 @@ def test_register_duplicate_email(client, auth_headers):
 def test_login(client, auth_headers):
     """Test user login."""
     response = client.post(
-        "/api/v1/auth/login", json={"email": "test@example.com", "password": "testpass123"}
+        "/api/v1/auth/login", json={"email": auth_headers.email, "password": "testpass123"}
     )
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -40,7 +41,7 @@ def test_login(client, auth_headers):
 def test_login_wrong_password(client, auth_headers):
     """Test login with wrong password."""
     response = client.post(
-        "/api/v1/auth/login", json={"email": "test@example.com", "password": "wrongpass"}
+        "/api/v1/auth/login", json={"email": auth_headers.email, "password": "wrongpass"}
     )
     assert response.status_code == 401
 
@@ -49,7 +50,7 @@ def test_get_current_user(client, auth_headers):
     """Test getting current user info."""
     response = client.get("/api/v1/auth/me", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["email"] == "test@example.com"
+    assert response.json()["email"] == auth_headers.email
 
 
 def test_create_list(client, auth_headers):

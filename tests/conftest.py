@@ -1,10 +1,11 @@
 """Pytest configuration and fixtures."""
 
 import os
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from src.database import Base, get_db
@@ -12,11 +13,12 @@ from src.main import app
 
 
 class AuthHeaders(dict):
-    """Dict subclass that also stores user_id."""
+    """Dict subclass that also stores user info."""
 
-    def __init__(self, *args, user_id: int | None = None, **kwargs):
+    def __init__(self, *args, user_id: int | None = None, email: str | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user_id = user_id
+        self.email = email
 
 
 # Use test database - PostgreSQL in Docker, SQLite locally
@@ -48,10 +50,14 @@ def setup_test_database():
     # Don't drop database - just leave it for next run (each test cleans up after itself)
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="function")
 def db():
     """Create a fresh database session for each test with cleanup."""
+    # Clean up any leftover data BEFORE the test runs
     session = TestingSessionLocal()
+    for table in reversed(Base.metadata.sorted_tables):
+        session.execute(table.delete())
+    session.commit()
 
     yield session
 
@@ -81,15 +87,18 @@ def client(db):
 
 @pytest.fixture
 def auth_headers(client):
-    """Create a user and return auth headers with user info."""
-    # Register user
+    """Create a test user and return auth headers with user info.
+
+    Uses a unique email per test to ensure isolation.
+    """
+    unique_email = f"test-{uuid.uuid4().hex[:8]}@example.com"
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": "test@example.com", "password": "testpass123", "name": "Test User"},
+        json={"email": unique_email, "password": "testpass123", "name": "Test User"},
     )
     assert response.status_code == 201
     data = response.json()
     token = data["access_token"]
     user_id = data["user"]["id"]
 
-    return AuthHeaders({"Authorization": f"Bearer {token}"}, user_id=user_id)
+    return AuthHeaders({"Authorization": f"Bearer {token}"}, user_id=user_id, email=unique_email)
