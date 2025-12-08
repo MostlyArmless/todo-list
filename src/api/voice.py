@@ -1,0 +1,178 @@
+"""Voice input API endpoints."""
+
+import logging
+from datetime import UTC
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from src.api.auth import get_current_user
+from src.database import get_db
+from src.models.pending_confirmation import PendingConfirmation
+from src.models.user import User
+from src.models.voice_input import VoiceInput
+from src.schemas.voice import (
+    ConfirmationAction,
+    PendingConfirmationResponse,
+    VoiceInputCreate,
+    VoiceInputResponse,
+)
+from src.tasks.voice_processing import process_voice_input
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
+
+
+@router.post("", response_model=VoiceInputResponse, status_code=status.HTTP_201_CREATED)
+async def create_voice_input(
+    voice_data: VoiceInputCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Submit voice input for async processing."""
+    # Create voice input record
+    voice_input = VoiceInput(
+        user_id=current_user.id,
+        raw_text=voice_data.raw_text,
+        status="pending",
+    )
+    db.add(voice_input)
+    db.commit()
+    db.refresh(voice_input)
+
+    # Trigger async processing
+    process_voice_input.delay(voice_input.id)
+
+    logger.info(f"Created voice input {voice_input.id} for user {current_user.id}")
+
+    return voice_input
+
+
+@router.get("/{voice_input_id}", response_model=VoiceInputResponse)
+async def get_voice_input(
+    voice_input_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Get voice input by ID."""
+    voice_input = db.query(VoiceInput).filter(VoiceInput.id == voice_input_id).first()
+    if not voice_input:
+        raise HTTPException(status_code=404, detail="Voice input not found")
+
+    if voice_input.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return voice_input
+
+
+@router.get("/pending/list", response_model=list[PendingConfirmationResponse])
+async def list_pending_confirmations(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """List all pending confirmations for the current user."""
+    confirmations = (
+        db.query(PendingConfirmation)
+        .filter(
+            PendingConfirmation.user_id == current_user.id,
+            PendingConfirmation.status == "pending",
+        )
+        .order_by(PendingConfirmation.created_at.desc())
+        .all()
+    )
+    return confirmations
+
+
+@router.get("/pending/{confirmation_id}", response_model=PendingConfirmationResponse)
+async def get_pending_confirmation(
+    confirmation_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Get a specific pending confirmation."""
+    confirmation = (
+        db.query(PendingConfirmation).filter(PendingConfirmation.id == confirmation_id).first()
+    )
+    if not confirmation:
+        raise HTTPException(status_code=404, detail="Pending confirmation not found")
+
+    if confirmation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    return confirmation
+
+
+@router.post("/pending/{confirmation_id}/action", response_model=PendingConfirmationResponse)
+async def action_pending_confirmation(
+    confirmation_id: int,
+    action_data: ConfirmationAction,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Confirm or reject a pending confirmation."""
+    from datetime import datetime
+
+    from src.models.item import Item
+    from src.services.categorization import CategorizationService
+
+    confirmation = (
+        db.query(PendingConfirmation).filter(PendingConfirmation.id == confirmation_id).first()
+    )
+    if not confirmation:
+        raise HTTPException(status_code=404, detail="Pending confirmation not found")
+
+    if confirmation.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if confirmation.status != "pending":
+        raise HTTPException(status_code=400, detail="Confirmation already processed")
+
+    if action_data.action == "confirm":
+        # Apply the proposed changes
+        proposed = confirmation.proposed_changes
+        list_id = proposed["list_id"]
+        action = proposed["action"]
+
+        if action == "add":
+            categorization_service = CategorizationService(db)
+
+            for item_data in proposed["items"]:
+                # Create the item
+                item = Item(
+                    list_id=list_id,
+                    category_id=item_data["category_id"],
+                    name=item_data["name"],
+                    checked=False,
+                )
+                db.add(item)
+
+                # Record categorization to history if category was assigned
+                if item_data["category_id"]:
+                    categorization_service.record_categorization(
+                        item_name=item_data["name"],
+                        category_id=item_data["category_id"],
+                        list_id=list_id,
+                        user_id=current_user.id,
+                    )
+
+        confirmation.status = "confirmed"
+        confirmation.confirmed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(confirmation)
+
+        logger.info(f"Confirmed pending confirmation {confirmation_id}")
+
+    elif action_data.action == "reject":
+        confirmation.status = "rejected"
+        confirmation.confirmed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(confirmation)
+
+        logger.info(f"Rejected pending confirmation {confirmation_id}")
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+
+    return confirmation
