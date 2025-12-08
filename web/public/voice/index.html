@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Input - Todo List</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+          Cantarell, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
+
+      .container {
+        text-align: center;
+        max-width: 90%;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+      }
+
+      .status {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+        min-height: 1.5rem;
+      }
+
+      .mic-button {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 2rem;
+      }
+
+      .mic-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+      }
+
+      .mic-button.listening {
+        background: rgba(255, 59, 48, 0.4);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      .mic-button.processing {
+        background: rgba(255, 204, 0, 0.4);
+        cursor: not-allowed;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+        }
+        50% {
+          box-shadow: 0 0 0 20px rgba(255, 255, 255, 0);
+        }
+      }
+
+      .mic-icon {
+        font-size: 3rem;
+      }
+
+      .transcript {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        padding: 1.5rem;
+        border-radius: 12px;
+        min-height: 100px;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+      }
+
+      .error {
+        color: #ff3b30;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+      }
+
+      .success {
+        color: #34c759;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Voice Input</h1>
+      <div class="status" id="status">Tap microphone to start</div>
+
+      <button class="mic-button" id="micButton" aria-label="Record voice input">
+        <span class="mic-icon">🎤</span>
+      </button>
+
+      <div class="transcript hidden" id="transcript"></div>
+      <div class="error hidden" id="error"></div>
+      <div class="success hidden" id="success"></div>
+    </div>
+
+    <script>
+      // Configuration
+      const API_BASE_URL = window.location.origin;
+      let recognition = null;
+      let isListening = false;
+      let isProcessing = false;
+
+      // DOM elements
+      const micButton = document.getElementById('micButton');
+      const statusEl = document.getElementById('status');
+      const transcriptEl = document.getElementById('transcript');
+      const errorEl = document.getElementById('error');
+      const successEl = document.getElementById('success');
+
+      // Check for Web Speech API support
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        showError('Web Speech API is not supported in this browser. Please use Chrome or Edge.');
+        micButton.disabled = true;
+      } else {
+        // Initialize speech recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          isListening = true;
+          micButton.classList.add('listening');
+          statusEl.textContent = 'Listening...';
+          hideMessages();
+        };
+
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          transcriptEl.textContent = transcript;
+          transcriptEl.classList.remove('hidden');
+          statusEl.textContent = 'Processing...';
+          sendToAPI(transcript);
+        };
+
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          if (event.error !== 'no-speech') {
+            showError(`Speech recognition error: ${event.error}`);
+          }
+          resetUI();
+        };
+
+        recognition.onend = () => {
+          if (isListening && !isProcessing) {
+            resetUI();
+          }
+        };
+      }
+
+      // Auto-start if URL parameter is present
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('autostart') === '1' && recognition) {
+        setTimeout(() => {
+          startListening();
+        }, 500);
+      }
+
+      // Microphone button click handler
+      micButton.addEventListener('click', () => {
+        if (isListening || isProcessing) {
+          stopListening();
+        } else {
+          startListening();
+        }
+      });
+
+      function startListening() {
+        if (!recognition) return;
+
+        try {
+          recognition.start();
+        } catch (error) {
+          console.error('Failed to start recognition:', error);
+          showError('Failed to start voice recognition. Please try again.');
+        }
+      }
+
+      function stopListening() {
+        if (recognition && isListening) {
+          recognition.stop();
+        }
+        resetUI();
+      }
+
+      function resetUI() {
+        isListening = false;
+        isProcessing = false;
+        micButton.classList.remove('listening', 'processing');
+        statusEl.textContent = 'Tap microphone to start';
+      }
+
+      function hideMessages() {
+        errorEl.classList.add('hidden');
+        successEl.classList.add('hidden');
+      }
+
+      function showError(message) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+        successEl.classList.add('hidden');
+      }
+
+      function showSuccess(message) {
+        successEl.textContent = message;
+        successEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+      }
+
+      async function sendToAPI(text) {
+        isProcessing = true;
+        micButton.classList.remove('listening');
+        micButton.classList.add('processing');
+
+        try {
+          // Get auth token from localStorage
+          const token = localStorage.getItem('token');
+          if (!token) {
+            throw new Error('Not authenticated. Please log in first.');
+          }
+
+          // Send to voice API
+          const response = await fetch(`${API_BASE_URL}/api/v1/voice`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ raw_text: text }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to process voice input');
+          }
+
+          const data = await response.json();
+          statusEl.textContent = 'Processing complete!';
+          showSuccess(
+            `Voice input received and is being processed. Check your lists for updates.`,
+          );
+
+          // Redirect to confirmation page after 2 seconds
+          setTimeout(() => {
+            window.location.href = '/confirm';
+          }, 2000);
+        } catch (error) {
+          console.error('API error:', error);
+          showError(error.message);
+          statusEl.textContent = 'Error processing voice input';
+        } finally {
+          isProcessing = false;
+          micButton.classList.remove('processing');
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -18,6 +18,7 @@ class AuthHeaders(dict):
         super().__init__(*args, **kwargs)
         self.user_id = user_id
 
+
 # Use test database - PostgreSQL in Docker, SQLite locally
 if os.getenv("DATABASE_URL"):
     # Running in Docker - use PostgreSQL test database

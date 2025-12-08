@@ -17,8 +17,8 @@ server {
 
     # Serve the standalone voice page directly
     location = /voice {
-        alias /home/mike/dev/todo-list/voice/index.html;
-        add_header Cache-Control "public, max-age=3600";
+        alias /home/mike/dev/todo-list/web/public/voice/index.html;
+        add_header Cache-Control "no-cache";
     }
 
     # Proxy everything else to Next.js PWA
