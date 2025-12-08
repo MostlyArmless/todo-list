@@ -157,6 +157,7 @@
         recognition.lang = 'en-US';
 
         recognition.onstart = () => {
+          console.log('Speech recognition started');
           isListening = true;
           micButton.classList.add('listening');
           statusEl.textContent = 'Listening...';
@@ -165,6 +166,8 @@
 
         recognition.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
+          const confidence = event.results[0][0].confidence;
+          console.log('Speech recognition result:', { transcript, confidence });
           transcriptEl.textContent = transcript;
           transcriptEl.classList.remove('hidden');
           statusEl.textContent = 'Processing...';
@@ -172,9 +175,27 @@
         };
 
         recognition.onerror = (event) => {
-          console.error('Speech recognition error:', event.error);
+          console.error('Speech recognition error:', {
+            error: event.error,
+            message: event.message,
+            timestamp: new Date().toISOString()
+          });
+
+          let errorMessage = `Speech recognition error: ${event.error}`;
+
+          // Provide helpful messages for common errors
+          if (event.error === 'network') {
+            errorMessage = 'Network error: Unable to connect to speech service. This may be due to the self-signed SSL certificate. Try using Chrome and ensuring you have a stable internet connection.';
+          } else if (event.error === 'not-allowed') {
+            errorMessage = 'Microphone access denied. Please grant microphone permissions and try again.';
+          } else if (event.error === 'service-not-allowed') {
+            errorMessage = 'Speech service not allowed. This may be due to security settings or network restrictions.';
+          } else if (event.error === 'aborted') {
+            errorMessage = 'Speech recognition aborted. Please try again.';
+          }
+
           if (event.error !== 'no-speech') {
-            showError(`Speech recognition error: ${event.error}`);
+            showError(errorMessage);
           }
           resetUI();
         };
@@ -207,6 +228,7 @@
         if (!recognition) return;
 
         try {
+          console.log('Attempting to start speech recognition...');
           recognition.start();
         } catch (error) {
           console.error('Failed to start recognition:', error);
@@ -257,6 +279,8 @@
             throw new Error('Not authenticated. Please log in first.');
           }
 
+          console.log('Sending to API:', { text, url: `${API_BASE_URL}/api/v1/voice` });
+
           // Send to voice API
           const response = await fetch(`${API_BASE_URL}/api/v1/voice`, {
             method: 'POST',
@@ -267,12 +291,16 @@
             body: JSON.stringify({ raw_text: text }),
           });
 
+          console.log('API response status:', response.status);
+
           if (!response.ok) {
             const error = await response.json();
+            console.error('API error response:', error);
             throw new Error(error.detail || 'Failed to process voice input');
           }
 
           const data = await response.json();
+          console.log('API success response:', data);
           statusEl.textContent = 'Processing complete!';
           showSuccess(
             `Voice input received and is being processed. Check your lists for updates.`,

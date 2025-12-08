@@ -85,11 +85,18 @@ def test_example(client, auth_headers):
     response = client.get("/api/v1/lists", headers=auth_headers)
 ```
 
-## Pre-commit Hook
+## Git Hooks
 
+### Pre-commit Hook
 The pre-commit hook (`.git/hooks/pre-commit`) runs:
 1. `ruff format` with `--quiet`
 2. `ruff check --fix` with `--quiet`
 3. `pytest --tb=short -q` in Docker
 
 All checks must pass before commits are allowed.
+
+### Post-commit Hook
+The post-commit hook (`.git/hooks/post-commit`) syncs the standalone voice page to nginx:
+- Copies `/web/public/voice/index.html` to `/var/www/todolist/voice.html`
+- This is required because nginx can't access files in the user's home directory
+- If you update the voice page, commit your changes to trigger the sync
