@@ -84,6 +84,8 @@ def test_list_pending_confirmations(client, auth_headers):
 
 def test_confirm_pending_confirmation(client, auth_headers, db):
     """Test confirming a pending confirmation."""
+    user_id = auth_headers.user_id
+
     # Create a list and category first
     list_response = client.post(
         "/api/v1/lists",
@@ -105,7 +107,7 @@ def test_confirm_pending_confirmation(client, auth_headers, db):
 
     # Create voice input
     voice_input = VoiceInput(
-        user_id=1,
+        user_id=user_id,
         raw_text="add milk to test list",
         status="completed",
     )
@@ -114,7 +116,7 @@ def test_confirm_pending_confirmation(client, auth_headers, db):
 
     # Create pending confirmation
     pending = PendingConfirmation(
-        user_id=1,
+        user_id=user_id,
         voice_input_id=voice_input.id,
         proposed_changes={
             "action": "add",
@@ -159,12 +161,14 @@ def test_confirm_pending_confirmation(client, auth_headers, db):
 
 def test_reject_pending_confirmation(client, auth_headers, db):
     """Test rejecting a pending confirmation."""
+    user_id = auth_headers.user_id
+
     from src.models.pending_confirmation import PendingConfirmation
     from src.models.voice_input import VoiceInput
 
     # Create voice input
     voice_input = VoiceInput(
-        user_id=1,
+        user_id=user_id,
         raw_text="add test item",
         status="completed",
     )
@@ -173,7 +177,7 @@ def test_reject_pending_confirmation(client, auth_headers, db):
 
     # Create pending confirmation
     pending = PendingConfirmation(
-        user_id=1,
+        user_id=user_id,
         voice_input_id=voice_input.id,
         proposed_changes={
             "action": "add",

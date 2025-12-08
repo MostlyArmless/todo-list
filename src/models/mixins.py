@@ -8,9 +8,7 @@ from sqlalchemy import Column, DateTime
 class TimestampMixin:
     """Mixin to add created_at and updated_at timestamp columns."""
 
-    created_at = Column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
         nullable=False,
