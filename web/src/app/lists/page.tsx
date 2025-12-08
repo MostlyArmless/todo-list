@@ -47,6 +47,17 @@ export default function ListsPage() {
     }
   };
 
+  const handleDeleteList = async (id: number, name: string) => {
+    if (!confirm(`Delete "${name}"? This will permanently delete the list and all its items.`)) return;
+    try {
+      await api.deleteList(id);
+      loadLists();
+    } catch (error) {
+      console.error('Failed to delete list:', error);
+      alert('Failed to delete list. Please try again.');
+    }
+  };
+
   const handleLogout = () => {
     api.logout();
     router.push('/login');
@@ -77,9 +88,8 @@ export default function ListsPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {lists.map((list) => (
-          <button
+          <div
             key={list.id}
-            onClick={() => router.push(`/list/${list.id}`)}
             className="card"
             style={{
               display: 'flex',
@@ -89,6 +99,7 @@ export default function ListsPage() {
               cursor: 'pointer',
               border: '1px solid var(--border)',
             }}
+            onClick={() => router.push(`/list/${list.id}`)}
             onMouseOver={(e) => {
               e.currentTarget.style.borderColor = 'var(--accent)';
               e.currentTarget.style.transform = 'translateX(4px)';
@@ -109,19 +120,47 @@ export default function ListsPage() {
                 </p>
               )}
             </div>
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteList(list.id, list.name);
+                }}
+                style={{
+                  color: 'var(--text-secondary)',
+                  padding: '0.5rem',
+                  flexShrink: 0,
+                }}
+                title="Delete list"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </div>
+          </div>
         ))}
 
         {showNewList ? (
