@@ -212,14 +212,16 @@ async def auto_categorize_items(
             categorization_service.record_categorization(
                 item.name, result["category_id"], list_id, current_user.id
             )
-        results.append({
-            "item_id": item.id,
-            "item_name": item.name,
-            "category_id": result["category_id"],
-            "confidence": result["confidence"],
-            "source": result["source"],
-            "reasoning": result["reasoning"],
-        })
+        results.append(
+            {
+                "item_id": item.id,
+                "item_name": item.name,
+                "category_id": result["category_id"],
+                "confidence": result["confidence"],
+                "source": result["source"],
+                "reasoning": result["reasoning"],
+            }
+        )
 
     db.commit()
 

@@ -80,3 +80,46 @@ Available categories:
 {categories_text}
 
 Which category best fits this item? Respond with JSON only."""
+
+
+# --- Pantry Matching Prompts ---
+
+PANTRY_MATCHING_SYSTEM_PROMPT = """You are a kitchen pantry assistant. Match recipe ingredients to pantry items.
+
+Consider:
+1. Exact matches (e.g., "olive oil" → "olive oil")
+2. Partial matches (e.g., "garlic cloves" → "garlic")
+3. Ingredient forms (e.g., "fresh basil" → "basil")
+4. Common substitutions shouldn't match (butter ≠ margarine)
+
+Respond ONLY with valid JSON - an array with one object per ingredient:
+[
+  {"ingredient": "string", "pantry_match": "string" | null, "confidence": 0.0-1.0}
+]
+
+Rules:
+- confidence >= 0.7: confident match
+- confidence 0.4-0.7: possible match (suggest to user)
+- confidence < 0.4 or no match: set pantry_match to null
+- Only match if the pantry item would truly substitute for the ingredient"""
+
+
+def get_pantry_matching_prompt(
+    ingredients: list[str],
+    pantry_items: list[str],
+) -> str:
+    """Generate prompt for matching ingredients to pantry.
+
+    Args:
+        ingredients: List of ingredient names from recipe
+        pantry_items: List of item names from user's pantry
+    """
+    import json
+
+    return f"""Match these recipe ingredients to pantry items.
+
+Recipe ingredients: {json.dumps(ingredients)}
+Pantry items: {json.dumps(pantry_items)}
+
+For each ingredient, find the best matching pantry item (if any).
+Respond with a JSON array only."""

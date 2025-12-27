@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { api, type List, type Category, type Item } from '@/lib/api';
+import { api, type List, type Category, type Item, type PantryItem } from '@/lib/api';
 import {
   DndContext,
   closestCenter,
@@ -39,6 +39,10 @@ export default function ListDetailPage() {
   const [editCategoryName, setEditCategoryName] = useState('');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [autoCategorizing, setAutoCategorizing] = useState(false);
+  const [recentlyChecked, setRecentlyChecked] = useState<string[]>([]);
+  const [showPantryPrompt, setShowPantryPrompt] = useState(false);
+  const [existingPantryItems, setExistingPantryItems] = useState<PantryItem[]>([]);
+  const [addingToPantry, setAddingToPantry] = useState(false);
 
   useEffect(() => {
     if (!api.getCurrentUser()) {
@@ -86,13 +90,65 @@ export default function ListDetailPage() {
     try {
       if (item.checked) {
         await api.uncheckItem(item.id);
+        // Remove from recently checked if unchecking
+        setRecentlyChecked((prev) => prev.filter((name) => name !== item.name));
       } else {
         await api.checkItem(item.id);
+        // Track the checked item name for pantry prompt
+        setRecentlyChecked((prev) => {
+          // Avoid duplicates
+          if (prev.includes(item.name)) return prev;
+          const updated = [...prev, item.name];
+          // Show prompt after 2+ items checked
+          if (updated.length >= 2 && !showPantryPrompt) {
+            // Load pantry items to check for existing
+            loadPantryForPrompt();
+          }
+          return updated;
+        });
       }
       loadData();
     } catch (error) {
       console.error('Failed to toggle item:', error);
     }
+  };
+
+  const loadPantryForPrompt = async () => {
+    try {
+      const pantryItems = await api.getPantryItems();
+      setExistingPantryItems(pantryItems);
+      setShowPantryPrompt(true);
+    } catch (error) {
+      console.error('Failed to load pantry:', error);
+    }
+  };
+
+  const handleAddToPantry = async () => {
+    setAddingToPantry(true);
+    try {
+      // Filter out items that are already in pantry
+      const existingNames = new Set(existingPantryItems.map((p) => p.normalized_name));
+      const newItems = recentlyChecked.filter(
+        (name) => !existingNames.has(name.toLowerCase().trim())
+      );
+
+      if (newItems.length > 0) {
+        await api.bulkAddPantryItems(newItems.map((name) => ({ name, status: 'have' })));
+      }
+
+      // Clear and close
+      setRecentlyChecked([]);
+      setShowPantryPrompt(false);
+    } catch (error) {
+      console.error('Failed to add to pantry:', error);
+    } finally {
+      setAddingToPantry(false);
+    }
+  };
+
+  const dismissPantryPrompt = () => {
+    setRecentlyChecked([]);
+    setShowPantryPrompt(false);
   };
 
   const handleDeleteItem = async (id: number) => {
@@ -567,6 +623,82 @@ export default function ListDetailPage() {
           </button>
         )}
       </div>
+
+      {/* Post-Shopping Pantry Prompt */}
+      {showPantryPrompt && recentlyChecked.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '1rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '1rem',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            maxWidth: '400px',
+            width: 'calc(100% - 2rem)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+            <div>
+              <p style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Add to pantry?</p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                Track these {recentlyChecked.length} item{recentlyChecked.length !== 1 ? 's' : ''} in your pantry
+              </p>
+            </div>
+            <button
+              onClick={dismissPantryPrompt}
+              style={{ color: 'var(--text-secondary)', padding: '0.25rem' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div
+            style={{
+              fontSize: '0.875rem',
+              color: 'var(--text-secondary)',
+              marginBottom: '0.75rem',
+              maxHeight: '100px',
+              overflowY: 'auto',
+            }}
+          >
+            {recentlyChecked.slice(0, 5).join(', ')}
+            {recentlyChecked.length > 5 && ` and ${recentlyChecked.length - 5} more`}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={dismissPantryPrompt}
+              disabled={addingToPantry}
+              style={{
+                flex: 1,
+                padding: '0.5rem',
+                borderRadius: '0.5rem',
+                border: '1px solid var(--border)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              Skip
+            </button>
+            <button
+              onClick={handleAddToPantry}
+              disabled={addingToPantry}
+              className="btn btn-primary"
+              style={{
+                flex: 1,
+                padding: '0.5rem',
+              }}
+            >
+              {addingToPantry ? 'Adding...' : 'Add to Pantry'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

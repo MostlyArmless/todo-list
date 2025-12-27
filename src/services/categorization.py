@@ -120,7 +120,9 @@ class CategorizationService:
 
         return None
 
-    async def _categorize_with_llm(self, item_name: str, list_id: int, user_id: int) -> dict[str, Any]:
+    async def _categorize_with_llm(
+        self, item_name: str, list_id: int, user_id: int
+    ) -> dict[str, Any]:
         """Use LLM to categorize item with historical context."""
         # Get all categories for this list
         categories = (

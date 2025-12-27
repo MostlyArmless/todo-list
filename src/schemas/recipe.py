@@ -88,13 +88,50 @@ class RecipeListResponse(BaseModel):
     created_at: datetime
 
 
+# --- Check Pantry ---
+
+
+class PantryMatchResponse(BaseModel):
+    """Pantry item match info."""
+
+    id: int
+    name: str
+    status: str  # "have" | "low" | "out"
+
+
+class CheckPantryIngredient(BaseModel):
+    """Ingredient with pantry match info."""
+
+    name: str
+    quantity: str | None
+    pantry_match: PantryMatchResponse | None
+    confidence: float
+    add_to_list: bool  # Suggested default based on pantry status
+
+
+class CheckPantryResponse(BaseModel):
+    """Response from check-pantry endpoint."""
+
+    recipe_id: int
+    recipe_name: str
+    ingredients: list[CheckPantryIngredient]
+
+
 # --- Add to List ---
+
+
+class IngredientOverride(BaseModel):
+    """Override for an ingredient when adding to list."""
+
+    name: str
+    add_to_list: bool
 
 
 class AddToListRequest(BaseModel):
     """Request to add recipe ingredients to shopping lists."""
 
     recipe_ids: list[int]
+    ingredient_overrides: list[IngredientOverride] | None = None
 
 
 class AddToListResult(BaseModel):

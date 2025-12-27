@@ -2,16 +2,22 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { api, type Recipe, type RecipeIngredient, type AddToListResult } from '@/lib/api';
+import { api, type Recipe, type RecipeIngredient, type AddToListResult, type CheckPantryIngredient } from '@/lib/api';
 import {
   useIngredientKeyboard,
   ingredientStyles,
 } from '@/hooks/useIngredientKeyboard';
+import PantryCheckModal from '@/components/PantryCheckModal';
 
 interface Toast {
   message: string;
   eventId: number | null;
   type: 'success' | 'error';
+}
+
+interface PantryCheckState {
+  isOpen: boolean;
+  ingredients: CheckPantryIngredient[];
 }
 
 export default function RecipeDetailPage() {
@@ -22,7 +28,9 @@ export default function RecipeDetailPage() {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [checkingPantry, setCheckingPantry] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [pantryCheck, setPantryCheck] = useState<PantryCheckState>({ isOpen: false, ingredients: [] });
 
   // Inline editing state
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -67,14 +75,30 @@ export default function RecipeDetailPage() {
 
   const handleAddToList = async () => {
     if (!recipe) return;
+    setCheckingPantry(true);
+    try {
+      // First check pantry
+      const result = await api.checkRecipePantry(recipe.id);
+      setPantryCheck({ isOpen: true, ingredients: result.ingredients });
+    } catch {
+      // If pantry check fails, fall back to direct add
+      await directAddToList([]);
+    } finally {
+      setCheckingPantry(false);
+    }
+  };
+
+  const directAddToList = async (overrides: { name: string; add_to_list: boolean }[]) => {
+    if (!recipe) return;
     setAdding(true);
     try {
-      const result: AddToListResult = await api.addRecipesToList([recipe.id]);
+      const result: AddToListResult = await api.addRecipesToListWithOverrides([recipe.id], overrides);
       const total = result.grocery_items_added + result.costco_items_added + result.items_merged;
       let msg = `Added ${total} item${total !== 1 ? 's' : ''} to shopping list`;
       if (result.items_merged > 0) msg += ` (${result.items_merged} merged)`;
       if (result.items_skipped > 0) msg += ` (${result.items_skipped} skipped)`;
       setToast({ message: msg, eventId: result.event_id, type: 'success' });
+      setPantryCheck({ isOpen: false, ingredients: [] });
     } catch {
       setToast({ message: 'Failed to add to list', eventId: null, type: 'error' });
     } finally {
@@ -256,10 +280,21 @@ export default function RecipeDetailPage() {
         </button>
       </div>
 
+      {/* Pantry Check Modal */}
+      {pantryCheck.isOpen && recipe && (
+        <PantryCheckModal
+          recipeName={recipe.name}
+          ingredients={pantryCheck.ingredients}
+          onConfirm={directAddToList}
+          onCancel={() => setPantryCheck({ isOpen: false, ingredients: [] })}
+          isSubmitting={adding}
+        />
+      )}
+
       {/* Add to List Button */}
       <button
         onClick={handleAddToList}
-        disabled={adding || recipe.ingredients.length === 0}
+        disabled={adding || checkingPantry || recipe.ingredients.length === 0}
         className="btn btn-primary"
         style={{
           width: '100%',
@@ -276,7 +311,7 @@ export default function RecipeDetailPage() {
           <line x1="3" y1="6" x2="21" y2="6"></line>
           <path d="M16 10a4 4 0 0 1-8 0"></path>
         </svg>
-        {adding ? 'Adding...' : 'Add to Shopping List'}
+        {checkingPantry ? 'Checking pantry...' : adding ? 'Adding...' : 'Add to Shopping List'}
       </button>
 
       {/* Ingredients */}

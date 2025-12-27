@@ -39,7 +39,12 @@ class RecipeService:
         self.db = db
         self.categorization_service = CategorizationService(db)
 
-    async def add_recipes_to_shopping_lists(self, recipe_ids: list[int], user_id: int) -> dict:
+    async def add_recipes_to_shopping_lists(
+        self,
+        recipe_ids: list[int],
+        user_id: int,
+        ingredient_overrides: list[dict] | None = None,
+    ) -> dict:
         """
         Add ingredients from multiple recipes to shopping lists.
 
@@ -82,12 +87,24 @@ class RecipeService:
         ingredients_by_key: dict[tuple[int, str], dict] = {}
         skipped_count = 0
 
+        # Build override lookup (by normalized name)
+        skip_ingredients_override = set()
+        if ingredient_overrides:
+            for override in ingredient_overrides:
+                if not override.get("add_to_list", True):
+                    skip_ingredients_override.add(override["name"].lower().strip())
+
         for recipe in recipes:
             for ingredient in recipe.ingredients:
                 normalized = ingredient.name.lower().strip()
 
                 # Skip ingredients that don't need to be purchased
                 if normalized in SKIP_INGREDIENTS:
+                    skipped_count += 1
+                    continue
+
+                # Skip ingredients based on user overrides (e.g., from pantry check)
+                if normalized in skip_ingredients_override:
                     skipped_count += 1
                     continue
 
@@ -279,7 +296,9 @@ class RecipeService:
             return (0, 1)
         else:
             # Create new item with categorization
-            cat_result = await self.categorization_service.categorize_item(data["name"], list_id, user_id)
+            cat_result = await self.categorization_service.categorize_item(
+                data["name"], list_id, user_id
+            )
 
             item = Item(
                 list_id=list_id,

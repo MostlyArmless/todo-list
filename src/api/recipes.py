@@ -14,6 +14,7 @@ from src.models.user import User
 from src.schemas.recipe import (
     AddToListRequest,
     AddToListResult,
+    CheckPantryResponse,
     IngredientStoreDefaultCreate,
     IngredientStoreDefaultResponse,
     RecipeAddEventResponse,
@@ -135,8 +136,15 @@ async def add_recipes_to_list(
     """Add ingredients from recipe(s) to appropriate shopping lists."""
     from src.services.recipe_service import RecipeService
 
+    # Convert Pydantic models to dicts for the service
+    overrides = None
+    if request.ingredient_overrides:
+        overrides = [o.model_dump() for o in request.ingredient_overrides]
+
     service = RecipeService(db)
-    return await service.add_recipes_to_shopping_lists(request.recipe_ids, current_user.id)
+    return await service.add_recipes_to_shopping_lists(
+        request.recipe_ids, current_user.id, ingredient_overrides=overrides
+    )
 
 
 # --- Undo (static routes) ---
@@ -270,6 +278,27 @@ async def delete_ingredient(
     ingredient = get_user_ingredient(db, ingredient_id, current_user)
     db.delete(ingredient)
     db.commit()
+
+
+# --- Check Pantry (before dynamic routes) ---
+
+
+@router.post("/{recipe_id}/check-pantry", response_model=CheckPantryResponse)
+async def check_recipe_pantry(
+    recipe_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Check recipe ingredients against user's pantry."""
+    from src.services.pantry_service import PantryService
+
+    service = PantryService(db)
+    result = await service.check_recipe_against_pantry(recipe_id, current_user.id)
+
+    if "error" in result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result["error"])
+
+    return result
 
 
 # --- Dynamic recipe routes (must be last) ---

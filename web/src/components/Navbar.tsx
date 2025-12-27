@@ -27,6 +27,7 @@ export default function Navbar() {
   const navItems = [
     { href: '/lists', label: 'My Lists' },
     { href: '/recipes', label: 'Recipes' },
+    { href: '/pantry', label: 'Pantry' },
     { href: '/voice', label: 'Voice' },
   ];
 
