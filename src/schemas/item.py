@@ -41,3 +41,4 @@ class ItemResponse(BaseModel):
     sort_order: int
     created_at: datetime
     updated_at: datetime
+    recipe_sources: list[dict] | None = None

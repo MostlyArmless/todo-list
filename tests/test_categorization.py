@@ -1,6 +1,6 @@
 """Tests for categorization service."""
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -46,7 +46,7 @@ def test_list_with_categories(db):
     }
 
 
-def test_exact_history_match(db, test_list_with_categories):
+async def test_exact_history_match(db, test_list_with_categories):
     """Test categorization with exact history match."""
     setup = test_list_with_categories
     service = CategorizationService(db)
@@ -62,14 +62,14 @@ def test_exact_history_match(db, test_list_with_categories):
     db.commit()
 
     # Categorize "milk" - should use exact history
-    result = service.categorize_item("milk", setup["list"].id, setup["user"].id)
+    result = await service.categorize_item("milk", setup["list"].id, setup["user"].id)
 
     assert result["category_id"] == setup["dairy"].id
     assert result["confidence"] == 1.0
     assert result["source"] == "history"
 
 
-def test_fuzzy_history_match(db, test_list_with_categories):
+async def test_fuzzy_history_match(db, test_list_with_categories):
     """Test categorization with fuzzy history match."""
     setup = test_list_with_categories
     service = CategorizationService(db)
@@ -91,27 +91,29 @@ def test_fuzzy_history_match(db, test_list_with_categories):
     db.commit()
 
     # Categorize "milk" - should fuzzy match
-    result = service.categorize_item("milk", setup["list"].id, setup["user"].id)
+    result = await service.categorize_item("milk", setup["list"].id, setup["user"].id)
 
     assert result["category_id"] == setup["dairy"].id
     assert result["confidence"] >= 0.5
     assert result["source"] == "history"
 
 
-def test_llm_categorization(db, test_list_with_categories):
+async def test_llm_categorization(db, test_list_with_categories):
     """Test categorization using LLM when no history exists."""
     setup = test_list_with_categories
     mock_llm = MagicMock()
-    mock_llm.generate_json.return_value = {
-        "category_id": setup["produce"].id,
-        "confidence": 0.85,
-        "reasoning": "Apples are produce",
-    }
+    mock_llm.generate_json = AsyncMock(
+        return_value={
+            "category_id": setup["produce"].id,
+            "confidence": 0.85,
+            "reasoning": "Apples are produce",
+        }
+    )
 
     service = CategorizationService(db, llm_service=mock_llm)
 
     # Categorize "apples" with no history - should use LLM
-    result = service.categorize_item("apples", setup["list"].id, setup["user"].id)
+    result = await service.categorize_item("apples", setup["list"].id, setup["user"].id)
 
     assert result["category_id"] == setup["produce"].id
     assert result["confidence"] == 0.85
@@ -147,7 +149,7 @@ def test_record_categorization(db, test_list_with_categories):
     assert history.occurrence_count == 1
 
 
-def test_no_categories_available(db):
+async def test_no_categories_available(db):
     """Test categorization when no categories exist."""
     # Create a test user first
     from src.models.user import User
@@ -162,23 +164,23 @@ def test_no_categories_available(db):
     db.commit()
 
     service = CategorizationService(db)
-    result = service.categorize_item("test item", test_list.id, test_user.id)
+    result = await service.categorize_item("test item", test_list.id, test_user.id)
 
     assert result["category_id"] is None
     assert result["confidence"] == 0.0
     assert result["source"] == "none"
 
 
-def test_llm_error_handling(db, test_list_with_categories):
+async def test_llm_error_handling(db, test_list_with_categories):
     """Test handling of LLM errors."""
     setup = test_list_with_categories
     mock_llm = MagicMock()
-    mock_llm.generate_json.side_effect = Exception("LLM API error")
+    mock_llm.generate_json = AsyncMock(side_effect=Exception("LLM API error"))
 
     service = CategorizationService(db, llm_service=mock_llm)
 
     # Should handle error gracefully
-    result = service.categorize_item("bananas", setup["list"].id, setup["user"].id)
+    result = await service.categorize_item("bananas", setup["list"].id, setup["user"].id)
 
     assert result["category_id"] is None
     assert result["confidence"] == 0.0

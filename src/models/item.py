@@ -1,6 +1,7 @@
 """Item model."""
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 
 from src.database import Base
@@ -23,6 +24,8 @@ class Item(Base, TimestampMixin, SoftDeleteMixin):
     checked_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     sort_order = Column(Integer, default=0)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Recipe sources: [{"recipe_id": 1, "recipe_name": "Pasta"}, ...]
+    recipe_sources = Column(JSON, nullable=True)
 
     # Relationships
     list = relationship("List", back_populates="items")

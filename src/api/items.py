@@ -149,3 +149,79 @@ async def uncheck_item(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.post("/lists/{list_id}/items/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_delete_items(
+    list_id: int,
+    item_ids: list[int],
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Bulk soft delete items."""
+    # Verify user has access to the list
+    get_user_list(db, list_id, current_user)
+
+    items = (
+        db.query(Item)
+        .filter(Item.id.in_(item_ids), Item.list_id == list_id, Item.deleted_at.is_(None))
+        .all()
+    )
+
+    for item in items:
+        item.soft_delete()
+
+    db.commit()
+
+
+@router.post("/lists/{list_id}/items/auto-categorize")
+async def auto_categorize_items(
+    list_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Auto-categorize uncategorized items using history and LLM."""
+    from src.services.categorization import CategorizationService
+
+    # Verify user has access to the list
+    get_user_list(db, list_id, current_user)
+
+    # Get uncategorized items
+    uncategorized = (
+        db.query(Item)
+        .filter(
+            Item.list_id == list_id,
+            Item.category_id.is_(None),
+            Item.deleted_at.is_(None),
+            Item.checked.is_(False),
+        )
+        .all()
+    )
+
+    if not uncategorized:
+        return {"categorized": 0, "failed": 0, "results": []}
+
+    categorization_service = CategorizationService(db)
+    results = []
+
+    for item in uncategorized:
+        result = await categorization_service.categorize_item(item.name, list_id, current_user.id)
+        if result["category_id"]:
+            item.category_id = result["category_id"]
+            # Record to history for learning
+            categorization_service.record_categorization(
+                item.name, result["category_id"], list_id, current_user.id
+            )
+        results.append({
+            "item_id": item.id,
+            "item_name": item.name,
+            "category_id": result["category_id"],
+            "confidence": result["confidence"],
+            "source": result["source"],
+            "reasoning": result["reasoning"],
+        })
+
+    db.commit()
+
+    categorized = sum(1 for r in results if r["category_id"])
+    return {"categorized": categorized, "failed": len(results) - categorized, "results": results}

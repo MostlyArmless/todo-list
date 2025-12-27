@@ -1,0 +1,347 @@
+"""Recipe API endpoints."""
+
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from src.api.dependencies import get_current_user
+from src.database import get_db
+from src.models.ingredient_store_default import IngredientStoreDefault
+from src.models.recipe import Recipe, RecipeIngredient
+from src.models.recipe_add_event import RecipeAddEvent
+from src.models.user import User
+from src.schemas.recipe import (
+    AddToListRequest,
+    AddToListResult,
+    IngredientStoreDefaultCreate,
+    IngredientStoreDefaultResponse,
+    RecipeAddEventResponse,
+    RecipeCreate,
+    RecipeIngredientCreate,
+    RecipeIngredientResponse,
+    RecipeIngredientUpdate,
+    RecipeListResponse,
+    RecipeResponse,
+    RecipeUpdate,
+)
+
+router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
+
+
+def get_user_recipe(db: Session, recipe_id: int, user: User) -> Recipe:
+    """Get a recipe that belongs to the user."""
+    recipe = (
+        db.query(Recipe)
+        .filter(
+            Recipe.id == recipe_id,
+            Recipe.user_id == user.id,
+            Recipe.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not recipe:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+    return recipe
+
+
+def get_user_ingredient(db: Session, ingredient_id: int, user: User) -> RecipeIngredient:
+    """Get an ingredient that belongs to one of the user's recipes."""
+    ingredient = (
+        db.query(RecipeIngredient)
+        .join(Recipe)
+        .filter(
+            RecipeIngredient.id == ingredient_id,
+            Recipe.user_id == user.id,
+            Recipe.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not ingredient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingredient not found")
+    return ingredient
+
+
+# --- Static routes first (before /{recipe_id}) ---
+
+
+@router.get("", response_model=list[RecipeListResponse])
+async def list_recipes(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """List all recipes for the current user."""
+    recipes = (
+        db.query(Recipe)
+        .filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+        .order_by(Recipe.name)
+        .all()
+    )
+
+    result = []
+    for recipe in recipes:
+        result.append(
+            RecipeListResponse(
+                id=recipe.id,
+                name=recipe.name,
+                description=recipe.description,
+                servings=recipe.servings,
+                ingredient_count=len(recipe.ingredients),
+                created_at=recipe.created_at,
+            )
+        )
+    return result
+
+
+@router.post("", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
+async def create_recipe(
+    recipe_data: RecipeCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Create a new recipe with ingredients."""
+    recipe = Recipe(
+        user_id=current_user.id,
+        name=recipe_data.name,
+        description=recipe_data.description,
+        servings=recipe_data.servings,
+    )
+
+    # Add ingredients
+    for ing_data in recipe_data.ingredients:
+        ingredient = RecipeIngredient(
+            name=ing_data.name,
+            quantity=ing_data.quantity,
+            description=ing_data.description,
+            store_preference=ing_data.store_preference,
+        )
+        recipe.ingredients.append(ingredient)
+
+    db.add(recipe)
+    db.commit()
+    db.refresh(recipe)
+    return recipe
+
+
+# --- Add to Shopping List (static route) ---
+
+
+@router.post("/add-to-list", response_model=AddToListResult)
+async def add_recipes_to_list(
+    request: AddToListRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Add ingredients from recipe(s) to appropriate shopping lists."""
+    from src.services.recipe_service import RecipeService
+
+    service = RecipeService(db)
+    return await service.add_recipes_to_shopping_lists(request.recipe_ids, current_user.id)
+
+
+# --- Undo (static routes) ---
+
+
+@router.get("/add-events", response_model=list[RecipeAddEventResponse])
+async def list_add_events(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """List recent add events (for undo UI)."""
+    events = (
+        db.query(RecipeAddEvent)
+        .filter(
+            RecipeAddEvent.user_id == current_user.id,
+            RecipeAddEvent.undone_at.is_(None),
+        )
+        .order_by(RecipeAddEvent.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    return events
+
+
+@router.post("/add-events/{event_id}/undo", status_code=status.HTTP_200_OK)
+async def undo_add_event(
+    event_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Undo an add-to-list operation."""
+    from src.services.recipe_service import RecipeService
+
+    service = RecipeService(db)
+    service.undo_add_event(event_id, current_user.id)
+    return {"status": "undone"}
+
+
+# --- Store Defaults (static routes) ---
+
+
+@router.get("/store-defaults", response_model=list[IngredientStoreDefaultResponse])
+async def list_store_defaults(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """List all ingredient store defaults for the user."""
+    defaults = (
+        db.query(IngredientStoreDefault)
+        .filter(IngredientStoreDefault.user_id == current_user.id)
+        .order_by(IngredientStoreDefault.normalized_name)
+        .all()
+    )
+    return defaults
+
+
+@router.post(
+    "/store-defaults",
+    response_model=IngredientStoreDefaultResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def set_store_default(
+    data: IngredientStoreDefaultCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Set or update default store for an ingredient."""
+    normalized = data.ingredient_name.lower().strip()
+
+    # Check if already exists
+    existing = (
+        db.query(IngredientStoreDefault)
+        .filter(
+            IngredientStoreDefault.user_id == current_user.id,
+            IngredientStoreDefault.normalized_name == normalized,
+        )
+        .first()
+    )
+
+    if existing:
+        existing.store_preference = data.store_preference
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    default = IngredientStoreDefault(
+        user_id=current_user.id,
+        normalized_name=normalized,
+        store_preference=data.store_preference,
+    )
+    db.add(default)
+    db.commit()
+    db.refresh(default)
+    return default
+
+
+# --- Ingredient routes (before /{recipe_id}) ---
+
+
+@router.put("/ingredients/{ingredient_id}", response_model=RecipeIngredientResponse)
+async def update_ingredient(
+    ingredient_id: int,
+    ingredient_data: RecipeIngredientUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Update an ingredient."""
+    ingredient = get_user_ingredient(db, ingredient_id, current_user)
+
+    if ingredient_data.name is not None:
+        ingredient.name = ingredient_data.name
+    if ingredient_data.quantity is not None:
+        ingredient.quantity = ingredient_data.quantity
+    if ingredient_data.description is not None:
+        ingredient.description = ingredient_data.description
+    if ingredient_data.store_preference is not None:
+        ingredient.store_preference = ingredient_data.store_preference
+
+    db.commit()
+    db.refresh(ingredient)
+    return ingredient
+
+
+@router.delete("/ingredients/{ingredient_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ingredient(
+    ingredient_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Delete an ingredient from a recipe."""
+    ingredient = get_user_ingredient(db, ingredient_id, current_user)
+    db.delete(ingredient)
+    db.commit()
+
+
+# --- Dynamic recipe routes (must be last) ---
+
+
+@router.get("/{recipe_id}", response_model=RecipeResponse)
+async def get_recipe(
+    recipe_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Get a specific recipe with all ingredients."""
+    recipe = get_user_recipe(db, recipe_id, current_user)
+    return recipe
+
+
+@router.put("/{recipe_id}", response_model=RecipeResponse)
+async def update_recipe(
+    recipe_id: int,
+    recipe_data: RecipeUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Update recipe metadata (not ingredients)."""
+    recipe = get_user_recipe(db, recipe_id, current_user)
+
+    if recipe_data.name is not None:
+        recipe.name = recipe_data.name
+    if recipe_data.description is not None:
+        recipe.description = recipe_data.description
+    if recipe_data.servings is not None:
+        recipe.servings = recipe_data.servings
+
+    db.commit()
+    db.refresh(recipe)
+    return recipe
+
+
+@router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_recipe(
+    recipe_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Soft delete a recipe."""
+    recipe = get_user_recipe(db, recipe_id, current_user)
+    recipe.soft_delete()
+    db.commit()
+
+
+@router.post(
+    "/{recipe_id}/ingredients",
+    response_model=RecipeIngredientResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_ingredient(
+    recipe_id: int,
+    ingredient_data: RecipeIngredientCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Add an ingredient to a recipe."""
+    recipe = get_user_recipe(db, recipe_id, current_user)
+
+    ingredient = RecipeIngredient(
+        recipe_id=recipe.id,
+        name=ingredient_data.name,
+        quantity=ingredient_data.quantity,
+        description=ingredient_data.description,
+        store_preference=ingredient_data.store_preference,
+    )
+    db.add(ingredient)
+    db.commit()
+    db.refresh(ingredient)
+    return ingredient

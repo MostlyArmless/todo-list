@@ -3,6 +3,23 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api, type List, type Category, type Item } from '@/lib/api';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export default function ListDetailPage() {
   const router = useRouter();
@@ -20,6 +37,8 @@ export default function ListDetailPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [autoCategorizing, setAutoCategorizing] = useState(false);
 
   useEffect(() => {
     if (!api.getCurrentUser()) {
@@ -135,26 +154,30 @@ export default function ListDetailPage() {
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', index.toString());
-  };
+  // dnd-kit sensors for pointer and keyboard
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before starting drag
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const dragIndex = parseInt(e.dataTransfer.getData('text/html'));
+    if (!over || active.id === over.id) return;
 
-    if (dragIndex === dropIndex) return;
+    const oldIndex = categories.findIndex((cat) => cat.id === active.id);
+    const newIndex = categories.findIndex((cat) => cat.id === over.id);
 
-    // Reorder categories array
-    const reordered = [...categories];
-    const [draggedItem] = reordered.splice(dragIndex, 1);
-    reordered.splice(dropIndex, 0, draggedItem);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Reorder with arrayMove
+    const reordered = arrayMove(categories, oldIndex, newIndex);
 
     // Update sort_order for all categories
     const updates = reordered.map((cat, idx) => ({
@@ -180,6 +203,76 @@ export default function ListDetailPage() {
 
   const getItemsByCategory = (categoryId: number | null) => {
     return items.filter((item) => item.category_id === categoryId);
+  };
+
+  const toggleItemSelection = (itemId: number) => {
+    setSelectedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleCategorySelection = (categoryId: number | null) => {
+    const categoryItems = getItemsByCategory(categoryId);
+    const categoryItemIds = categoryItems.map((item) => item.id);
+    const allSelected = categoryItemIds.every((id) => selectedItems.has(id));
+
+    setSelectedItems((prev) => {
+      const newSet = new Set(prev);
+      if (allSelected) {
+        categoryItemIds.forEach((id) => newSet.delete(id));
+      } else {
+        categoryItemIds.forEach((id) => newSet.add(id));
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    if (!confirm(`Delete ${selectedItems.size} selected item${selectedItems.size > 1 ? 's' : ''}?`)) return;
+
+    try {
+      await api.bulkDeleteItems(listId, Array.from(selectedItems));
+      setSelectedItems(new Set());
+      loadData();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+    }
+  };
+
+  const handleAutoCategorize = async () => {
+    setAutoCategorizing(true);
+    try {
+      const result = await api.autoCategorizeItems(listId);
+      if (result.categorized > 0) {
+        alert(`Categorized ${result.categorized} item${result.categorized > 1 ? 's' : ''}${result.failed > 0 ? ` (${result.failed} could not be categorized)` : ''}`);
+        loadData();
+      } else if (result.failed > 0) {
+        alert(`Could not categorize any items. ${result.failed} item${result.failed > 1 ? 's' : ''} remain uncategorized.`);
+      }
+    } catch (error) {
+      console.error('Failed to auto-categorize:', error);
+      alert('Failed to auto-categorize items. Please try again.');
+    } finally {
+      setAutoCategorizing(false);
+    }
+  };
+
+  const isCategoryFullySelected = (categoryId: number | null) => {
+    const categoryItems = getItemsByCategory(categoryId);
+    return categoryItems.length > 0 && categoryItems.every((item) => selectedItems.has(item.id));
+  };
+
+  const isCategoryPartiallySelected = (categoryId: number | null) => {
+    const categoryItems = getItemsByCategory(categoryId);
+    const selectedCount = categoryItems.filter((item) => selectedItems.has(item.id)).length;
+    return selectedCount > 0 && selectedCount < categoryItems.length;
   };
 
   if (loading) {
@@ -267,8 +360,8 @@ export default function ListDetailPage() {
         </div>
       </form>
 
-      {/* Toggle Checked Items */}
-      <div style={{ marginBottom: '1rem' }}>
+      {/* Toggle Checked Items & Bulk Actions */}
+      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
           <input
             type="checkbox"
@@ -282,20 +375,84 @@ export default function ListDetailPage() {
             Show checked items
           </span>
         </label>
+
+        {selectedItems.size > 0 && (
+          <button
+            onClick={handleBulkDelete}
+            className="btn"
+            style={{
+              background: '#ef4444',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Delete {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''}
+          </button>
+        )}
       </div>
 
       {/* Uncategorized Items */}
       {getItemsByCategory(null).length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
-          <h2
-            style={{
-              fontSize: '1.125rem',
-              marginBottom: '0.75rem',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            Uncategorized
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <input
+              type="checkbox"
+              checked={isCategoryFullySelected(null)}
+              ref={(el) => {
+                if (el) el.indeterminate = isCategoryPartiallySelected(null);
+              }}
+              onChange={() => toggleCategorySelection(null)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              title="Select all uncategorized items"
+            />
+            <h2
+              style={{
+                fontSize: '1.125rem',
+                color: 'var(--text-secondary)',
+                margin: 0,
+                flex: 1,
+              }}
+            >
+              Uncategorized
+            </h2>
+            {categories.length > 0 && (
+              <button
+                onClick={handleAutoCategorize}
+                disabled={autoCategorizing}
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.4rem 0.75rem',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+                title="Auto-categorize items using AI"
+              >
+                {autoCategorizing ? (
+                  <>
+                    <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+                    Categorizing...
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                    </svg>
+                    Auto-categorize
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {getItemsByCategory(null).map((item) => (
               <ItemRow
@@ -303,167 +460,47 @@ export default function ListDetailPage() {
                 item={item}
                 onToggle={handleToggleCheck}
                 onDelete={handleDeleteItem}
+                selected={selectedItems.has(item.id)}
+                onSelect={() => toggleItemSelection(item.id)}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Categorized Items */}
-      {categories.map((category, index) => {
-        const categoryItems = getItemsByCategory(category.id);
-
-        return (
-          <div
-            key={category.id}
-            style={{ marginBottom: '2rem' }}
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, index)}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              {/* Drag handle */}
-              <div
-                style={{
-                  cursor: 'grab',
-                  color: 'var(--text-secondary)',
-                  padding: '0.25rem',
-                  flexShrink: 0,
-                }}
-                title="Drag to reorder"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="3" y1="12" x2="21" y2="12"></line>
-                  <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
-              </div>
-
-              {/* Category name or edit input */}
-              {editingCategoryId === category.id ? (
-                <>
-                  <input
-                    type="text"
-                    className="input"
-                    value={editCategoryName}
-                    onChange={(e) => setEditCategoryName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveEditCategory(category.id);
-                      if (e.key === 'Escape') handleCancelEditCategory();
-                    }}
-                    autoFocus
-                    style={{ flex: 1, marginRight: '0.5rem' }}
-                  />
-                  <button
-                    onClick={() => handleSaveEditCategory(category.id)}
-                    className="btn btn-primary"
-                    style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancelEditCategory}
-                    className="btn btn-secondary"
-                    style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', marginLeft: '0.5rem' }}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h2
-                    style={{
-                      fontSize: '1.125rem',
-                      flex: 1,
-                      color: category.color || 'var(--text-primary)',
-                      margin: 0,
-                    }}
-                  >
-                    {category.name}
-                  </h2>
-
-                  {/* Edit button */}
-                  <button
-                    onClick={() => handleStartEditCategory(category)}
-                    style={{
-                      color: 'var(--text-secondary)',
-                      padding: '0.5rem',
-                      flexShrink: 0,
-                    }}
-                    title="Edit category name"
-                  >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
-                  </button>
-
-                  {/* Delete button */}
-                  <button
-                    onClick={() => handleDeleteCategory(category.id)}
-                    style={{
-                      color: 'var(--text-secondary)',
-                      padding: '0.5rem',
-                      flexShrink: 0,
-                    }}
-                    title="Delete category"
-                  >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {categoryItems.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {categoryItems.map((item) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    onToggle={handleToggleCheck}
-                    onDelete={handleDeleteItem}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontStyle: 'italic' }}>
-                No items in this category yet
-              </p>
-            )}
-          </div>
-        );
-      })}
+      {/* Categorized Items with dnd-kit */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={categories.map((cat) => cat.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {categories.map((category) => (
+            <SortableCategory
+              key={category.id}
+              category={category}
+              items={getItemsByCategory(category.id)}
+              isFullySelected={isCategoryFullySelected(category.id)}
+              isPartiallySelected={isCategoryPartiallySelected(category.id)}
+              onToggleCategorySelection={() => toggleCategorySelection(category.id)}
+              isEditing={editingCategoryId === category.id}
+              editName={editCategoryName}
+              onEditNameChange={setEditCategoryName}
+              onSaveEdit={() => handleSaveEditCategory(category.id)}
+              onCancelEdit={handleCancelEditCategory}
+              onStartEdit={() => handleStartEditCategory(category)}
+              onDelete={() => handleDeleteCategory(category.id)}
+              selectedItems={selectedItems}
+              onToggleItemSelection={toggleItemSelection}
+              onToggleItemCheck={handleToggleCheck}
+              onDeleteItem={handleDeleteItem}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* Empty State */}
       {items.length === 0 && (
@@ -534,14 +571,234 @@ export default function ListDetailPage() {
   );
 }
 
+function SortableCategory({
+  category,
+  items,
+  isFullySelected,
+  isPartiallySelected,
+  onToggleCategorySelection,
+  isEditing,
+  editName,
+  onEditNameChange,
+  onSaveEdit,
+  onCancelEdit,
+  onStartEdit,
+  onDelete,
+  selectedItems,
+  onToggleItemSelection,
+  onToggleItemCheck,
+  onDeleteItem,
+}: {
+  category: Category;
+  items: Item[];
+  isFullySelected: boolean;
+  isPartiallySelected: boolean;
+  onToggleCategorySelection: () => void;
+  isEditing: boolean;
+  editName: string;
+  onEditNameChange: (name: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onStartEdit: () => void;
+  onDelete: () => void;
+  selectedItems: Set<number>;
+  onToggleItemSelection: (id: number) => void;
+  onToggleItemCheck: (item: Item) => void;
+  onDeleteItem: (id: number) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    marginBottom: '2rem',
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        {/* Category selection checkbox */}
+        {items.length > 0 && (
+          <input
+            type="checkbox"
+            checked={isFullySelected}
+            ref={(el) => {
+              if (el) el.indeterminate = isPartiallySelected;
+            }}
+            onChange={onToggleCategorySelection}
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            title={`Select all items in ${category.name}`}
+          />
+        )}
+
+        {/* Drag handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          style={{
+            cursor: isDragging ? 'grabbing' : 'grab',
+            color: 'var(--text-secondary)',
+            padding: '0.25rem',
+            flexShrink: 0,
+            touchAction: 'none',
+          }}
+          title="Drag to reorder"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </div>
+
+        {/* Category name or edit input */}
+        {isEditing ? (
+          <>
+            <input
+              type="text"
+              className="input"
+              value={editName}
+              onChange={(e) => onEditNameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSaveEdit();
+                if (e.key === 'Escape') onCancelEdit();
+              }}
+              autoFocus
+              style={{ flex: 1, marginRight: '0.5rem' }}
+            />
+            <button
+              onClick={onSaveEdit}
+              className="btn btn-primary"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+            >
+              Save
+            </button>
+            <button
+              onClick={onCancelEdit}
+              className="btn btn-secondary"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', marginLeft: '0.5rem' }}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <h2
+              style={{
+                fontSize: '1.125rem',
+                flex: 1,
+                color: category.color || 'var(--text-primary)',
+                margin: 0,
+              }}
+            >
+              {category.name}
+            </h2>
+
+            {/* Edit button */}
+            <button
+              onClick={onStartEdit}
+              style={{
+                color: 'var(--text-secondary)',
+                padding: '0.5rem',
+                flexShrink: 0,
+              }}
+              title="Edit category name"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+            </button>
+
+            {/* Delete button */}
+            <button
+              onClick={onDelete}
+              style={{
+                color: 'var(--text-secondary)',
+                padding: '0.5rem',
+                flexShrink: 0,
+              }}
+              title="Delete category"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </>
+        )}
+      </div>
+
+      {items.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {items.map((item) => (
+            <ItemRow
+              key={item.id}
+              item={item}
+              onToggle={onToggleItemCheck}
+              onDelete={onDeleteItem}
+              selected={selectedItems.has(item.id)}
+              onSelect={() => onToggleItemSelection(item.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontStyle: 'italic', marginLeft: '26px' }}>
+          No items in this category yet
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ItemRow({
   item,
   onToggle,
   onDelete,
+  selected,
+  onSelect,
 }: {
   item: Item;
   onToggle: (item: Item) => void;
   onDelete: (id: number) => void;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   return (
     <div
@@ -549,10 +806,21 @@ function ItemRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '1rem',
+        gap: '0.75rem',
         opacity: item.checked ? 0.5 : 1,
+        background: selected ? 'var(--bg-hover, rgba(59, 130, 246, 0.1))' : undefined,
       }}
     >
+      {/* Selection checkbox */}
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onSelect}
+        style={{ width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0 }}
+        title="Select item"
+      />
+
+      {/* Check/uncheck circle button */}
       <button
         onClick={() => onToggle(item)}
         style={{
@@ -583,14 +851,39 @@ function ItemRow({
         )}
       </button>
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
             textDecoration: item.checked ? 'line-through' : 'none',
-            marginBottom: item.quantity || item.description ? '0.25rem' : 0,
+            marginBottom: item.quantity || item.description || item.recipe_sources?.length ? '0.25rem' : 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            flexWrap: 'wrap',
           }}
         >
-          {item.name}
+          <span>{item.name}</span>
+          {/* Recipe source badges */}
+          {item.recipe_sources && item.recipe_sources.length > 0 && (
+            <span style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+              {item.recipe_sources.map((source) => (
+                <span
+                  key={source.recipe_id}
+                  style={{
+                    fontSize: '0.65rem',
+                    backgroundColor: 'var(--accent)',
+                    color: 'white',
+                    padding: '0.1rem 0.4rem',
+                    borderRadius: '3px',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={`From recipe: ${source.recipe_name}`}
+                >
+                  {source.recipe_name}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
         {(item.quantity || item.description) && (
           <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>

@@ -86,12 +86,13 @@ services:
     working_dir: /app
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true  # Enable polling for file changes in Docker
     ports:
       - "3002:3000"
     volumes:
       - ./web:/app
       - /app/node_modules
-      - /app/.next
     depends_on:
       - api
     command: sh -c "npm install && npm run dev"

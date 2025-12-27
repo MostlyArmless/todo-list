@@ -68,10 +68,46 @@ docker compose exec -T db psql -U todo_user -d todo_list
 Located in `/web/` with App Router (`/web/src/app/`):
 - `/lists` - List management
 - `/list/[id]` - List detail with items and categories
+- `/recipes` - Recipe management
+- `/recipes/[id]` - Recipe detail with "Add to Shopping List" button
 - `/voice` - Standalone voice input page (also at `/web/public/voice/index.html`)
 - `/confirm` - Pending confirmation review
 
 API client in `/web/src/lib/api.ts` handles auth token management.
+
+### Local Network Deployment
+
+The app is served at `https://todolist.lan` via nginx on the Ubuntu desktop (192.168.0.150).
+
+**Traffic flow:**
+```
+Browser → nginx (443) → Docker PWA container (3002) → Next.js
+                     → Docker API container (8000) → FastAPI (for /api/ routes)
+```
+
+**nginx config** (`/etc/nginx/sites-available/todolist.lan`):
+- HTTPS with self-signed cert
+- `/` → proxies to `http://192.168.0.150:3002` (Next.js)
+- `/api/` → proxies to `http://192.168.0.150:8000` (FastAPI)
+- `/voice` → serves static file from `/var/www/todolist/voice.html`
+
+**Development mode (default):**
+- The `pwa` container runs `npm run dev` with hot reloading
+- File changes in `./web/` are reflected immediately on browser refresh
+- `WATCHPACK_POLLING=true` enables file watching inside Docker
+
+**Production build (manual):**
+```bash
+# Edit docker-compose.yml to change pwa command:
+# command: sh -c "npm install && npm run build && npm run start"
+# Then recreate the container:
+docker compose up -d pwa
+```
+
+**Troubleshooting:**
+- If changes aren't appearing, check `docker compose logs pwa` for compilation errors
+- The pwa container uses an anonymous volume for `node_modules` (isolated from host)
+- Hard refresh (Ctrl+Shift+R) to bypass browser cache
 
 ### Test Infrastructure
 

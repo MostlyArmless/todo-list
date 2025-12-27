@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api import auth, categories, items, lists, voice
+from src.api import auth, categories, items, lists, recipes, voice
 from src.config import get_settings
 
 settings = get_settings()
@@ -35,6 +35,7 @@ app.include_router(lists.router)
 app.include_router(categories.router)
 app.include_router(items.router)
 app.include_router(voice.router)
+app.include_router(recipes.router)
 
 
 @app.get("/health")

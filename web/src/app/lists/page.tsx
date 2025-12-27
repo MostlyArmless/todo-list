@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type List, type User } from '@/lib/api';
+import { api, type List } from '@/lib/api';
 
 export default function ListsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewList, setShowNewList] = useState(false);
@@ -18,7 +17,6 @@ export default function ListsPage() {
       router.push('/login');
       return;
     }
-    setUser(currentUser);
     loadLists();
   }, [router]);
 
@@ -58,11 +56,6 @@ export default function ListsPage() {
     }
   };
 
-  const handleLogout = () => {
-    api.logout();
-    router.push('/login');
-  };
-
   if (loading) {
     return (
       <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
@@ -73,18 +66,7 @@ export default function ListsPage() {
 
   return (
     <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem' }}>My Lists</h1>
-        <button onClick={handleLogout} className="btn btn-secondary" style={{ fontSize: '0.875rem' }}>
-          Logout
-        </button>
-      </div>
-
-      {user && (
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-          Welcome, {user.name || user.email}
-        </p>
-      )}
+      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>My Lists</h1>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {lists.map((list) => (
