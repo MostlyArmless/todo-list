@@ -153,6 +153,20 @@ Ingredient field rules:
 - Instructions should be complete, not truncated
 - If recipe has no clear instructions, set instructions to empty string
 
+Quantity unit standardization - always use abbreviated forms:
+- "Tbsp" not "tablespoon" or "tablespoons"
+- "tsp" not "teaspoon" or "teaspoons"
+- "oz" not "ounce" or "ounces"
+- "lb" not "pound" or "pounds"
+- "cup" or "cups" (no abbreviation)
+- "pt" not "pint" or "pints"
+- "qt" not "quart" or "quarts"
+- "gal" not "gallon" or "gallons"
+- "ml" not "milliliter" or "milliliters"
+- "L" not "liter" or "liters"
+- "g" not "gram" or "grams"
+- "kg" not "kilogram" or "kilograms"
+
 Respond ONLY with valid JSON:
 {
   "name": "string",
