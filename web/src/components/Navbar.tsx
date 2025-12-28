@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { api, type User } from '@/lib/api';
@@ -8,16 +8,24 @@ import { api, type User } from '@/lib/api';
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  // Initialize with current user synchronously (avoids useEffect setState warning)
-  const [user] = useState<User | null>(() => api.getCurrentUser());
+  // Start with null to match server render, then hydrate on client
+  const [user, setUser] = useState<User | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: set mounted to avoid hydration mismatch
+    setMounted(true);
+    setUser(api.getCurrentUser());
+  }, []);
 
   const handleLogout = () => {
     api.logout();
     router.push('/login');
   };
 
-  // Don't show navbar on login/register pages or when not logged in
-  if (!user || pathname === '/login' || pathname === '/register') {
+  // Don't show navbar until mounted (avoids hydration mismatch)
+  // or on login/register pages, or when not logged in
+  if (!mounted || !user || pathname === '/login' || pathname === '/register') {
     return null;
   }
 

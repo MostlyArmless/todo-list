@@ -10,6 +10,8 @@ from src.models.pantry_match_history import PantryMatchHistory
 from src.models.pending_confirmation import PendingConfirmation
 from src.models.recipe import Recipe, RecipeIngredient
 from src.models.recipe_add_event import RecipeAddEvent, RecipeAddEventItem
+from src.models.recipe_import import RecipeImport
+from src.models.recipe_step_completion import RecipeStepCompletion
 from src.models.user import User
 from src.models.voice_input import VoiceInput
 
@@ -29,4 +31,6 @@ __all__ = [
     "RecipeAddEventItem",
     "PantryItem",
     "PantryMatchHistory",
+    "RecipeImport",
+    "RecipeStepCompletion",
 ]

@@ -128,3 +128,48 @@ Pantry items: {json.dumps(pantry_items)}
 
 For each ingredient, find the best matching pantry item (if any).
 Respond with a JSON array only."""
+
+
+# --- Recipe Parsing Prompts ---
+
+RECIPE_PARSING_SYSTEM_PROMPT = """You are a recipe parsing assistant. Extract structured data from free-form recipe text.
+
+Extract:
+- name: The recipe title
+- servings: Number of servings (integer or null if not specified)
+- ingredients: Array of {name, quantity, description} objects
+- instructions: The cooking steps as markdown
+
+Format instructions as markdown:
+- Use numbered list (1. 2. 3.) for steps
+- Preserve section headers if present
+- Keep formatting clean and readable
+
+Ingredient field rules:
+- name: The ingredient name only (e.g., "Cognac", "olive oil")
+- quantity: Numeric amount + unit (e.g., "2 cups", "1 lb", "3 cloves"). Set to null if no specific amount.
+- description: Preparation notes or usage hints (e.g., "for deglazing", "finely chopped", "room temperature"). Set to null if none.
+- If text like "for deglazing" appears, it goes in description, NOT quantity
+- Instructions should be complete, not truncated
+- If recipe has no clear instructions, set instructions to empty string
+
+Respond ONLY with valid JSON:
+{
+  "name": "string",
+  "servings": number | null,
+  "ingredients": [{"name": "string", "quantity": "string | null", "description": "string | null"}, ...],
+  "instructions": "markdown string"
+}"""
+
+
+def get_recipe_parsing_prompt(raw_text: str) -> str:
+    """Generate prompt for parsing recipe text."""
+    return f"""Parse this recipe into structured data:
+
+---
+{raw_text}
+---
+
+Extract the recipe name, servings, ingredients (with quantities), and cooking instructions.
+Format instructions as clean markdown with numbered steps.
+Respond with JSON only."""

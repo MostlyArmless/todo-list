@@ -1,5 +1,6 @@
 """Recipe API endpoints."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +12,8 @@ from src.database import get_db
 from src.models.ingredient_store_default import IngredientStoreDefault
 from src.models.recipe import Recipe, RecipeIngredient
 from src.models.recipe_add_event import RecipeAddEvent
+from src.models.recipe_import import RecipeImport
+from src.models.recipe_step_completion import RecipeStepCompletion
 from src.models.user import User
 from src.schemas.recipe import (
     AddToListRequest,
@@ -26,6 +29,13 @@ from src.schemas.recipe import (
     RecipeListResponse,
     RecipeResponse,
     RecipeUpdate,
+)
+from src.schemas.recipe_import import (
+    RecipeImportConfirm,
+    RecipeImportCreate,
+    RecipeImportResponse,
+    StepCompletionsResponse,
+    StepToggleResponse,
 )
 
 # 10 maximally distinguishable colors for recipe labels
@@ -110,6 +120,7 @@ async def list_recipes(
                 description=recipe.description,
                 servings=recipe.servings,
                 label_color=recipe.label_color,
+                instructions=recipe.instructions,
                 ingredient_count=len(recipe.ingredients),
                 created_at=recipe.created_at,
             )
@@ -146,6 +157,7 @@ async def create_recipe(
         description=recipe_data.description,
         servings=recipe_data.servings,
         label_color=label_color,
+        instructions=recipe_data.instructions,
     )
 
     # Add ingredients
@@ -281,6 +293,135 @@ async def set_store_default(
     return default
 
 
+# --- Recipe Import endpoints ---
+
+
+@router.post("/import", response_model=RecipeImportResponse)
+async def create_recipe_import(
+    data: RecipeImportCreate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Submit recipe text for async LLM parsing."""
+    recipe_import = RecipeImport(
+        user_id=current_user.id,
+        raw_text=data.raw_text,
+        status="pending",
+    )
+    db.add(recipe_import)
+    db.commit()
+    db.refresh(recipe_import)
+
+    # Trigger async processing
+    from src.tasks.recipe_import import process_recipe_import
+
+    process_recipe_import.delay(recipe_import.id)
+
+    return recipe_import
+
+
+@router.get("/import/{import_id}", response_model=RecipeImportResponse)
+async def get_recipe_import(
+    import_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Get import status and parsed recipe."""
+    recipe_import = (
+        db.query(RecipeImport)
+        .filter(
+            RecipeImport.id == import_id,
+            RecipeImport.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not recipe_import:
+        raise HTTPException(status_code=404, detail="Import not found")
+    return recipe_import
+
+
+@router.post("/import/{import_id}/confirm", response_model=RecipeResponse)
+async def confirm_recipe_import(
+    import_id: int,
+    data: RecipeImportConfirm,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Create recipe from parsed import with optional edits."""
+    recipe_import = (
+        db.query(RecipeImport)
+        .filter(
+            RecipeImport.id == import_id,
+            RecipeImport.user_id == current_user.id,
+            RecipeImport.status == "completed",
+        )
+        .first()
+    )
+    if not recipe_import:
+        raise HTTPException(status_code=404, detail="Completed import not found")
+
+    parsed = recipe_import.parsed_recipe
+
+    # Use edits if provided, otherwise use parsed values
+    recipe = Recipe(
+        user_id=current_user.id,
+        name=data.name or parsed["name"],
+        servings=data.servings if data.servings is not None else parsed.get("servings"),
+        instructions=data.instructions
+        if data.instructions is not None
+        else parsed.get("instructions"),
+        label_color=get_next_label_color(db, current_user.id),
+    )
+    db.add(recipe)
+    db.flush()
+
+    # Add ingredients
+    if data.ingredients:
+        ingredients_data = data.ingredients
+    else:
+        ingredients_data = [
+            RecipeIngredientCreate(name=i["name"], quantity=i.get("quantity"))
+            for i in parsed.get("ingredients", [])
+        ]
+
+    for ing_data in ingredients_data:
+        ingredient = RecipeIngredient(
+            recipe_id=recipe.id,
+            name=ing_data.name,
+            quantity=ing_data.quantity,
+            description=ing_data.description,
+            store_preference=ing_data.store_preference,
+        )
+        db.add(ingredient)
+
+    # Link import to recipe
+    recipe_import.recipe_id = recipe.id
+    db.commit()
+    db.refresh(recipe)
+
+    return recipe
+
+
+@router.delete("/import/{import_id}", status_code=204)
+async def delete_recipe_import(
+    import_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Discard an import."""
+    recipe_import = (
+        db.query(RecipeImport)
+        .filter(
+            RecipeImport.id == import_id,
+            RecipeImport.user_id == current_user.id,
+        )
+        .first()
+    )
+    if recipe_import:
+        db.delete(recipe_import)
+        db.commit()
+
+
 # --- Ingredient routes (before /{recipe_id}) ---
 
 
@@ -371,6 +512,8 @@ async def update_recipe(
         recipe.description = recipe_data.description
     if recipe_data.servings is not None:
         recipe.servings = recipe_data.servings
+    if recipe_data.instructions is not None:
+        recipe.instructions = recipe_data.instructions
     if recipe_data.label_color is not None:
         recipe.label_color = recipe_data.label_color
         # Update label_color in all items that reference this recipe
@@ -437,3 +580,85 @@ async def add_ingredient(
     db.commit()
     db.refresh(ingredient)
     return ingredient
+
+
+# --- Step Completion endpoints ---
+
+
+@router.get("/{recipe_id}/step-completions", response_model=StepCompletionsResponse)
+async def get_step_completions(
+    recipe_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Get list of completed step indices."""
+    completions = (
+        db.query(RecipeStepCompletion)
+        .filter(
+            RecipeStepCompletion.recipe_id == recipe_id,
+            RecipeStepCompletion.user_id == current_user.id,
+        )
+        .all()
+    )
+    return {"completed_steps": [c.step_index for c in completions]}
+
+
+@router.post("/{recipe_id}/steps/{step_index}/toggle", response_model=StepToggleResponse)
+async def toggle_step_completion(
+    recipe_id: int,
+    step_index: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Toggle a step's completion state."""
+    # Verify recipe exists and user owns it
+    recipe = (
+        db.query(Recipe)
+        .filter(
+            Recipe.id == recipe_id,
+            Recipe.user_id == current_user.id,
+            Recipe.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    existing = (
+        db.query(RecipeStepCompletion)
+        .filter(
+            RecipeStepCompletion.recipe_id == recipe_id,
+            RecipeStepCompletion.user_id == current_user.id,
+            RecipeStepCompletion.step_index == step_index,
+        )
+        .first()
+    )
+
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return {"completed": False}
+    else:
+        completion = RecipeStepCompletion(
+            recipe_id=recipe_id,
+            user_id=current_user.id,
+            step_index=step_index,
+            completed_at=datetime.now(UTC),
+        )
+        db.add(completion)
+        db.commit()
+        return {"completed": True}
+
+
+@router.delete("/{recipe_id}/step-completions", status_code=204)
+async def reset_step_completions(
+    recipe_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Clear all step completions for a recipe."""
+    db.query(RecipeStepCompletion).filter(
+        RecipeStepCompletion.recipe_id == recipe_id,
+        RecipeStepCompletion.user_id == current_user.id,
+    ).delete()
+    db.commit()

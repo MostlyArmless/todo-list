@@ -10,6 +10,7 @@ import {
 import PantryCheckModal from '@/components/PantryCheckModal';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
+import MarkdownInstructions from '@/components/MarkdownInstructions';
 
 interface Toast {
   message: string;
@@ -49,6 +50,11 @@ export default function RecipeDetailPage() {
   const [newStore, setNewStore] = useState('');
   const [showNewRow, setShowNewRow] = useState(false);
 
+  // Instructions state
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [editingInstructions, setEditingInstructions] = useState(false);
+  const [instructionsText, setInstructionsText] = useState('');
+
   const newNameRef = useRef<HTMLInputElement>(null);
 
   const openNewRow = useCallback(() => {
@@ -73,6 +79,42 @@ export default function RecipeDetailPage() {
       router.push('/recipes');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch step completions when recipe loads
+  useEffect(() => {
+    if (recipe?.id) {
+      api.getStepCompletions(recipe.id).then(data => {
+        setCompletedSteps(data.completed_steps);
+      }).catch(() => {
+        // If endpoint not available yet, just use empty array
+        setCompletedSteps([]);
+      });
+    }
+  }, [recipe?.id]);
+
+  const handleToggleStep = async (stepIndex: number) => {
+    if (!recipe) return;
+    try {
+      const result = await api.toggleStep(recipe.id, stepIndex);
+      if (result.completed) {
+        setCompletedSteps(prev => [...prev, stepIndex]);
+      } else {
+        setCompletedSteps(prev => prev.filter(i => i !== stepIndex));
+      }
+    } catch (e) {
+      console.error('Failed to toggle step:', e);
+    }
+  };
+
+  const handleResetProgress = async () => {
+    if (!recipe) return;
+    try {
+      await api.resetStepCompletions(recipe.id);
+      setCompletedSteps([]);
+    } catch (e) {
+      console.error('Failed to reset progress:', e);
     }
   };
 
@@ -488,6 +530,93 @@ export default function RecipeDetailPage() {
           </button>
         )}
       </div>
+
+      {/* Instructions Section */}
+      {recipe.instructions && (
+        <div className="card" style={{ padding: '0.75rem', marginTop: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 500 }}>Instructions</h2>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {completedSteps.length > 0 && (
+                <button
+                  onClick={handleResetProgress}
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.875rem',
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Reset Progress
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setEditingInstructions(!editingInstructions);
+                  setInstructionsText(recipe.instructions || '');
+                }}
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.875rem',
+                  background: 'transparent',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                {editingInstructions ? 'Cancel' : 'Edit'}
+              </button>
+            </div>
+          </div>
+
+          {editingInstructions ? (
+            <div>
+              <textarea
+                value={instructionsText}
+                onChange={(e) => setInstructionsText(e.target.value)}
+                style={{
+                  width: '100%',
+                  minHeight: '200px',
+                  padding: '0.5rem',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontFamily: 'monospace',
+                  fontSize: '14px',
+                }}
+              />
+              <button
+                onClick={async () => {
+                  await api.updateRecipe(recipe.id, { instructions: instructionsText });
+                  setRecipe({ ...recipe, instructions: instructionsText });
+                  setEditingInstructions(false);
+                  // Reset completions when instructions change
+                  await api.resetStepCompletions(recipe.id);
+                  setCompletedSteps([]);
+                }}
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  background: 'var(--accent)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                Save Instructions
+              </button>
+            </div>
+          ) : (
+            <MarkdownInstructions
+              markdown={recipe.instructions}
+              completedSteps={completedSteps}
+              onToggleStep={handleToggleStep}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

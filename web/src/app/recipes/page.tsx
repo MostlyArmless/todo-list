@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api, type RecipeListItem } from '@/lib/api';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
@@ -222,34 +223,68 @@ export default function RecipesPage() {
           </div>
         ))}
 
-        <button
-          onClick={() => router.push('/recipes/new')}
-          className="card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            color: 'var(--accent)',
-            cursor: 'pointer',
-            border: '2px dashed var(--border)',
-          }}
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => router.push('/recipes/new')}
+            className="card"
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              border: '2px dashed var(--border)',
+            }}
           >
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          <span>New Recipe</span>
-        </button>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>New Recipe</span>
+          </button>
+          <Link
+            href="/recipes/import"
+            className="card"
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              border: '1px solid var(--accent)',
+              textDecoration: 'none',
+            }}
+          >
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Import Recipe</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

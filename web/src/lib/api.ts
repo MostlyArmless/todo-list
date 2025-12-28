@@ -246,6 +246,7 @@ class ApiClient {
     name: string;
     description?: string;
     servings?: number;
+    instructions?: string;
     ingredients?: {
       name: string;
       quantity?: string;
@@ -259,7 +260,7 @@ class ApiClient {
     });
   }
 
-  async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number; label_color?: string }) {
+  async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number; label_color?: string; instructions?: string }) {
     return this.request<Recipe>(`/api/v1/recipes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -373,6 +374,47 @@ class ApiClient {
       }),
     });
   }
+
+  // Recipe Import
+  async importRecipe(rawText: string): Promise<RecipeImport> {
+    return this.request('/api/v1/recipes/import', {
+      method: 'POST',
+      body: JSON.stringify({ raw_text: rawText }),
+    });
+  }
+
+  async getRecipeImport(importId: number): Promise<RecipeImport> {
+    return this.request(`/api/v1/recipes/import/${importId}`);
+  }
+
+  async confirmRecipeImport(importId: number, edits?: {
+    name?: string;
+    servings?: number;
+    ingredients?: { name: string; quantity?: string; description?: string; store_preference?: string }[];
+    instructions?: string;
+  }): Promise<Recipe> {
+    return this.request(`/api/v1/recipes/import/${importId}/confirm`, {
+      method: 'POST',
+      body: JSON.stringify(edits || {}),
+    });
+  }
+
+  async deleteRecipeImport(importId: number): Promise<void> {
+    return this.request(`/api/v1/recipes/import/${importId}`, { method: 'DELETE' });
+  }
+
+  // Step Completions
+  async getStepCompletions(recipeId: number): Promise<StepCompletionsResponse> {
+    return this.request(`/api/v1/recipes/${recipeId}/step-completions`);
+  }
+
+  async toggleStep(recipeId: number, stepIndex: number): Promise<StepToggleResponse> {
+    return this.request(`/api/v1/recipes/${recipeId}/steps/${stepIndex}/toggle`, { method: 'POST' });
+  }
+
+  async resetStepCompletions(recipeId: number): Promise<void> {
+    return this.request(`/api/v1/recipes/${recipeId}/step-completions`, { method: 'DELETE' });
+  }
 }
 
 // Types
@@ -422,6 +464,7 @@ export interface Recipe {
   description: string | null;
   servings: number | null;
   label_color: string | null;
+  instructions: string | null;
   ingredients: RecipeIngredient[];
   created_at: string;
   updated_at: string;
@@ -511,6 +554,31 @@ export interface CheckPantryResponse {
   recipe_id: number;
   recipe_name: string;
   ingredients: CheckPantryIngredient[];
+}
+
+export interface RecipeImport {
+  id: number;
+  user_id: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  parsed_recipe: ParsedRecipe | null;
+  error_message: string | null;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export interface ParsedRecipe {
+  name: string;
+  servings: number | null;
+  ingredients: { name: string; quantity: string | null; description: string | null }[];
+  instructions: string;
+}
+
+export interface StepCompletionsResponse {
+  completed_steps: number[];
+}
+
+export interface StepToggleResponse {
+  completed: boolean;
 }
 
 export const api = new ApiClient();

@@ -126,3 +126,7 @@ def test_example(client, auth_headers):
 Uses [pre-commit](https://pre-commit.com/) framework. Config in `.pre-commit-config.yaml`. Install with `uv run pre-commit install`.
 
 Post-commit hook syncs voice page to `/var/www/todolist/voice.html` (nginx can't access files in user home directories).
+
+## Commit Hygiene
+
+**Before each commit**, read `ROADMAP.md` and remove any completed tasks (`[x]`) from the file. This prevents unbounded context window growth for future agents. Include the ROADMAP cleanup in the same commit as the feature work.

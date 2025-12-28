@@ -50,6 +50,7 @@ class RecipeCreate(BaseModel):
     description: str | None = None
     servings: int | None = None
     label_color: str | None = None  # Hex color like "#e94560"
+    instructions: str | None = None
     ingredients: list[RecipeIngredientCreate] = []
 
 
@@ -60,6 +61,7 @@ class RecipeUpdate(BaseModel):
     description: str | None = None
     servings: int | None = None
     label_color: str | None = None
+    instructions: str | None = None
 
 
 class RecipeResponse(BaseModel):
@@ -73,6 +75,7 @@ class RecipeResponse(BaseModel):
     description: str | None
     servings: int | None
     label_color: str | None
+    instructions: str | None
     ingredients: list[RecipeIngredientResponse]
     created_at: datetime
     updated_at: datetime
@@ -88,6 +91,7 @@ class RecipeListResponse(BaseModel):
     description: str | None
     servings: int | None
     label_color: str | None
+    instructions: str | None
     ingredient_count: int
     created_at: datetime
 

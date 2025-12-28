@@ -23,6 +23,7 @@ export default function NewRecipePage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [servings, setServings] = useState('');
+  const [instructions, setInstructions] = useState('');
   const [ingredients, setIngredients] = useState<IngredientDraft[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -72,6 +73,7 @@ export default function NewRecipePage() {
         name: name.trim(),
         description: description.trim() || undefined,
         servings: servings ? parseInt(servings, 10) : undefined,
+        instructions: instructions.trim() || undefined,
         ingredients: ingredients
           .filter((ing) => ing.name.trim())
           .map((ing) => ({
@@ -205,6 +207,28 @@ export default function NewRecipePage() {
             </svg>
             Add Ingredient
           </button>
+        </div>
+
+        <div className="card" style={{ padding: '0.75rem', marginTop: '0.75rem' }}>
+          <div style={{ marginBottom: '0.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '1rem' }}>
+              Instructions (Markdown)
+            </label>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="1. Preheat oven to 350F&#10;2. Mix dry ingredients..."
+              style={{
+                width: '100%',
+                minHeight: '150px',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                fontFamily: 'inherit',
+                fontSize: '14px',
+              }}
+            />
+          </div>
         </div>
 
         <div style={{ marginTop: '0.75rem' }}>

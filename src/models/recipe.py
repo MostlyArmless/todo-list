@@ -18,6 +18,7 @@ class Recipe(Base, TimestampMixin, SoftDeleteMixin):
     description = Column(Text, nullable=True)
     servings = Column(Integer, nullable=True)
     label_color = Column(String(7), nullable=True)  # Hex color like "#e94560"
+    instructions = Column(Text, nullable=True)
 
     # Relationships
     user = relationship("User", backref="recipes")
