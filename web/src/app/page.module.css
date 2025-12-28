@@ -1,0 +1,10 @@
+/* Root Page Styles */
+
+.loading {
+  padding-top: 2rem;
+  text-align: center;
+}
+
+.loadingText {
+  color: var(--text-secondary);
+}

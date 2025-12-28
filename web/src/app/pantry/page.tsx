@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type PantryItem, type List, type ReceiptScanResponse } from '@/lib/api';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
+import styles from './page.module.css';
 
 const STATUS_ORDER = ['have', 'low', 'out'] as const;
 type PantryStatus = (typeof STATUS_ORDER)[number];
@@ -19,11 +20,23 @@ const STATUS_COLORS: Record<string, string> = {
   out: '#ef4444', // red
 };
 
-const STORE_OPTIONS = ['Grocery', 'Costco'] as const;
-type StoreOption = (typeof STORE_OPTIONS)[number];
-const STORE_COLORS: Record<string, string> = {
-  Grocery: '#3b82f6', // blue
-  Costco: '#ef4444', // red
+// Color palette for stores (cycles through these)
+const STORE_COLOR_PALETTE = [
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#8b5cf6', // purple
+  '#f97316', // orange
+  '#06b6d4', // cyan
+  '#84cc16', // lime
+];
+
+// Get a consistent color for a store name based on its hash
+const getStoreColor = (storeName: string): string => {
+  let hash = 0;
+  for (let i = 0; i < storeName.length; i++) {
+    hash = storeName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return STORE_COLOR_PALETTE[Math.abs(hash) % STORE_COLOR_PALETTE.length];
 };
 
 const SORT_OPTIONS = [
@@ -44,7 +57,7 @@ export default function PantryPage() {
   const [loading, setLoading] = useState(true);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
-  const [newItemStore, setNewItemStore] = useState<StoreOption | ''>('');
+  const [newItemStore, setNewItemStore] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingScan, setPendingScan] = useState<ReceiptScanResponse | null>(null);
@@ -55,7 +68,7 @@ export default function PantryPage() {
   const [editName, setEditName] = useState('');
   const [editStatus, setEditStatus] = useState<PantryStatus>('have');
   const [editCategory, setEditCategory] = useState('');
-  const [editStore, setEditStore] = useState<StoreOption | ''>('');
+  const [editStore, setEditStore] = useState('');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -205,19 +218,6 @@ export default function PantryPage() {
     }
   };
 
-  const handleStoreChange = async (item: PantryItem) => {
-    const stores: (StoreOption | null)[] = [null, 'Grocery', 'Costco'];
-    const currentIndex = stores.indexOf(item.preferred_store);
-    const nextStore = stores[(currentIndex + 1) % stores.length];
-
-    try {
-      await api.updatePantryItem(item.id, { preferred_store: nextStore || undefined });
-      loadPantry();
-    } catch (error) {
-      console.error('Failed to update store:', error);
-    }
-  };
-
   const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -315,13 +315,14 @@ export default function PantryPage() {
           return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         });
       case 'store':
-        // Costco first, Grocery second, no store last
-        const storePriority: Record<string, number> = { Costco: 0, Grocery: 1 };
+        // Group by store alphabetically, items without a store at the end
         return sorted.sort((a, b) => {
-          const aPriority = a.preferred_store ? storePriority[a.preferred_store] : 2;
-          const bPriority = b.preferred_store ? storePriority[b.preferred_store] : 2;
-          const storeDiff = aPriority - bPriority;
-          if (storeDiff !== 0) return storeDiff;
+          // Items with no store go last
+          if (!a.preferred_store && b.preferred_store) return 1;
+          if (a.preferred_store && !b.preferred_store) return -1;
+          // Sort by store name, then by item name
+          const storeCompare = (a.preferred_store || '').localeCompare(b.preferred_store || '', undefined, { sensitivity: 'base' });
+          if (storeCompare !== 0) return storeCompare;
           return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         });
       case 'created':
@@ -379,31 +380,27 @@ export default function PantryPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      <div className={`${styles.container} ${styles.loading}`}>
+        <p className={styles.loadingText}>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Pantry</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.875rem' }}>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Pantry</h1>
+      <p className={styles.subtitle}>
         Track what staples you have at home. Tap status to cycle: Have &rarr; Low &rarr; Out
       </p>
 
       {/* Search input */}
-      <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+      <div className={styles.searchWrapper}>
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search pantry..."
-          className="input"
-          style={{
-            paddingLeft: '2.5rem',
-            paddingRight: searchTerm ? '2.5rem' : '1rem',
-          }}
+          className={`${styles.searchInput} ${searchTerm ? styles.searchInputWithClear : ''}`}
         />
         <svg
           width="18"
@@ -412,12 +409,7 @@ export default function PantryPage() {
           fill="none"
           stroke="var(--text-secondary)"
           strokeWidth="2"
-          style={{
-            position: 'absolute',
-            left: '0.75rem',
-            top: '50%',
-            transform: 'translateY(-50%)',
-          }}
+          className={styles.searchIcon}
         >
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -425,14 +417,7 @@ export default function PantryPage() {
         {searchTerm && (
           <button
             onClick={() => setSearchTerm('')}
-            style={{
-              position: 'absolute',
-              right: '0.75rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-secondary)',
-              padding: '0.25rem',
-            }}
+            className={styles.clearSearchBtn}
             title="Clear search"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -444,17 +429,8 @@ export default function PantryPage() {
       </div>
 
       {/* Sort dropdown */}
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <label
-          htmlFor="sort-select"
-          style={{
-            fontSize: '0.875rem',
-            color: 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-          }}
-        >
+      <div className={styles.sortRow}>
+        <label htmlFor="sort-select" className={styles.sortLabel}>
           <svg
             width="14"
             height="14"
@@ -473,15 +449,7 @@ export default function PantryPage() {
           id="sort-select"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortOption)}
-          style={{
-            padding: '0.375rem 0.75rem',
-            borderRadius: '0.5rem',
-            border: '1px solid var(--border)',
-            backgroundColor: 'var(--bg-secondary)',
-            fontSize: '0.875rem',
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-          }}
+          className={styles.sortSelect}
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -493,26 +461,9 @@ export default function PantryPage() {
 
       {/* Selection controls */}
       {filteredItems.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            marginBottom: '1rem',
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className={styles.selectionControls}>
           {/* Select all checkbox */}
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              color: 'var(--text-secondary)',
-            }}
-          >
+          <label className={styles.selectAllLabel}>
             <input
               type="checkbox"
               checked={allFilteredSelected}
@@ -528,12 +479,7 @@ export default function PantryPage() {
                   selectAllItems();
                 }
               }}
-              style={{
-                width: '18px',
-                height: '18px',
-                cursor: 'pointer',
-                accentColor: 'var(--accent)',
-              }}
+              className={styles.selectAllCheckbox}
             />
             <span>
               {allFilteredSelected ? 'Deselect all' : 'Select all'}
@@ -542,37 +488,17 @@ export default function PantryPage() {
           </label>
 
           {/* Quick-select buttons */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className={styles.quickSelectBtns}>
             <button
               onClick={() => selectItemsByStatus('low')}
-              style={{
-                padding: '0.25rem 0.75rem',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                backgroundColor: STATUS_COLORS.low + '20',
-                color: STATUS_COLORS.low,
-                border: `1px solid ${STATUS_COLORS.low}40`,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnLow}`}
               title="Select all items with Low status"
             >
               Select Low
             </button>
             <button
               onClick={() => selectItemsByStatus('out')}
-              style={{
-                padding: '0.25rem 0.75rem',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                backgroundColor: STATUS_COLORS.out + '20',
-                color: STATUS_COLORS.out,
-                border: `1px solid ${STATUS_COLORS.out}40`,
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnOut}`}
               title="Select all items with Out status"
             >
               Select Out
@@ -582,36 +508,23 @@ export default function PantryPage() {
       )}
 
       {/* Receipt Scan Section */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div className={styles.receiptSection}>
         <input
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/gif,image/webp"
           onChange={handleReceiptUpload}
-          style={{ display: 'none' }}
+          className={styles.receiptInput}
           id="receipt-upload"
         />
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={pendingScan !== null}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            width: '100%',
-            padding: '0.75rem',
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px dashed var(--border)',
-            borderRadius: '8px',
-            color: pendingScan ? 'var(--text-secondary)' : 'var(--accent)',
-            cursor: pendingScan ? 'default' : 'pointer',
-            fontSize: '0.875rem',
-          }}
+          className={`${styles.receiptBtn} ${pendingScan ? styles.receiptBtnDisabled : ''}`}
         >
           {pendingScan ? (
             <>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.spinner}>
                 <circle cx="12" cy="12" r="10" strokeDasharray="30 60" />
               </svg>
               <span>Scanning receipt...</span>
@@ -629,43 +542,21 @@ export default function PantryPage() {
           )}
         </button>
         {scanError && (
-          <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-            {scanError}
-          </p>
+          <p className={styles.scanError}>{scanError}</p>
         )}
       </div>
 
       {/* Category sections */}
       {sortedCategories.map((category) => (
-        <div key={category} style={{ marginBottom: '1.5rem' }}>
+        <div key={category} className={styles.categorySection}>
           {useCategoryGrouping && category !== 'Uncategorized' && (
-            <h2
-              style={{
-                fontSize: '1rem',
-                fontWeight: 600,
-                color: 'var(--text-secondary)',
-                marginBottom: '0.5rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              {category}
-            </h2>
+            <h2 className={styles.categoryTitle}>{category}</h2>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div className={styles.itemsList}>
             {groupedItems[category].map((item) => (
               editingItemId === item.id ? (
                 /* Edit mode */
-                <div
-                  key={item.id}
-                  className="card"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem',
-                    padding: '0.75rem',
-                  }}
-                >
+                <div key={item.id} className={styles.editCard}>
                   <input
                     type="text"
                     value={editName}
@@ -676,26 +567,13 @@ export default function PantryPage() {
                       if (e.key === 'Enter') handleSaveEdit();
                       if (e.key === 'Escape') handleCancelEdit();
                     }}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '0.5rem',
-                      border: '1px solid var(--border)',
-                      backgroundColor: 'var(--bg-secondary)',
-                      fontSize: '0.9rem',
-                    }}
+                    className={styles.editInput}
                   />
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div className={styles.editRow}>
                     <select
                       value={editStatus}
                       onChange={(e) => setEditStatus(e.target.value as PantryStatus)}
-                      style={{
-                        flex: '1 1 80px',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.5rem',
-                        border: '1px solid var(--border)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        fontSize: '0.875rem',
-                      }}
+                      className={styles.editSelect}
                     >
                       {STATUS_ORDER.map((status) => (
                         <option key={status} value={status}>
@@ -705,21 +583,14 @@ export default function PantryPage() {
                     </select>
                     <select
                       value={editStore}
-                      onChange={(e) => setEditStore(e.target.value as StoreOption | '')}
-                      style={{
-                        flex: '1 1 100px',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.5rem',
-                        border: '1px solid var(--border)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        fontSize: '0.875rem',
-                        color: editStore ? STORE_COLORS[editStore] : 'var(--text-primary)',
-                      }}
+                      onChange={(e) => setEditStore(e.target.value)}
+                      className={styles.editSelect}
+                      style={{ color: editStore ? getStoreColor(editStore) : undefined }}
                     >
                       <option value="">No Store</option>
-                      {STORE_OPTIONS.map((store) => (
-                        <option key={store} value={store}>
-                          {store}
+                      {lists.map((list) => (
+                        <option key={list.id} value={list.name}>
+                          {list.name}
                         </option>
                       ))}
                     </select>
@@ -733,14 +604,7 @@ export default function PantryPage() {
                         if (e.key === 'Enter') handleSaveEdit();
                         if (e.key === 'Escape') handleCancelEdit();
                       }}
-                      style={{
-                        flex: '1 1 150px',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: '0.5rem',
-                        border: '1px solid var(--border)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        fontSize: '0.875rem',
-                      }}
+                      className={styles.editCategoryInput}
                     />
                     <datalist id="edit-categories">
                       {existingCategories.map((cat) => (
@@ -748,33 +612,18 @@ export default function PantryPage() {
                       ))}
                     </datalist>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div className={styles.editBtns}>
                     <button
                       onClick={handleCancelEdit}
                       disabled={saving}
-                      style={{
-                        flex: 1,
-                        padding: '0.5rem',
-                        borderRadius: '0.5rem',
-                        border: '1px solid var(--border)',
-                        backgroundColor: 'transparent',
-                        fontSize: '0.875rem',
-                      }}
+                      className={styles.cancelBtn}
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveEdit}
                       disabled={saving || !editName.trim()}
-                      style={{
-                        flex: 1,
-                        padding: '0.5rem',
-                        borderRadius: '0.5rem',
-                        backgroundColor: 'var(--accent)',
-                        color: 'white',
-                        fontSize: '0.875rem',
-                        opacity: editName.trim() && !saving ? 1 : 0.5,
-                      }}
+                      className={`${styles.saveBtn} ${(!editName.trim() || saving) ? styles.saveBtnDisabled : ''}`}
                     >
                       {saving ? 'Saving...' : 'Save'}
                     </button>
@@ -782,90 +631,62 @@ export default function PantryPage() {
                 </div>
               ) : (
                 /* Display mode */
-                <div
-                  key={item.id}
-                  className="card"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.5rem 0.75rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, marginRight: '0.5rem' }}>
+                <div key={item.id} className={styles.itemCard}>
+                  <div className={styles.itemLeft}>
                     <input
                       type="checkbox"
                       checked={selectedItems.has(item.id)}
                       onChange={() => toggleItemSelection(item.id)}
-                      style={{
-                        width: '18px',
-                        height: '18px',
-                        marginRight: '0.75rem',
-                        cursor: 'pointer',
-                        accentColor: 'var(--accent)',
-                        flexShrink: 0,
-                      }}
+                      className={styles.itemCheckbox}
                       title={selectedItems.has(item.id) ? 'Deselect item' : 'Select item'}
                     />
-                    <span style={{ fontSize: '0.9rem' }}>{item.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => handleStoreChange(item)}
-                      style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '9999px',
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        backgroundColor: item.preferred_store
-                          ? STORE_COLORS[item.preferred_store] + '20'
-                          : 'var(--bg-secondary)',
-                        color: item.preferred_store
-                          ? STORE_COLORS[item.preferred_store]
-                          : 'var(--text-secondary)',
-                        border: `1px solid ${
-                          item.preferred_store
-                            ? STORE_COLORS[item.preferred_store] + '40'
-                            : 'var(--border)'
-                        }`,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        minWidth: '55px',
-                        textAlign: 'center',
-                      }}
-                      title="Click to change preferred store"
+                    <span
+                      onClick={() => handleStartEdit(item)}
+                      className={styles.itemName}
+                      title="Click to edit"
                     >
-                      {item.preferred_store || 'Store'}
-                    </button>
+                      {item.name}
+                    </span>
+                  </div>
+                  <div className={styles.itemActions}>
+                    <select
+                      value={item.preferred_store || ''}
+                      onChange={async (e) => {
+                        const newStore = e.target.value;
+                        try {
+                          await api.updatePantryItem(item.id, { preferred_store: newStore || undefined });
+                          loadPantry();
+                        } catch (error) {
+                          console.error('Failed to update store:', error);
+                        }
+                      }}
+                      className={`${styles.storeSelect} ${!item.preferred_store ? styles.storeSelectEmpty : ''}`}
+                      style={item.preferred_store ? {
+                        backgroundColor: getStoreColor(item.preferred_store) + '20',
+                        color: getStoreColor(item.preferred_store),
+                        borderColor: getStoreColor(item.preferred_store) + '40',
+                      } : undefined}
+                      title="Select preferred store"
+                    >
+                      <option value="">Store</option>
+                      {lists.map((list) => (
+                        <option key={list.id} value={list.name}>
+                          {list.name}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => handleStatusChange(item)}
-                      style={{
-                        padding: '0.25rem 0.75rem',
-                        borderRadius: '9999px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        backgroundColor: STATUS_COLORS[item.status] + '20',
-                        color: STATUS_COLORS[item.status],
-                        border: `1px solid ${STATUS_COLORS[item.status]}40`,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        minWidth: '50px',
-                        textAlign: 'center',
-                      }}
+                      className={`${styles.statusBtn} ${styles[`statusBtn${item.status.charAt(0).toUpperCase() + item.status.slice(1)}` as keyof typeof styles]}`}
                       title="Click to change status"
                     >
                       {STATUS_LABELS[item.status]}
                     </button>
                     {/* Fixed width container for cart icon - prevents layout shift */}
-                    <div style={{ width: '24px', display: 'flex', justifyContent: 'center' }}>
+                    <div className={styles.cartBtnWrapper}>
                       <button
                         onClick={() => handleAddToShoppingList(item)}
-                        style={{
-                          color: 'var(--accent)',
-                          padding: '0.25rem',
-                          opacity: 0.8,
-                          visibility: item.status === 'have' ? 'hidden' : 'visible',
-                        }}
+                        className={`${styles.cartBtn} ${item.status === 'have' ? styles.cartBtnHidden : ''}`}
                         title="Add to shopping list"
                         disabled={item.status === 'have'}
                       >
@@ -886,11 +707,7 @@ export default function PantryPage() {
                     {/* Edit button */}
                     <button
                       onClick={() => handleStartEdit(item)}
-                      style={{
-                        color: 'var(--text-secondary)',
-                        padding: '0.25rem',
-                        opacity: 0.6,
-                      }}
+                      className={styles.iconBtn}
                       title="Edit item"
                     >
                       <svg
@@ -910,11 +727,7 @@ export default function PantryPage() {
                     {/* Delete button */}
                     <button
                       onClick={() => handleDeleteItem(item)}
-                      style={{
-                        color: 'var(--text-secondary)',
-                        padding: '0.25rem',
-                        opacity: 0.6,
-                      }}
+                      className={styles.iconBtn}
                       title="Remove from pantry"
                     >
                       <svg
@@ -939,37 +752,18 @@ export default function PantryPage() {
 
       {/* Empty states */}
       {items.length === 0 && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '3rem',
-            color: 'var(--text-secondary)',
-          }}
-        >
+        <div className={styles.emptyState}>
           <p>Your pantry is empty.</p>
-          <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+          <p className={styles.emptySubtext}>
             Add items you always have at home (spices, oils, staples).
           </p>
         </div>
       )}
 
       {items.length > 0 && filteredItems.length === 0 && searchTerm && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '3rem',
-            color: 'var(--text-secondary)',
-          }}
-        >
+        <div className={styles.emptyState}>
           <p>No items match &quot;{searchTerm}&quot;</p>
-          <button
-            onClick={() => setSearchTerm('')}
-            style={{
-              marginTop: '0.5rem',
-              color: 'var(--accent)',
-              fontSize: '0.875rem',
-            }}
-          >
+          <button onClick={() => setSearchTerm('')} className={styles.clearSearchLink}>
             Clear search
           </button>
         </div>
@@ -977,28 +771,14 @@ export default function PantryPage() {
 
       {/* Add item form */}
       {showAddForm ? (
-        <form
-          onSubmit={handleAddItem}
-          className="card"
-          style={{
-            marginTop: '1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
+        <form onSubmit={handleAddItem} className={styles.addForm}>
           <input
             type="text"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             placeholder="Item name (e.g., Olive Oil)"
             autoFocus
-            style={{
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border)',
-              backgroundColor: 'var(--bg-secondary)',
-            }}
+            className={styles.formInput}
           />
           <input
             type="text"
@@ -1006,12 +786,7 @@ export default function PantryPage() {
             onChange={(e) => setNewItemCategory(e.target.value)}
             placeholder="Category (optional, e.g., Spices)"
             list="categories"
-            style={{
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border)',
-              backgroundColor: 'var(--bg-secondary)',
-            }}
+            className={styles.formInput}
           />
           <datalist id="categories">
             {existingCategories.map((cat) => (
@@ -1020,23 +795,18 @@ export default function PantryPage() {
           </datalist>
           <select
             value={newItemStore}
-            onChange={(e) => setNewItemStore(e.target.value as StoreOption | '')}
-            style={{
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border)',
-              backgroundColor: 'var(--bg-secondary)',
-              color: newItemStore ? STORE_COLORS[newItemStore] : 'var(--text-secondary)',
-            }}
+            onChange={(e) => setNewItemStore(e.target.value)}
+            className={styles.formInput}
+            style={{ color: newItemStore ? getStoreColor(newItemStore) : undefined }}
           >
             <option value="">Preferred Store (optional)</option>
-            {STORE_OPTIONS.map((store) => (
-              <option key={store} value={store} style={{ color: STORE_COLORS[store] }}>
-                {store}
+            {lists.map((list) => (
+              <option key={list.id} value={list.name} style={{ color: getStoreColor(list.name) }}>
+                {list.name}
               </option>
             ))}
           </select>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className={styles.formBtns}>
             <button
               type="button"
               onClick={() => {
@@ -1045,47 +815,21 @@ export default function PantryPage() {
                 setNewItemCategory('');
                 setNewItemStore('');
               }}
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--border)',
-              }}
+              className={styles.formCancelBtn}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!newItemName.trim()}
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                backgroundColor: 'var(--accent)',
-                color: 'white',
-                opacity: newItemName.trim() ? 1 : 0.5,
-              }}
+              className={`${styles.formSubmitBtn} ${!newItemName.trim() ? styles.formSubmitBtnDisabled : ''}`}
             >
               Add to Pantry
             </button>
           </div>
         </form>
       ) : (
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="card"
-          style={{
-            marginTop: '1rem',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            color: 'var(--accent)',
-            cursor: 'pointer',
-            border: '2px dashed var(--border)',
-          }}
-        >
+        <button onClick={() => setShowAddForm(true)} className={styles.addItemBtn}>
           <svg
             width="24"
             height="24"

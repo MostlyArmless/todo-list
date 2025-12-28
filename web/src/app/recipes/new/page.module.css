@@ -1,0 +1,251 @@
+/* New Recipe Page Styles */
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+  padding-bottom: 5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1.5rem;
+}
+
+.cancelBtn {
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-base);
+}
+
+.cancelBtn:hover {
+  background: var(--bg-tertiary-hover);
+}
+
+/* Card */
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.shortcut {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Form Fields Row */
+.formRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Input Styles */
+.input {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.nameInput {
+  composes: input;
+  flex: 2;
+}
+
+.descInput {
+  composes: input;
+  flex: 2;
+}
+
+.servingsInput {
+  composes: input;
+  width: 80px;
+}
+
+/* Ingredient Table */
+.ingredientHeader {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  padding-left: 0.25rem;
+}
+
+.ingredientRow {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.5rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.ingredientName {
+  flex: 2;
+  font-size: 0.875rem;
+}
+
+.ingredientQty {
+  flex: 1;
+  font-size: 0.875rem;
+}
+
+.ingredientNotes {
+  flex: 1.5;
+  font-size: 0.875rem;
+}
+
+/* Ingredient inputs */
+.ingNameInput {
+  composes: input;
+  flex: 2;
+  padding: 0.35rem 0.5rem;
+}
+
+.ingQtyInput {
+  composes: input;
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+}
+
+.ingNotesInput {
+  composes: input;
+  flex: 1.5;
+  padding: 0.35rem 0.5rem;
+}
+
+.storeSelect {
+  composes: input;
+  width: 70px;
+  padding: 0.35rem 0.25rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.deleteBtn:hover {
+  color: var(--danger);
+}
+
+/* Add Button */
+.addBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.4rem;
+  margin-top: 0.25rem;
+  color: var(--accent);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: border-color var(--transition-base);
+}
+
+.addBtn:hover {
+  border-color: var(--accent);
+}
+
+/* Instructions Section */
+.instructionsCard {
+  composes: card;
+  margin-top: 0.75rem;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Submit Button */
+.submitSection {
+  margin-top: 0.75rem;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.submitBtn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}

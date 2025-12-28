@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { CheckPantryIngredient } from '@/lib/api';
+import styles from './PantryCheckModal.module.css';
 
 interface PantryCheckModalProps {
   recipeName: string;
@@ -11,10 +12,10 @@ interface PantryCheckModalProps {
   isSubmitting: boolean;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  have: '#22c55e',
-  low: '#eab308',
-  out: '#ef4444',
+const STATUS_CLASSES: Record<string, string> = {
+  have: styles.statusHave,
+  low: styles.statusLow,
+  out: styles.statusOut,
 };
 
 export default function PantryCheckModal({
@@ -51,134 +52,76 @@ export default function PantryCheckModal({
   const itemsToAdd = Object.values(checkedState).filter(Boolean).length;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '1rem',
-      }}
-      onClick={onCancel}
-    >
+    <div className={styles.overlay} onClick={onCancel}>
       <div
-        className="card"
-        style={{
-          width: '100%',
-          maxWidth: '500px',
-          maxHeight: '80vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className={`card ${styles.modal}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: '1rem',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          <h2 style={{ fontSize: '1.125rem', marginBottom: '0.25rem' }}>
+        <div className={styles.header}>
+          <h2 className={styles.title}>
             Add &ldquo;{recipeName}&rdquo; to Shopping List
           </h2>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+          <p className={styles.subtitle}>
             Select which ingredients to add. Items in your pantry are unchecked.
           </p>
         </div>
 
         {/* Ingredient list */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '0.5rem 0',
-          }}
-        >
+        <div className={styles.ingredientList}>
           {ingredients.map((ing) => {
             const isChecked = checkedState[ing.name] ?? true;
             const hasPantryMatch = ing.pantry_match !== null;
             const alwaysSkip = ing.always_skip ?? false;
 
+            const labelClasses = [
+              styles.ingredientLabel,
+              !isChecked && styles.ingredientLabelUnchecked,
+              alwaysSkip && styles.ingredientLabelSkipped,
+            ]
+              .filter(Boolean)
+              .join(' ');
+
+            const nameClasses = (alwaysSkip || !isChecked)
+              ? styles.ingredientNameStrikethrough
+              : styles.ingredientName;
+
+            const checkboxClasses = [
+              styles.checkbox,
+              alwaysSkip && styles.checkboxDisabled,
+            ]
+              .filter(Boolean)
+              .join(' ');
+
             return (
-              <label
-                key={ing.name}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0.75rem 1rem',
-                  cursor: alwaysSkip ? 'not-allowed' : 'pointer',
-                  transition: 'background-color 0.15s',
-                  backgroundColor: isChecked ? 'transparent' : 'var(--bg-secondary)',
-                  opacity: alwaysSkip ? 0.6 : 1,
-                }}
-                onMouseOver={(e) => !alwaysSkip && (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
-                onMouseOut={(e) => (e.currentTarget.style.backgroundColor = isChecked ? 'transparent' : 'var(--bg-secondary)')}
-              >
+              <label key={ing.name} className={labelClasses}>
                 <input
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => toggleIngredient(ing.name, alwaysSkip)}
                   disabled={alwaysSkip}
-                  style={{
-                    width: '18px',
-                    height: '18px',
-                    marginRight: '0.75rem',
-                    accentColor: 'var(--accent)',
-                    cursor: alwaysSkip ? 'not-allowed' : 'pointer',
-                  }}
+                  className={checkboxClasses}
                 />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span
-                      style={{
-                        textDecoration: alwaysSkip || !isChecked ? 'line-through' : 'none',
-                        color: alwaysSkip || !isChecked ? 'var(--text-secondary)' : 'inherit',
-                      }}
-                    >
-                      {ing.name}
-                    </span>
+                <div className={styles.ingredientContent}>
+                  <div className={styles.ingredientNameRow}>
+                    <span className={nameClasses}>{ing.name}</span>
                     {ing.quantity && (
-                      <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      <span className={styles.ingredientQuantity}>
                         ({ing.quantity})
                       </span>
                     )}
                   </div>
                   {alwaysSkip ? (
-                    <div
-                      style={{
-                        fontSize: '0.75rem',
-                        marginTop: '0.125rem',
-                        color: 'var(--text-secondary)',
-                        fontStyle: 'italic',
-                      }}
-                    >
-                      Never added to lists
-                    </div>
+                    <div className={styles.skipInfo}>Never added to lists</div>
                   ) : hasPantryMatch && ing.pantry_match && (
-                    <div
-                      style={{
-                        fontSize: '0.75rem',
-                        marginTop: '0.125rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: STATUS_COLORS[ing.pantry_match.status],
-                        }}
-                      >
+                    <div className={styles.pantryInfo}>
+                      <span className={STATUS_CLASSES[ing.pantry_match.status]}>
                         {ing.pantry_match.status === 'have' && 'In pantry'}
                         {ing.pantry_match.status === 'low' && 'Running low'}
                         {ing.pantry_match.status === 'out' && 'Out of stock'}
                       </span>
                       {ing.pantry_match.name !== ing.name && (
-                        <span style={{ color: 'var(--text-secondary)' }}>
+                        <span className={styles.pantryMatchName}>
                           (matched: {ing.pantry_match.name})
                         </span>
                       )}
@@ -191,38 +134,20 @@ export default function PantryCheckModal({
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            padding: '1rem',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            gap: '0.5rem',
-          }}
-        >
+        <div className={styles.footer}>
           <button
             onClick={onCancel}
             disabled={isSubmitting}
-            style={{
-              flex: 1,
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid var(--border)',
-              backgroundColor: 'transparent',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-            }}
+            className={styles.cancelButton}
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={isSubmitting || itemsToAdd === 0}
-            className="btn btn-primary"
-            style={{
-              flex: 1,
-              padding: '0.75rem',
-              opacity: isSubmitting || itemsToAdd === 0 ? 0.5 : 1,
-            }}
+            className={`btn btn-primary ${styles.confirmButton} ${
+              isSubmitting || itemsToAdd === 0 ? styles.confirmButtonDisabled : ''
+            }`}
           >
             {isSubmitting ? 'Adding...' : `Add ${itemsToAdd} Item${itemsToAdd !== 1 ? 's' : ''}`}
           </button>

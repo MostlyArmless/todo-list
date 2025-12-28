@@ -413,35 +413,28 @@ export default function ListDetailPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      <div className={`${styles.container} ${styles.loading}`}>
+        <p className={styles.loadingText}>Loading...</p>
       </div>
     );
   }
 
   if (!list) {
     return (
-      <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>List not found</p>
+      <div className={`${styles.container} ${styles.loading}`}>
+        <p className={styles.loadingText}>List not found</p>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ paddingTop: '0.5rem', paddingBottom: '4rem' }}>
+    <div className={styles.container}>
       {/* Header */}
-      <div style={{ marginBottom: '0.75rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className={styles.header}>
+        <div className={styles.headerTop}>
           <button
             onClick={() => router.push('/lists')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              color: 'var(--text-secondary)',
-              marginBottom: '0.25rem',
-              fontSize: '0.875rem',
-            }}
+            className={styles.backBtn}
           >
             <svg
               width="16"
@@ -457,7 +450,7 @@ export default function ListDetailPage() {
             </svg>
             Back
           </button>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+          <label className={styles.showCheckedLabel}>
             <input
               type="checkbox"
               checked={showChecked}
@@ -465,40 +458,38 @@ export default function ListDetailPage() {
                 setShowChecked(e.target.checked);
                 api.getItems(listId, e.target.checked).then(setItems);
               }}
-              style={{ width: '14px', height: '14px' }}
+              className={styles.showCheckedCheckbox}
             />
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+            <span className={styles.showCheckedText}>
               Show checked
             </span>
           </label>
         </div>
-        <h1 style={{ fontSize: '1.5rem', margin: 0 }}>
-          {list.icon && <span style={{ marginRight: '0.5rem' }}>{list.icon}</span>}
+        <h1 className={styles.title}>
+          {list.icon && <span className={styles.titleIcon}>{list.icon}</span>}
           {list.name}
         </h1>
         {list.description && (
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
+          <p className={styles.description}>
             {list.description}
           </p>
         )}
       </div>
 
       {/* Add Item Form */}
-      <form onSubmit={handleAddItem} className="card" style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', position: 'relative' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <form onSubmit={handleAddItem} className={styles.addItemCard}>
+        <div className={styles.addItemRow}>
           <input
             type="text"
             placeholder="Add item..."
-            className="input"
+            className={styles.addItemInput}
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            style={{ flex: '1 1 200px' }}
           />
           <select
-            className="input"
+            className={styles.addItemSelect}
             value={newItemCategory || ''}
             onChange={(e) => setNewItemCategory(e.target.value ? parseInt(e.target.value) : null)}
-            style={{ flex: '1 1 150px' }}
           >
             <option value="">No category</option>
             {categories.map((cat) => (
@@ -507,7 +498,7 @@ export default function ListDetailPage() {
               </option>
             ))}
           </select>
-          <button type="submit" className="btn btn-primary" style={{ flex: '0 0 auto' }}>
+          <button type="submit" className={styles.addItemBtn}>
             Add
           </button>
         </div>
@@ -520,19 +511,10 @@ export default function ListDetailPage() {
 
       {/* Bulk Actions */}
       {selectedItems.size > 0 && (
-        <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+        <div className={styles.bulkActions}>
           <button
             onClick={handleBulkDelete}
-            className="btn"
-            style={{
-              background: '#ef4444',
-              color: 'white',
-              padding: '0.3rem 0.6rem',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}
+            className={styles.bulkDeleteBtn}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="3 6 5 6 21 6"></polyline>
@@ -545,8 +527,8 @@ export default function ListDetailPage() {
 
       {/* Uncategorized Items */}
       {getItemsByCategory(null).length > 0 && (
-        <div style={{ marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+        <div className={styles.categorySection}>
+          <div className={styles.categoryHeader}>
             <input
               type="checkbox"
               checked={isCategoryFullySelected(null)}
@@ -554,37 +536,22 @@ export default function ListDetailPage() {
                 if (el) el.indeterminate = isCategoryPartiallySelected(null);
               }}
               onChange={() => toggleCategorySelection(null)}
-              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              className={styles.categoryCheckbox}
               title="Select all uncategorized items"
             />
-            <h2
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: 'var(--text-secondary)',
-                margin: 0,
-                flex: 1,
-              }}
-            >
+            <h2 className={styles.categoryTitle}>
               Uncategorized
             </h2>
             {categories.length > 0 && (
               <button
                 onClick={handleAutoCategorize}
                 disabled={autoCategorizing}
-                className="btn btn-secondary"
-                style={{
-                  padding: '0.25rem 0.5rem',
-                  fontSize: '0.7rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                }}
+                className={styles.autoCategorizeBtn}
                 title="Auto-categorize items using AI"
               >
                 {autoCategorizing ? (
                   <>
-                    <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+                    <span className={styles.spinIcon}>⟳</span>
                     ...
                   </>
                 ) : (
@@ -598,7 +565,7 @@ export default function ListDetailPage() {
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div className={styles.itemList}>
             {getItemsByCategory(null).map((item) => (
               <ItemRow
                 key={item.id}
@@ -616,20 +583,15 @@ export default function ListDetailPage() {
                   e.preventDefault();
                   handleInlineAdd(null);
                 }}
-                style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  alignItems: 'center',
-                }}
+                className={styles.inlineAddForm}
               >
                 <input
                   type="text"
-                  className="input"
+                  className={styles.inlineInput}
                   value={inlineItemName}
                   onChange={(e) => setInlineItemName(e.target.value)}
                   placeholder="Add item..."
                   autoFocus
-                  style={{ flex: 1 }}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       setInlineAddCategory(null);
@@ -642,7 +604,7 @@ export default function ListDetailPage() {
                     }
                   }}
                 />
-                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+                <button type="submit" className={styles.btnPrimary}>
                   Add
                 </button>
               </form>
@@ -652,28 +614,7 @@ export default function ListDetailPage() {
                   setInlineAddCategory('uncategorized');
                   setInlineItemName('');
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.35rem',
-                  padding: '0.4rem',
-                  borderRadius: '6px',
-                  border: '1px dashed var(--border)',
-                  color: 'var(--text-secondary)',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  fontSize: '0.8rem',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--accent)';
-                  e.currentTarget.style.color = 'var(--accent)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
-                }}
+                className={styles.inlineAddBtn}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -734,23 +675,22 @@ export default function ListDetailPage() {
 
       {/* Empty State */}
       {items.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+        <div className={styles.emptyState}>
           <p>No items yet. Add your first item above!</p>
         </div>
       )}
 
       {/* Add Category */}
-      <div style={{ marginTop: '1rem' }}>
+      <div className={styles.addCategorySection}>
         {showNewCategory ? (
-          <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <form onSubmit={handleAddCategory} className={styles.addCategoryForm}>
             <input
               type="text"
               placeholder="Category name"
-              className="input"
+              className={styles.addCategoryInput}
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               autoFocus
-              style={{ flex: 1, padding: '0.4rem 0.5rem' }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setShowNewCategory(false);
@@ -758,7 +698,7 @@ export default function ListDetailPage() {
                 }
               }}
             />
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}>
+            <button type="submit" className={styles.btnPrimary}>
               Add
             </button>
             <button
@@ -767,8 +707,7 @@ export default function ListDetailPage() {
                 setShowNewCategory(false);
                 setNewCategoryName('');
               }}
-              className="btn btn-secondary"
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
+              className={styles.btnSecondary}
             >
               Cancel
             </button>
@@ -776,13 +715,7 @@ export default function ListDetailPage() {
         ) : (
           <button
             onClick={() => setShowNewCategory(true)}
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}
+            className={styles.addCategoryBtn}
           >
             <svg
               width="14"
@@ -804,26 +737,11 @@ export default function ListDetailPage() {
 
       {/* Post-Shopping Pantry Prompt */}
       {showPantryPrompt && recentlyChecked.length > 0 && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '1rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '1rem',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            zIndex: 1000,
-            maxWidth: '400px',
-            width: 'calc(100% - 2rem)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+        <div className={styles.pantryPrompt}>
+          <div className={styles.pantryPromptHeader}>
             <div>
-              <p style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Add to pantry?</p>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              <p className={styles.pantryPromptTitle}>Add to pantry?</p>
+              <p className={styles.pantryPromptSubtitle}>
                 Track these {recentlyChecked.length} item{recentlyChecked.length !== 1 ? 's' : ''} in your pantry
               </p>
             </div>
@@ -834,40 +752,22 @@ export default function ListDetailPage() {
               </svg>
             </IconButton>
           </div>
-          <div
-            style={{
-              fontSize: '0.875rem',
-              color: 'var(--text-secondary)',
-              marginBottom: '0.75rem',
-              maxHeight: '100px',
-              overflowY: 'auto',
-            }}
-          >
+          <div className={styles.pantryPromptItems}>
             {recentlyChecked.slice(0, 5).join(', ')}
             {recentlyChecked.length > 5 && ` and ${recentlyChecked.length - 5} more`}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className={styles.pantryPromptActions}>
             <button
               onClick={dismissPantryPrompt}
               disabled={addingToPantry}
-              style={{
-                flex: 1,
-                padding: '0.5rem',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--border)',
-                backgroundColor: 'transparent',
-              }}
+              className={styles.pantrySkipBtn}
             >
               Skip
             </button>
             <button
               onClick={handleAddToPantry}
               disabled={addingToPantry}
-              className="btn btn-primary"
-              style={{
-                flex: 1,
-                padding: '0.5rem',
-              }}
+              className={styles.pantryAddBtn}
             >
               {addingToPantry ? 'Adding...' : 'Add to Pantry'}
             </button>
@@ -934,17 +834,16 @@ function SortableCategory({
     isDragging,
   } = useSortable({ id: category.id });
 
-  const style = {
+  const dragStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
-    marginBottom: '1rem',
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1000 : undefined,
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+    <div ref={setNodeRef} className={styles.sortableCategory} style={dragStyle}>
+      <div className={styles.categoryHeader}>
         {/* Category selection checkbox */}
         {items.length > 0 && (
           <input
@@ -954,7 +853,7 @@ function SortableCategory({
               if (el) el.indeterminate = isPartiallySelected;
             }}
             onChange={onToggleCategorySelection}
-            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            className={styles.categoryCheckbox}
             title={`Select all items in ${category.name}`}
           />
         )}
@@ -963,13 +862,8 @@ function SortableCategory({
         <div
           {...attributes}
           {...listeners}
-          style={{
-            cursor: isDragging ? 'grabbing' : 'grab',
-            color: 'var(--text-secondary)',
-            padding: '0.15rem',
-            flexShrink: 0,
-            touchAction: 'none',
-          }}
+          className={styles.dragHandle}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           title="Drag to reorder"
         >
           <svg
@@ -993,7 +887,7 @@ function SortableCategory({
           <>
             <input
               type="text"
-              className="input"
+              className={styles.inlineInput}
               value={editName}
               onChange={(e) => onEditNameChange(e.target.value)}
               onKeyDown={(e) => {
@@ -1001,19 +895,16 @@ function SortableCategory({
                 if (e.key === 'Escape') onCancelEdit();
               }}
               autoFocus
-              style={{ flex: 1, marginRight: '0.5rem' }}
             />
             <button
               onClick={onSaveEdit}
-              className="btn btn-primary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+              className={styles.btnPrimary}
             >
               Save
             </button>
             <button
               onClick={onCancelEdit}
-              className="btn btn-secondary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', marginLeft: '0.5rem' }}
+              className={styles.btnSecondary}
             >
               Cancel
             </button>
@@ -1021,13 +912,8 @@ function SortableCategory({
         ) : (
           <>
             <h2
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                flex: 1,
-                color: category.color || 'var(--text-primary)',
-                margin: 0,
-              }}
+              className={styles.categoryTitle}
+              style={{ color: category.color || 'var(--text-primary)' }}
             >
               {category.name}
             </h2>
@@ -1035,11 +921,7 @@ function SortableCategory({
             {/* Edit button */}
             <button
               onClick={onStartEdit}
-              style={{
-                color: 'var(--text-secondary)',
-                padding: '0.25rem',
-                flexShrink: 0,
-              }}
+              className={styles.editBtn}
               title="Edit category name"
             >
               <svg
@@ -1060,11 +942,7 @@ function SortableCategory({
             {/* Delete button */}
             <button
               onClick={onDelete}
-              style={{
-                color: 'var(--text-secondary)',
-                padding: '0.25rem',
-                flexShrink: 0,
-              }}
+              className={styles.deleteBtn}
               title="Delete category"
             >
               <svg
@@ -1085,7 +963,7 @@ function SortableCategory({
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <div className={styles.itemList}>
         {items.map((item) => (
           <ItemRow
             key={item.id}
@@ -1103,20 +981,15 @@ function SortableCategory({
               e.preventDefault();
               onSubmitInlineAdd();
             }}
-            style={{
-              display: 'flex',
-              gap: '0.5rem',
-              alignItems: 'center',
-            }}
+            className={styles.inlineAddForm}
           >
             <input
               type="text"
-              className="input"
+              className={styles.inlineInput}
               value={inlineItemName}
               onChange={(e) => onInlineItemNameChange(e.target.value)}
               placeholder="Add item..."
               autoFocus
-              style={{ flex: 1 }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   onCancelInlineAdd();
@@ -1128,35 +1001,14 @@ function SortableCategory({
                 }
               }}
             />
-            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+            <button type="submit" className={styles.btnPrimary}>
               Add
             </button>
           </form>
         ) : (
           <button
             onClick={onStartInlineAdd}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-              padding: '0.4rem',
-              borderRadius: '6px',
-              border: '1px dashed var(--border)',
-              color: 'var(--text-secondary)',
-              background: 'transparent',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              fontSize: '0.8rem',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--accent)';
-              e.currentTarget.style.color = 'var(--accent)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
+            className={styles.inlineAddBtn}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -1222,18 +1074,10 @@ function ItemRow({
 
   if (isEditing) {
     return (
-      <div
-        className="card"
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          padding: '0.5rem 0.75rem',
-        }}
-      >
+      <div className={styles.itemEditCard}>
         <input
           type="text"
-          className="input"
+          className={styles.itemEditInput}
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           placeholder="Item name"
@@ -1242,16 +1086,14 @@ function ItemRow({
             if (e.key === 'Enter') handleSaveEdit();
             if (e.key === 'Escape') handleCancelEdit();
           }}
-          style={{ padding: '0.4rem 0.5rem' }}
         />
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className={styles.itemEditRow}>
           <input
             type="text"
-            className="input"
+            className={`${styles.itemEditInput} ${styles.itemEditQty}`}
             value={editQuantity}
             onChange={(e) => setEditQuantity(e.target.value)}
             placeholder="Qty"
-            style={{ flex: '1 1 80px', padding: '0.4rem 0.5rem' }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
@@ -1259,21 +1101,19 @@ function ItemRow({
           />
           <input
             type="text"
-            className="input"
+            className={`${styles.itemEditInput} ${styles.itemEditDesc}`}
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
             placeholder="Description"
-            style={{ flex: '1 1 120px', padding: '0.4rem 0.5rem' }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
             }}
           />
           <select
-            className="input"
+            className={`${styles.itemEditInput} ${styles.itemEditCategory}`}
             value={editCategoryId || ''}
             onChange={(e) => setEditCategoryId(e.target.value ? parseInt(e.target.value) : null)}
-            style={{ flex: '1 1 100px', padding: '0.4rem 0.5rem' }}
           >
             <option value="">No category</option>
             {categories.map((cat) => (
@@ -1283,20 +1123,18 @@ function ItemRow({
             ))}
           </select>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className={styles.itemEditActions}>
           <button
             onClick={handleSaveEdit}
             disabled={saving || !editName.trim()}
-            className="btn btn-primary"
-            style={{ flex: 1, padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+            className={`${styles.itemEditBtn} ${styles.itemEditBtnPrimary}`}
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
           <button
             onClick={handleCancelEdit}
             disabled={saving}
-            className="btn btn-secondary"
-            style={{ flex: 1, padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
+            className={`${styles.itemEditBtn} ${styles.itemEditBtnSecondary}`}
           >
             Cancel
           </button>
@@ -1306,30 +1144,11 @@ function ItemRow({
   }
 
   return (
-    <div
-      className="card"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.4rem 0.6rem',
-        opacity: item.checked ? 0.5 : 1,
-      }}
-    >
+    <div className={`${styles.itemCard} ${item.checked ? styles.itemCardChecked : ''}`}>
       {/* Check/uncheck circle button */}
       <button
         onClick={() => onToggle(item)}
-        style={{
-          width: '20px',
-          height: '20px',
-          borderRadius: '50%',
-          border: '2px solid var(--accent)',
-          background: item.checked ? 'var(--accent)' : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
+        className={`${styles.checkCircle} ${item.checked ? styles.checkCircleChecked : ''}`}
       >
         {item.checked && (
           <svg
@@ -1347,20 +1166,11 @@ function ItemRow({
         )}
       </button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            textDecoration: item.checked ? 'line-through' : 'none',
-            fontSize: '0.9rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            flexWrap: 'wrap',
-          }}
-        >
+      <div className={styles.itemContent}>
+        <div className={`${styles.itemName} ${item.checked ? styles.itemNameChecked : ''}`}>
           <span>{item.name}</span>
           {(item.quantity || item.description) && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            <span className={styles.itemMeta}>
               {item.quantity && formatQuantityTotal(item.quantity)}
               {item.quantity && item.description && ' · '}
               {item.description}
@@ -1368,17 +1178,13 @@ function ItemRow({
           )}
           {/* Recipe source badges */}
           {item.recipe_sources && item.recipe_sources.length > 0 && (
-            <span style={{ display: 'flex', gap: '0.2rem', flexWrap: 'wrap' }}>
+            <span className={styles.recipeBadges}>
               {item.recipe_sources.map((source, idx) => (
                 <span
                   key={source.recipe_id ?? `adhoc-${idx}`}
+                  className={styles.recipeBadge}
                   style={{
-                    fontSize: '0.6rem',
                     backgroundColor: source.label_color || (source.recipe_id ? '#e6194b' : 'var(--text-secondary)'),
-                    color: 'white',
-                    padding: '0.05rem 0.3rem',
-                    borderRadius: '3px',
-                    whiteSpace: 'nowrap',
                   }}
                   title={source.recipe_id ? `From recipe: ${source.recipe_name}` : 'Manually added'}
                 >
@@ -1393,11 +1199,7 @@ function ItemRow({
       {/* Edit button */}
       <button
         onClick={handleStartEdit}
-        style={{
-          color: 'var(--text-secondary)',
-          padding: '0.25rem',
-          flexShrink: 0,
-        }}
+        className={styles.editBtn}
         title="Edit item"
       >
         <svg
@@ -1417,11 +1219,7 @@ function ItemRow({
 
       <button
         onClick={() => onDelete(item.id)}
-        style={{
-          color: 'var(--text-secondary)',
-          padding: '0.25rem',
-          flexShrink: 0,
-        }}
+        className={styles.deleteBtn}
         title="Delete item"
       >
         <svg

@@ -1,0 +1,39 @@
+.container {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.list {
+  padding-left: 0.5em;
+  margin: 0.5em 0;
+}
+
+.listItem {
+  list-style: none;
+  padding: 0.5rem 0;
+  min-height: 44px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.itemNumber {
+  min-width: 28px;
+  margin-right: 4px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.itemContent {
+  flex: 1;
+}

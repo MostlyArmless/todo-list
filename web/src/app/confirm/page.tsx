@@ -1,21 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import styles from './page.module.css';
 
 export default function ConfirmPage() {
   const router = useRouter();
 
   return (
-    <div className="container" style={{ paddingTop: '2rem' }}>
+    <div className={`container ${styles.pageContainer}`}>
       <button
         onClick={() => router.push('/lists')}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          color: 'var(--text-secondary)',
-          marginBottom: '1.5rem',
-        }}
+        className={styles.backButton}
       >
         <svg
           width="20"
@@ -32,13 +27,13 @@ export default function ConfirmPage() {
         Back to Lists
       </button>
 
-      <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Pending Confirmations</h1>
+      <h1 className={styles.title}>Pending Confirmations</h1>
 
-      <div className="card" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>
+      <div className={`card ${styles.emptyCard}`}>
+        <p className={styles.emptyText}>
           No pending confirmations.
         </p>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '1rem' }}>
+        <p className={styles.emptySubtext}>
           Voice input confirmations will appear here once LLM integration is added in Phase 2.
         </p>
       </div>

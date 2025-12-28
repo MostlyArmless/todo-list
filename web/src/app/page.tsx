@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import styles from './page.module.css';
 
 export default function Home() {
   const router = useRouter();
@@ -17,8 +18,8 @@ export default function Home() {
   }, [router]);
 
   return (
-    <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-      <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+    <div className={`container ${styles.loading}`}>
+      <p className={styles.loadingText}>Loading...</p>
     </div>
   );
 }

@@ -1,0 +1,157 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: 1.125rem;
+  margin-bottom: 0.25rem;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Ingredient list */
+.ingredientList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.ingredientLabel {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.ingredientLabel:hover {
+  background-color: var(--bg-secondary);
+}
+
+.ingredientLabelUnchecked {
+  background-color: var(--bg-secondary);
+}
+
+.ingredientLabelSkipped {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin-right: 0.75rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.checkboxDisabled {
+  cursor: not-allowed;
+}
+
+.ingredientContent {
+  flex: 1;
+}
+
+.ingredientNameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ingredientName {
+  /* default state */
+}
+
+.ingredientNameStrikethrough {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.ingredientQuantity {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.pantryInfo {
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.skipInfo {
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Status colors */
+.statusHave {
+  color: #22c55e;
+}
+
+.statusLow {
+  color: #eab308;
+}
+
+.statusOut {
+  color: #ef4444;
+}
+
+.pantryMatchName {
+  color: var(--text-secondary);
+}
+
+/* Footer */
+.footer {
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background-color: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.confirmButton {
+  flex: 1;
+  padding: 0.75rem;
+}
+
+.confirmButtonDisabled {
+  opacity: 0.5;
+}

@@ -3,14 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api, type Recipe, type RecipeIngredient, type AddToListResult, type CheckPantryIngredient, type PantryItem } from '@/lib/api';
-import {
-  useIngredientKeyboard,
-  ingredientStyles,
-} from '@/hooks/useIngredientKeyboard';
+import { useIngredientKeyboard } from '@/hooks/useIngredientKeyboard';
 import PantryCheckModal from '@/components/PantryCheckModal';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import MarkdownInstructions from '@/components/MarkdownInstructions';
+import styles from './page.module.css';
 
 // Ingredients that are auto-skipped (never shopped for) - matches backend SKIP_INGREDIENTS
 const SKIP_INGREDIENTS = new Set([
@@ -432,8 +430,8 @@ export default function RecipeDetailPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      <div className={styles.loading}>
+        <p className={styles.loadingText}>Loading...</p>
       </div>
     );
   }
@@ -441,45 +439,17 @@ export default function RecipeDetailPage() {
   if (!recipe) return null;
 
   return (
-    <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
+    <div className={styles.container}>
       {/* Toast */}
       {toast && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: toast.type === 'success' ? 'var(--accent)' : '#ef4444',
-            color: 'white',
-            padding: '0.75rem 1rem',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            zIndex: 1000,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            fontSize: '0.875rem',
-          }}
-        >
+        <div className={`${styles.toast} ${toast.type === 'success' ? styles.toastSuccess : styles.toastError}`}>
           <span>{toast.message}</span>
           {toast.eventId && (
-            <button
-              onClick={handleUndo}
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                border: 'none',
-                color: 'white',
-                padding: '0.35rem 0.75rem',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
+            <button onClick={handleUndo} className={styles.undoBtn}>
               Undo
             </button>
           )}
-          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: 'white', padding: '0.25rem', cursor: 'pointer' }}>
+          <button onClick={() => setToast(null)} className={styles.closeToastBtn}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -489,18 +459,17 @@ export default function RecipeDetailPage() {
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <div style={{ flex: 1 }}>
+      <div className={styles.header}>
+        <div className={styles.titleSection}>
           {editingTitle ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className={styles.titleRow}>
               <input
                 type="text"
-                className="input"
+                className={styles.titleInput}
                 value={titleText}
                 onChange={(e) => setTitleText(e.target.value)}
                 onKeyDown={handleTitleKeyDown}
                 autoFocus
-                style={{ fontSize: '1.25rem', fontWeight: 600, flex: 1 }}
               />
               <IconButton onClick={saveTitle} variant="accent" size="sm" title="Save">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -515,9 +484,9 @@ export default function RecipeDetailPage() {
               </IconButton>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className={styles.titleRow}>
               <h1
-                style={{ fontSize: '1.5rem', cursor: 'pointer' }}
+                className={styles.title}
                 onClick={startEditTitle}
                 title="Click to edit"
               >
@@ -532,12 +501,12 @@ export default function RecipeDetailPage() {
             </div>
           )}
           {(recipe.description || recipe.servings) && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+            <p className={styles.subtitle}>
               {recipe.description}{recipe.description && recipe.servings ? ' · ' : ''}{recipe.servings ? `${recipe.servings} servings` : ''}
             </p>
           )}
         </div>
-        <button onClick={() => router.push('/recipes')} className="btn btn-secondary" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+        <button onClick={() => router.push('/recipes')} className={styles.backBtn}>
           Back
         </button>
       </div>
@@ -554,82 +523,38 @@ export default function RecipeDetailPage() {
       )}
 
       {/* Nutrition Section */}
-      <div
-        className="card"
-        style={{
-          padding: '0.75rem',
-          marginBottom: '0.75rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '0.5rem',
-        }}
-      >
+      <div className={styles.nutritionCard}>
         {recipe.calories_per_serving != null ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+          <div className={styles.nutritionInfo}>
+            <span className={styles.caloriesText}>
               {recipe.calories_per_serving} cal
             </span>
             {recipe.protein_grams != null && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.125rem 0.5rem',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                color: '#3b82f6',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-              }}>
-                <span style={{ fontWeight: 600 }}>{recipe.protein_grams}g</span> Protein
+              <span className={`${styles.macroBadge} ${styles.macroBadgeProtein}`}>
+                <span className={styles.macroValue}>{recipe.protein_grams}g</span> Protein
               </span>
             )}
             {recipe.carbs_grams != null && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.125rem 0.5rem',
-                backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                color: '#a855f7',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                border: '1px solid rgba(168, 85, 247, 0.2)',
-              }}>
-                <span style={{ fontWeight: 600 }}>{recipe.carbs_grams}g</span> Carbs
+              <span className={`${styles.macroBadge} ${styles.macroBadgeCarbs}`}>
+                <span className={styles.macroValue}>{recipe.carbs_grams}g</span> Carbs
               </span>
             )}
             {recipe.fat_grams != null && (
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.125rem 0.5rem',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                color: '#f59e0b',
-                borderRadius: '9999px',
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                border: '1px solid rgba(245, 158, 11, 0.2)',
-              }}>
-                <span style={{ fontWeight: 600 }}>{recipe.fat_grams}g</span> Fat
+              <span className={`${styles.macroBadge} ${styles.macroBadgeFat}`}>
+                <span className={styles.macroValue}>{recipe.fat_grams}g</span> Fat
               </span>
             )}
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>per serving</span>
+            <span className={styles.perServing}>per serving</span>
           </div>
         ) : (
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+          <span className={styles.noNutrition}>
             No nutrition data
           </span>
         )}
         <button
           onClick={handleCalculateNutrition}
           disabled={calculatingNutrition || recipe.ingredients.length === 0}
-          className="btn btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
+          className={styles.calcBtn}
         >
           {calculatingNutrition ? 'Calculating...' : recipe.calories_per_serving != null ? 'Recalculate' : 'Calculate'}
         </button>
@@ -639,16 +564,7 @@ export default function RecipeDetailPage() {
       <button
         onClick={handleAddToList}
         disabled={adding || checkingPantry || recipe.ingredients.length === 0}
-        className="btn btn-primary"
-        style={{
-          width: '100%',
-          marginBottom: '0.75rem',
-          padding: '0.75rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem',
-        }}
+        className={styles.addToListBtn}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
@@ -659,18 +575,18 @@ export default function RecipeDetailPage() {
       </button>
 
       {/* Ingredients */}
-      <div className="card" ref={ingredientsContainerRef} style={{ padding: '0.75rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 500 }}>Ingredients ({recipe.ingredients.length})</h2>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{isMac ? '⌥A' : 'Alt+A'} to add</span>
+      <div className={styles.card} ref={ingredientsContainerRef}>
+        <div className={styles.cardHeader}>
+          <h2 className={styles.cardTitle}>Ingredients ({recipe.ingredients.length})</h2>
+          <span className={styles.shortcut}>{isMac ? '⌥A' : 'Alt+A'} to add</span>
         </div>
 
         {recipe.ingredients.length > 0 && (
-          <div style={ingredientStyles.header}>
-            <span style={{ flex: 2 }}>Name</span>
-            <span style={{ flex: 1 }}>Quantity</span>
+          <div className={styles.ingredientHeader}>
+            <span className={styles.ingredientName}>Name</span>
+            <span className={styles.ingredientQty}>Quantity</span>
             <span style={{ width: '70px' }}>Pantry</span>
-            <span style={{ flex: 1.5 }}>Notes</span>
+            <span className={styles.ingredientNotes}>Notes</span>
             <span style={{ width: '70px' }}>Store</span>
             <span style={{ width: '48px' }}></span>
           </div>
@@ -678,23 +594,21 @@ export default function RecipeDetailPage() {
 
         {recipe.ingredients.map((ing) =>
           editingId === ing.id ? (
-            <div key={ing.id} style={ingredientStyles.row}>
+            <div key={ing.id} className={styles.ingredientRow}>
               <input
                 type="text"
-                className="input"
+                className={styles.nameInput}
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 onKeyDown={handleEditRowKeyDown}
-                style={ingredientStyles.nameInput}
                 autoFocus
               />
               <input
                 type="text"
-                className="input"
+                className={styles.qtyInput}
                 value={editQty}
                 onChange={(e) => setEditQty(e.target.value)}
                 onKeyDown={handleEditRowKeyDown}
-                style={ingredientStyles.qtyInput}
               />
               {/* Pantry status - read-only display in edit mode, matching width */}
               {(() => {
@@ -702,17 +616,12 @@ export default function RecipeDetailPage() {
                 const pantryItem = findPantryItem(ing.name);
                 return (
                   <select
-                    className="input"
+                    className={styles.pantrySelect}
                     value={isSkip ? 'skip' : (pantryItem?.status || '')}
                     disabled={isSkip}
                     onChange={(e) => handlePantryStatusChange(ing.name, e.target.value as 'have' | 'low' | 'out' | '')}
                     onClick={(e) => e.stopPropagation()}
-                    style={{
-                      width: '70px',
-                      padding: '0.35rem 0.25rem',
-                      fontSize: '0.75rem',
-                      opacity: isSkip ? 0.5 : 1,
-                    }}
+                    style={{ opacity: isSkip ? 0.5 : 1 }}
                   >
                     {isSkip ? (
                       <option value="skip">N/A</option>
@@ -729,19 +638,18 @@ export default function RecipeDetailPage() {
               })()}
               <input
                 type="text"
-                className="input"
+                className={styles.notesInput}
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
                 onKeyDown={handleEditRowKeyDown}
                 maxLength={200}
-                style={ingredientStyles.notesInput}
               />
-              <select className="input" value={editStore} onChange={(e) => setEditStore(e.target.value)} onKeyDown={handleEditRowKeyDown} style={ingredientStyles.storeSelect}>
+              <select className={styles.storeSelect} value={editStore} onChange={(e) => setEditStore(e.target.value)} onKeyDown={handleEditRowKeyDown}>
                 <option value="">Default</option>
                 <option value="Grocery">Grocery</option>
                 <option value="Costco">Costco</option>
               </select>
-              <div style={{ display: 'flex', gap: '0.125rem' }}>
+              <div className={styles.actionBtns}>
                 <IconButton onClick={saveEdit} variant="accent" size="sm" title="Save">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="20 6 9 17 4 12"></polyline>
@@ -758,56 +666,51 @@ export default function RecipeDetailPage() {
           ) : (
             <div
               key={ing.id}
-              style={{ ...ingredientStyles.row, cursor: 'pointer' }}
+              className={styles.ingredientRow}
               onClick={() => startEdit(ing)}
             >
-              <span style={{ flex: 2, fontSize: '0.875rem' }}>
+              <span className={styles.ingredientName}>
                 {ing.name}
-                {ing.store_preference && <span style={ingredientStyles.storeBadge(ing.store_preference)}>{ing.store_preference}</span>}
+                {ing.store_preference && (
+                  <span className={`${styles.storeBadge} ${ing.store_preference === 'Grocery' ? styles.storeBadgeGrocery : styles.storeBadgeCostco}`}>
+                    {ing.store_preference}
+                  </span>
+                )}
               </span>
-              <span style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{ing.quantity || '-'}</span>
+              <span className={styles.ingredientQty}>{ing.quantity || '-'}</span>
               {/* Pantry status cell - editable dropdown */}
               {(() => {
                 const isSkip = isSkipIngredient(ing.name);
                 const pantryItem = findPantryItem(ing.name);
                 const status = pantryItem?.status;
-                const statusColors: Record<string, string> = {
-                  have: '#22c55e',
-                  low: '#f59e0b',
-                  out: '#ef4444',
-                };
+                const statusClass = status === 'have' ? styles.pantrySelectHave
+                  : status === 'low' ? styles.pantrySelectLow
+                  : status === 'out' ? styles.pantrySelectOut : '';
                 return (
                   <select
-                    className="input"
+                    className={`${styles.pantrySelect} ${statusClass}`}
                     value={isSkip ? 'skip' : (status || '')}
                     disabled={isSkip}
                     onChange={(e) => handlePantryStatusChange(ing.name, e.target.value as 'have' | 'low' | 'out' | '')}
                     onClick={(e) => e.stopPropagation()}
-                    style={{
-                      width: '70px',
-                      padding: '0.35rem 0.25rem',
-                      fontSize: '0.75rem',
-                      opacity: isSkip ? 0.5 : 1,
-                      color: status && statusColors[status] ? statusColors[status] : 'inherit',
-                      fontWeight: status ? 500 : 'normal',
-                    }}
+                    style={{ opacity: isSkip ? 0.5 : 1 }}
                   >
                     {isSkip ? (
                       <option value="skip">N/A</option>
                     ) : (
                       <>
                         <option value="">-</option>
-                        <option value="have" style={{ color: statusColors.have }}>Have</option>
-                        <option value="low" style={{ color: statusColors.low }}>Low</option>
-                        <option value="out" style={{ color: statusColors.out }}>Out</option>
+                        <option value="have">Have</option>
+                        <option value="low">Low</option>
+                        <option value="out">Out</option>
                       </>
                     )}
                   </select>
                 );
               })()}
-              <span style={{ flex: 1.5, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{ing.description || '-'}</span>
+              <span className={styles.ingredientNotes}>{ing.description || '-'}</span>
               <span style={{ width: '70px' }}></span>
-              <div style={{ width: '48px', display: 'flex', gap: '0.125rem' }}>
+              <div className={styles.actionBtns} style={{ width: '48px' }}>
                 <IconButton
                   onClick={(e) => { e.stopPropagation(); startEdit(ing); }}
                   size="sm"
@@ -835,44 +738,41 @@ export default function RecipeDetailPage() {
 
         {/* New ingredient row */}
         {showNewRow ? (
-          <div style={ingredientStyles.row}>
+          <div className={styles.ingredientRow}>
             <input
               ref={newNameRef}
               type="text"
-              className="input"
+              className={styles.nameInput}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={handleNewRowKeyDown}
               placeholder="Ingredient *"
-              style={ingredientStyles.nameInput}
             />
             <input
               type="text"
-              className="input"
+              className={styles.qtyInput}
               value={newQty}
               onChange={(e) => setNewQty(e.target.value)}
               onKeyDown={handleNewRowKeyDown}
               placeholder="Qty"
-              style={ingredientStyles.qtyInput}
             />
             {/* Empty placeholder for pantry column in new row */}
             <span style={{ width: '70px' }}></span>
             <input
               type="text"
-              className="input"
+              className={styles.notesInput}
               value={newNotes}
               onChange={(e) => setNewNotes(e.target.value)}
               onKeyDown={handleNewRowKeyDown}
               placeholder="Notes"
               maxLength={200}
-              style={ingredientStyles.notesInput}
             />
-            <select className="input" value={newStore} onChange={(e) => setNewStore(e.target.value)} onKeyDown={handleNewRowKeyDown} style={ingredientStyles.storeSelect}>
+            <select className={styles.storeSelect} value={newStore} onChange={(e) => setNewStore(e.target.value)} onKeyDown={handleNewRowKeyDown}>
               <option value="">Default</option>
               <option value="Grocery">Grocery</option>
               <option value="Costco">Costco</option>
             </select>
-            <div style={{ display: 'flex', gap: '0.125rem' }}>
+            <div className={styles.actionBtns}>
               <IconButton onClick={addIngredient} variant="accent" size="sm" title="Add">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
@@ -887,7 +787,7 @@ export default function RecipeDetailPage() {
             </div>
           </div>
         ) : (
-          <button type="button" onClick={openNewRow} style={ingredientStyles.addButton}>
+          <button type="button" onClick={openNewRow} className={styles.addBtn}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -898,23 +798,13 @@ export default function RecipeDetailPage() {
       </div>
 
       {/* Instructions Section */}
-      <div className="card" style={{ padding: '0.75rem', marginTop: '1rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 500 }}>Instructions</h2>
+      <div className={styles.instructionsCard}>
+        <div className={styles.instructionsHeader}>
+          <h2 className={styles.instructionsTitle}>Instructions</h2>
           {recipe.instructions && (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className={styles.instructionsBtns}>
               {completedSteps.length > 0 && (
-                <button
-                  onClick={handleResetProgress}
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    fontSize: '0.875rem',
-                    background: 'transparent',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                  }}
-                >
+                <button onClick={handleResetProgress} className={styles.instructionsBtn}>
                   Reset Progress
                 </button>
               )}
@@ -923,14 +813,7 @@ export default function RecipeDetailPage() {
                   setEditingInstructions(!editingInstructions);
                   setInstructionsText(recipe.instructions || '');
                 }}
-                style={{
-                  padding: '0.25rem 0.5rem',
-                  fontSize: '0.875rem',
-                  background: 'transparent',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                }}
+                className={styles.instructionsBtn}
               >
                 {editingInstructions ? 'Cancel' : 'Edit'}
               </button>
@@ -941,22 +824,13 @@ export default function RecipeDetailPage() {
         {editingInstructions ? (
           <div>
             <textarea
+              className={styles.textarea}
               value={instructionsText}
               onChange={(e) => setInstructionsText(e.target.value)}
               placeholder="Enter recipe instructions here. You can use markdown formatting:&#10;&#10;1. First step&#10;2. Second step&#10;&#10;**Bold text** and *italic text* are supported."
-              style={{
-                width: '100%',
-                minHeight: '200px',
-                padding: '0.5rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                resize: 'vertical',
-              }}
               autoFocus={!recipe.instructions}
             />
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div className={styles.instructionsBtns} style={{ marginTop: '0.5rem' }}>
               <button
                 onClick={async () => {
                   await api.updateRecipe(recipe.id, { instructions: instructionsText });
@@ -966,14 +840,7 @@ export default function RecipeDetailPage() {
                   await api.resetStepCompletions(recipe.id);
                   setCompletedSteps([]);
                 }}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'var(--accent)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                }}
+                className={styles.saveInstructionsBtn}
               >
                 Save Instructions
               </button>
@@ -983,13 +850,7 @@ export default function RecipeDetailPage() {
                     setEditingInstructions(false);
                     setInstructionsText('');
                   }}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: 'transparent',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                  }}
+                  className={styles.cancelBtn}
                 >
                   Cancel
                 </button>
@@ -1003,15 +864,7 @@ export default function RecipeDetailPage() {
             onToggleStep={handleToggleStep}
           />
         ) : (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '2rem 1rem',
-              color: 'var(--text-secondary)',
-            }}
-          >
+          <div className={styles.emptyInstructions}>
             <svg
               width="48"
               height="48"
@@ -1019,7 +872,7 @@ export default function RecipeDetailPage() {
               fill="none"
               stroke="currentColor"
               strokeWidth="1.5"
-              style={{ marginBottom: '1rem', opacity: 0.5 }}
+              className={styles.emptyIcon}
             >
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -1027,7 +880,7 @@ export default function RecipeDetailPage() {
               <line x1="16" y1="17" x2="8" y2="17"></line>
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-            <p style={{ margin: '0 0 1rem 0', textAlign: 'center' }}>
+            <p className={styles.emptyText}>
               No instructions yet
             </p>
             <button
@@ -1035,13 +888,7 @@ export default function RecipeDetailPage() {
                 setInstructionsText('');
                 setEditingInstructions(true);
               }}
-              className="btn btn-primary"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 1rem',
-              }}
+              className={styles.addInstructionsBtn}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>

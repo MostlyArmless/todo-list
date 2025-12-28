@@ -4,6 +4,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Components } from 'react-markdown';
+import styles from './MarkdownInstructions.module.css';
 
 interface Props {
   markdown: string;
@@ -15,17 +16,13 @@ interface Props {
 function CheckboxListItem({
   children,
   itemNumber,
-  stepIndex,
   isCompleted,
   handleToggle,
-  checkboxStyle,
 }: {
   children: React.ReactNode;
   itemNumber?: number;
-  stepIndex: number;
   isCompleted: boolean;
   handleToggle: () => void;
-  checkboxStyle: React.CSSProperties;
   [key: string]: unknown;
 }) {
   // Filter out any existing checkbox inputs from children
@@ -40,23 +37,9 @@ function CheckboxListItem({
     : children;
 
   return (
-    <li
-      style={{
-        listStyle: 'none',
-        padding: '0.5rem 0',
-        minHeight: '44px',
-        display: 'flex',
-        alignItems: 'flex-start',
-      }}
-    >
+    <li className={styles.listItem}>
       {itemNumber !== undefined && (
-        <span style={{
-          minWidth: '28px',
-          marginRight: '4px',
-          fontWeight: 500,
-          color: 'var(--text-secondary)',
-          flexShrink: 0,
-        }}>
+        <span className={styles.itemNumber}>
           {itemNumber}.
         </span>
       )}
@@ -64,9 +47,9 @@ function CheckboxListItem({
         type="checkbox"
         checked={isCompleted}
         onChange={handleToggle}
-        style={checkboxStyle}
+        className={styles.checkbox}
       />
-      <span style={{ flex: 1 }}>{filteredChildren}</span>
+      <span className={styles.itemContent}>{filteredChildren}</span>
     </li>
   );
 }
@@ -74,16 +57,6 @@ function CheckboxListItem({
 export default function MarkdownInstructions({ markdown, completedSteps, onToggleStep }: Props) {
   // Track step index as we render list items (all list items get checkboxes)
   let stepIndex = -1;
-
-  // Checkbox styles shared across all list items
-  const checkboxStyle: React.CSSProperties = {
-    width: '20px',
-    height: '20px',
-    marginRight: '8px',
-    cursor: 'pointer',
-    accentColor: 'var(--accent)',
-    flexShrink: 0,
-  };
 
   const components: Components = {
     // Ignore any existing checkbox inputs from markdown task list syntax
@@ -103,10 +76,8 @@ export default function MarkdownInstructions({ markdown, completedSteps, onToggl
 
       return (
         <CheckboxListItem
-          stepIndex={currentIndex}
           isCompleted={isCompleted}
           handleToggle={() => onToggleStep(currentIndex)}
-          checkboxStyle={checkboxStyle}
           {...props}
         >
           {children}
@@ -116,13 +87,7 @@ export default function MarkdownInstructions({ markdown, completedSteps, onToggl
     // Style lists for checkbox items - ul doesn't show numbers
     ul: ({ children, ...props }) => {
       return (
-        <ul
-          style={{
-            paddingLeft: '0.5em',
-            margin: '0.5em 0',
-          }}
-          {...props}
-        >
+        <ul className={styles.list} {...props}>
           {children}
         </ul>
       );
@@ -142,13 +107,7 @@ export default function MarkdownInstructions({ markdown, completedSteps, onToggl
       });
 
       return (
-        <ol
-          style={{
-            paddingLeft: '0.5em',
-            margin: '0.5em 0',
-          }}
-          {...props}
-        >
+        <ol className={styles.list} {...props}>
           {numberedChildren}
         </ol>
       );
@@ -156,11 +115,7 @@ export default function MarkdownInstructions({ markdown, completedSteps, onToggl
   };
 
   return (
-    <div style={{
-      fontSize: '16px',
-      lineHeight: '1.6',
-      color: 'var(--text-primary)',
-    }}>
+    <div className={styles.container}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {markdown}
       </ReactMarkdown>

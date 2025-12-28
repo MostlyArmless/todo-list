@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type List } from '@/lib/api';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
+import styles from './page.module.css';
 
 export default function ListsPage() {
   const router = useRouter();
@@ -25,7 +26,6 @@ export default function ListsPage() {
   const loadLists = async () => {
     try {
       const data = await api.getLists();
-      // Sort alphabetically by name for stable ordering
       const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
       setLists(sorted);
     } catch (error) {
@@ -68,80 +68,45 @@ export default function ListsPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      <div className={styles.container}>
+        <p className={styles.loading}>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>My Lists</h1>
+    <div className={styles.container}>
+      <h1 className={styles.title}>My Lists</h1>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className={styles.listContainer}>
         {lists.map((list) => (
           <div
             key={list.id}
-            className="card"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              transition: 'all 0.2s',
-              cursor: 'pointer',
-              border: '1px solid var(--border)',
-            }}
+            className={styles.listCard}
             onClick={() => router.push(`/list/${list.id}`)}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = 'var(--accent)';
-              e.currentTarget.style.transform = 'translateX(4px)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.transform = 'translateX(0)';
-            }}
           >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-                  {list.icon && <span style={{ marginRight: '0.5rem' }}>{list.icon}</span>}
-                  {list.name}
-                </h2>
+            <div className={styles.listInfo}>
+              <h2>
+                {list.icon && <span className={styles.listIcon}>{list.icon}</span>}
+                {list.name}
                 {(list as List & { unchecked_count?: number }).unchecked_count != null &&
                   (list as List & { unchecked_count?: number }).unchecked_count! > 0 && (
-                    <span
-                      style={{
-                        backgroundColor: 'var(--accent)',
-                        color: 'white',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        padding: '0.125rem 0.5rem',
-                        borderRadius: '9999px',
-                        minWidth: '1.5rem',
-                        textAlign: 'center',
-                      }}
-                    >
+                    <span className={styles.countBadge}>
                       {(list as List & { unchecked_count?: number }).unchecked_count}
                     </span>
                   )}
-              </div>
+              </h2>
               {list.description && (
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                  {list.description}
-                </p>
+                <p className={styles.listDescription}>{list.description}</p>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className={styles.listActions}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeleteList(list.id, list.name);
                 }}
-                style={{
-                  color: 'var(--text-secondary)',
-                  padding: '0.5rem',
-                  flexShrink: 0,
-                }}
+                className={styles.deleteBtn}
                 title="Delete list"
               >
                 <svg
@@ -175,18 +140,17 @@ export default function ListsPage() {
         ))}
 
         {showNewList ? (
-          <form onSubmit={handleCreateList} className="card">
+          <form onSubmit={handleCreateList} className={styles.newListCard}>
             <input
               type="text"
               placeholder="List name"
-              className="input"
+              className={styles.input}
               value={newListName}
               onChange={(e) => setNewListName(e.target.value)}
               autoFocus
-              style={{ marginBottom: '1rem' }}
             />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+            <div className={styles.formButtons}>
+              <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
                 Create
               </button>
               <button
@@ -195,27 +159,14 @@ export default function ListsPage() {
                   setShowNewList(false);
                   setNewListName('');
                 }}
-                className="btn btn-secondary"
-                style={{ flex: 1 }}
+                className={`${styles.btn} ${styles.btnSecondary}`}
               >
                 Cancel
               </button>
             </div>
           </form>
         ) : (
-          <button
-            onClick={() => setShowNewList(true)}
-            className="card"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              border: '2px dashed var(--border)',
-            }}
-          >
+          <button onClick={() => setShowNewList(true)} className={styles.addListCard}>
             <svg
               width="24"
               height="24"

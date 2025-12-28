@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, RecipeImport } from '@/lib/api';
 import MarkdownInstructions from '@/components/MarkdownInstructions';
+import styles from './page.module.css';
 
 type Stage = 'loading' | 'input' | 'processing' | 'preview' | 'saving';
 
@@ -141,71 +142,43 @@ export default function ImportRecipePage() {
   };
 
   return (
-    <div style={{ padding: '1rem', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Import Recipe</h1>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Import Recipe</h1>
 
       {error && (
-        <div style={{
-          padding: '0.75rem',
-          background: 'var(--danger-muted)',
-          color: 'var(--danger)',
-          borderRadius: 'var(--radius-sm)',
-          marginBottom: '1rem',
-        }}>
+        <div className={styles.error}>
           {error}
         </div>
       )}
 
       {stage === 'loading' && (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+        <div className={styles.loading}>
+          <p className={styles.loadingText}>Loading...</p>
         </div>
       )}
 
       {stage === 'input' && (
         <>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          <p className={styles.description}>
             Paste a recipe from any source and we&apos;ll automatically parse it.
           </p>
           <textarea
+            className={styles.textarea}
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             placeholder="Paste your recipe here..."
-            style={{
-              width: '100%',
-              minHeight: '300px',
-              padding: '0.75rem',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '14px',
-              fontFamily: 'inherit',
-            }}
           />
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+          <div className={styles.buttonRow}>
             <button
               onClick={handleSubmit}
               disabled={!rawText.trim()}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: rawText.trim() ? 'var(--accent)' : 'var(--bg-tertiary)',
-                color: rawText.trim() ? 'white' : 'var(--text-muted)',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                cursor: rawText.trim() ? 'pointer' : 'not-allowed',
-                fontWeight: 500,
-              }}
+              className={styles.primaryBtn}
             >
               Import Recipe
             </button>
             <button
               onClick={() => router.push('/recipes')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: 'transparent',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-              }}
+              className={styles.secondaryBtn}
             >
               Cancel
             </button>
@@ -214,84 +187,49 @@ export default function ImportRecipePage() {
       )}
 
       {stage === 'processing' && (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid var(--border)',
-            borderTopColor: 'var(--accent)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1rem',
-          }} />
+        <div className={styles.processing}>
+          <div className={styles.spinner} />
           <p>Parsing recipe...</p>
-          <style>{`
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
         </div>
       )}
 
       {stage === 'preview' && (
         <>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          <p className={styles.description}>
             Review and edit the parsed recipe before saving.
           </p>
 
           {/* Name */}
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>Name</label>
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>Name</label>
             <input
+              className={styles.input}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.5rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-              }}
             />
           </div>
 
           {/* Servings */}
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>Servings</label>
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>Servings</label>
             <input
               type="number"
+              className={styles.smallInput}
               value={servings || ''}
               onChange={(e) => setServings(e.target.value ? parseInt(e.target.value) : null)}
-              style={{
-                width: '100px',
-                padding: '0.5rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-              }}
             />
           </div>
 
           {/* Ingredients */}
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>
               Ingredients ({ingredients.length})
             </label>
-            <div style={{
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              maxHeight: '200px',
-              overflow: 'auto',
-            }}>
+            <div className={styles.ingredientsList}>
               {ingredients.map((ing, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: '0.5rem',
-                    borderBottom: idx < ingredients.length - 1 ? '1px solid var(--border)' : 'none',
-                    display: 'flex',
-                    gap: '0.5rem',
-                  }}
-                >
+                <div key={idx} className={styles.ingredientItem}>
                   <input
+                    className={styles.qtyInput}
                     value={ing.quantity || ''}
                     onChange={(e) => {
                       const newIngs = [...ingredients];
@@ -299,9 +237,9 @@ export default function ImportRecipePage() {
                       setIngredients(newIngs);
                     }}
                     placeholder="Qty"
-                    style={{ width: '70px', padding: '0.25rem', border: '1px solid var(--border)', borderRadius: '4px' }}
                   />
                   <input
+                    className={styles.nameInput}
                     value={ing.name}
                     onChange={(e) => {
                       const newIngs = [...ingredients];
@@ -309,9 +247,9 @@ export default function ImportRecipePage() {
                       setIngredients(newIngs);
                     }}
                     placeholder="Name"
-                    style={{ flex: 1, padding: '0.25rem', border: '1px solid var(--border)', borderRadius: '4px' }}
                   />
                   <input
+                    className={styles.notesInput}
                     value={ing.description || ''}
                     onChange={(e) => {
                       const newIngs = [...ingredients];
@@ -319,17 +257,10 @@ export default function ImportRecipePage() {
                       setIngredients(newIngs);
                     }}
                     placeholder="Notes"
-                    style={{ width: '120px', padding: '0.25rem', border: '1px solid var(--border)', borderRadius: '4px', fontStyle: 'italic', color: 'var(--text-secondary)' }}
                   />
                   <button
                     onClick={() => setIngredients(ingredients.filter((_, i) => i !== idx))}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--danger)',
-                      cursor: 'pointer',
-                      padding: '0.25rem',
-                    }}
+                    className={styles.removeBtn}
                   >
                     x
                   </button>
@@ -339,33 +270,20 @@ export default function ImportRecipePage() {
           </div>
 
           {/* Instructions */}
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>Instructions</label>
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>Instructions</label>
             <textarea
+              className={styles.instructionsTextarea}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              style={{
-                width: '100%',
-                minHeight: '200px',
-                padding: '0.5rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-              }}
             />
           </div>
 
           {/* Preview */}
           {instructions && (
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500 }}>Preview</label>
-              <div style={{
-                padding: '0.75rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-secondary)',
-              }}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Preview</label>
+              <div className={styles.previewBox}>
                 <MarkdownInstructions
                   markdown={instructions}
                   completedSteps={[]}
@@ -375,31 +293,11 @@ export default function ImportRecipePage() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={handleConfirm}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: 'var(--accent)',
-                color: 'white',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
+          <div className={styles.buttonRow}>
+            <button onClick={handleConfirm} className={styles.primaryBtn}>
               Save Recipe
             </button>
-            <button
-              onClick={handleCancel}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: 'transparent',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-              }}
-            >
+            <button onClick={handleCancel} className={styles.secondaryBtn}>
               Cancel
             </button>
           </div>
@@ -407,7 +305,7 @@ export default function ImportRecipePage() {
       )}
 
       {stage === 'saving' && (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
+        <div className={styles.saving}>
           <p>Saving recipe...</p>
         </div>
       )}

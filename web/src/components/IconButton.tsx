@@ -1,6 +1,5 @@
-'use client';
-
 import { ButtonHTMLAttributes, ReactNode } from 'react';
+import styles from './IconButton.module.css';
 
 type IconButtonVariant = 'default' | 'accent' | 'danger';
 
@@ -10,61 +9,35 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md';
 }
 
-const variantStyles: Record<IconButtonVariant, { color: string; hoverBg: string }> = {
-  default: {
-    color: 'var(--text-secondary)',
-    hoverBg: 'rgba(255, 255, 255, 0.1)',
-  },
-  accent: {
-    color: 'var(--accent)',
-    hoverBg: 'rgba(233, 69, 96, 0.15)',
-  },
-  danger: {
-    color: 'var(--danger)',
-    hoverBg: 'rgba(239, 68, 68, 0.15)',
-  },
+const variantClasses: Record<IconButtonVariant, string> = {
+  default: styles.variantDefault,
+  accent: styles.variantAccent,
+  danger: styles.variantDanger,
 };
 
-const sizeStyles: Record<'sm' | 'md', { padding: string; iconSize: string }> = {
-  sm: { padding: '0.25rem', iconSize: '14px' },
-  md: { padding: '0.5rem', iconSize: '20px' },
+const sizeClasses: Record<'sm' | 'md', string> = {
+  sm: styles.sizeSm,
+  md: styles.sizeMd,
 };
 
 export default function IconButton({
   children,
   variant = 'default',
   size = 'md',
-  style,
+  className,
   ...props
 }: IconButtonProps) {
-  const { color, hoverBg } = variantStyles[variant];
-  const { padding } = sizeStyles[size];
+  const classes = [
+    styles.iconButton,
+    variantClasses[variant],
+    sizeClasses[size],
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <button
-      {...props}
-      style={{
-        color,
-        padding,
-        borderRadius: '0.375rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'all 0.15s ease',
-        flexShrink: 0,
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = hoverBg;
-        e.currentTarget.style.transform = 'scale(1.1)';
-        props.onMouseEnter?.(e);
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = 'transparent';
-        e.currentTarget.style.transform = 'scale(1)';
-        props.onMouseLeave?.(e);
-      }}
-    >
+    <button {...props} className={classes}>
       {children}
     </button>
   );

@@ -598,7 +598,7 @@ export interface PantryItem {
   normalized_name: string;
   status: 'have' | 'low' | 'out';
   category: string | null;
-  preferred_store: 'Grocery' | 'Costco' | null;
+  preferred_store: string | null;
   created_at: string;
   updated_at: string;
 }

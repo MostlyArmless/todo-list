@@ -3,11 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import {
-  useIngredientKeyboard,
-  ingredientStyles,
-} from '@/hooks/useIngredientKeyboard';
+import { useIngredientKeyboard } from '@/hooks/useIngredientKeyboard';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
+import styles from './page.module.css';
 
 interface IngredientDraft {
   id: string;
@@ -93,105 +91,98 @@ export default function NewRecipePage() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h1 style={{ fontSize: '1.5rem' }}>New Recipe</h1>
-        <button onClick={() => router.push('/recipes')} className="btn btn-secondary" style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>New Recipe</h1>
+        <button onClick={() => router.push('/recipes')} className={styles.cancelBtn}>
           Cancel
         </button>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="card" style={{ marginBottom: '0.75rem', padding: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className={styles.card}>
+          <div className={styles.formRow}>
             <input
               type="text"
-              className="input"
+              className={styles.nameInput}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Recipe name *"
               required
-              style={{ flex: 2, padding: '0.5rem' }}
             />
             <input
               type="text"
-              className="input"
+              className={styles.descInput}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
-              style={{ flex: 2, padding: '0.5rem' }}
             />
             <input
               type="number"
-              className="input"
+              className={styles.servingsInput}
               value={servings}
               onChange={(e) => setServings(e.target.value)}
               placeholder="Servings"
               min="1"
-              style={{ width: '80px', padding: '0.5rem' }}
             />
           </div>
         </div>
 
-        <div className="card" style={{ padding: '0.75rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 500 }}>Ingredients</h2>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{isMac ? '⌥A' : 'Alt+A'} to add</span>
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <h2 className={styles.cardTitle}>Ingredients</h2>
+            <span className={styles.shortcut}>{isMac ? '⌥A' : 'Alt+A'} to add</span>
           </div>
 
           {ingredients.length > 0 && (
-            <div style={ingredientStyles.header}>
-              <span style={{ flex: 2 }}>Name</span>
-              <span style={{ flex: 1 }}>Quantity</span>
-              <span style={{ flex: 1.5 }}>Notes</span>
+            <div className={styles.ingredientHeader}>
+              <span className={styles.ingredientName}>Name</span>
+              <span className={styles.ingredientQty}>Quantity</span>
+              <span className={styles.ingredientNotes}>Notes</span>
               <span style={{ width: '70px' }}>Store</span>
               <span style={{ width: '24px' }}></span>
             </div>
           )}
 
           {ingredients.map((ing) => (
-            <div key={ing.id} style={ingredientStyles.row}>
+            <div key={ing.id} className={styles.ingredientRow}>
               <input
                 ref={(el) => { if (el) ingredientRefs.current.set(ing.id, el); }}
                 type="text"
-                className="input"
+                className={styles.ingNameInput}
                 value={ing.name}
                 onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)}
                 onKeyDown={(e) => handleIngredientKeyDown(e, ing.id)}
                 placeholder="Ingredient *"
-                style={ingredientStyles.nameInput}
               />
               <input
                 type="text"
-                className="input"
+                className={styles.ingQtyInput}
                 value={ing.quantity}
                 onChange={(e) => updateIngredient(ing.id, 'quantity', e.target.value)}
                 onKeyDown={(e) => handleIngredientKeyDown(e, ing.id)}
                 placeholder="Qty"
-                style={ingredientStyles.qtyInput}
               />
               <input
                 type="text"
-                className="input"
+                className={styles.ingNotesInput}
                 value={ing.description}
                 onChange={(e) => updateIngredient(ing.id, 'description', e.target.value)}
                 onKeyDown={(e) => handleIngredientKeyDown(e, ing.id)}
                 placeholder="Notes"
                 maxLength={200}
-                style={ingredientStyles.notesInput}
               />
               <select
-                className="input"
+                className={styles.storeSelect}
                 value={ing.store_preference}
                 onChange={(e) => updateIngredient(ing.id, 'store_preference', e.target.value)}
                 onKeyDown={(e) => handleIngredientKeyDown(e, ing.id)}
-                style={ingredientStyles.storeSelect}
               >
                 <option value="">Default</option>
                 <option value="Grocery">Grocery</option>
                 <option value="Costco">Costco</option>
               </select>
-              <button type="button" onClick={() => removeIngredient(ing.id)} style={ingredientStyles.deleteButton} title="Remove">
+              <button type="button" onClick={() => removeIngredient(ing.id)} className={styles.deleteBtn} title="Remove">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -200,7 +191,7 @@ export default function NewRecipePage() {
             </div>
           ))}
 
-          <button type="button" onClick={addIngredient} style={ingredientStyles.addButton}>
+          <button type="button" onClick={addIngredient} className={styles.addBtn}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -209,30 +200,22 @@ export default function NewRecipePage() {
           </button>
         </div>
 
-        <div className="card" style={{ padding: '0.75rem', marginTop: '0.75rem' }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '1rem' }}>
+        <div className={styles.instructionsCard}>
+          <div>
+            <label className={styles.label}>
               Instructions (Markdown)
             </label>
             <textarea
+              className={styles.textarea}
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               placeholder="1. Preheat oven to 350F&#10;2. Mix dry ingredients..."
-              style={{
-                width: '100%',
-                minHeight: '150px',
-                padding: '0.5rem',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                fontFamily: 'inherit',
-                fontSize: '14px',
-              }}
             />
           </div>
         </div>
 
-        <div style={{ marginTop: '0.75rem' }}>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ width: '100%', padding: '0.75rem' }}>
+        <div className={styles.submitSection}>
+          <button type="submit" className={styles.submitBtn} disabled={saving}>
             {saving ? 'Creating...' : 'Create Recipe'}
           </button>
         </div>

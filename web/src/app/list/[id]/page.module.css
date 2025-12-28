@@ -407,6 +407,12 @@
   color: var(--text-secondary);
 }
 
+.recipeBadges {
+  display: flex;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+}
+
 .recipeBadge {
   font-size: 0.6rem;
   color: white;

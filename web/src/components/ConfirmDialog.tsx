@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import styles from './ConfirmDialog.module.css';
 
 interface ConfirmOptions {
   title: string;
@@ -73,66 +74,31 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
     <ConfirmDialogContext.Provider value={{ confirm, alert }}>
       {children}
       {dialog && (
-        <div
-          className="modal-overlay"
-          onClick={handleCancel}
-          style={{ animation: 'fadeIn 0.15s ease' }}
-        >
-          <div
-            className="card"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: '400px',
-              animation: 'slideUp 0.15s ease',
-            }}
-          >
-            {/* Header */}
-            <div style={{ marginBottom: '0.75rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 600 }}>
+        <div className={styles.overlay} onClick={handleCancel}>
+          <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.header}>
+              <h2 className={styles.title}>
                 {isConfirm
                   ? (options as ConfirmOptions).title
                   : (options as AlertOptions).title || 'Notice'}
               </h2>
             </div>
 
-            {/* Message */}
-            <p
-              style={{
-                color: 'var(--text-secondary)',
-                fontSize: '0.9375rem',
-                lineHeight: 1.5,
-                marginBottom: '1.5rem',
-              }}
-            >
-              {options?.message}
-            </p>
+            <p className={styles.message}>{options?.message}</p>
 
-            {/* Actions */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '0.5rem',
-                justifyContent: 'flex-end',
-              }}
-            >
+            <div className={styles.actions}>
               {isConfirm && (
-                <button
-                  onClick={handleCancel}
-                  className="btn btn-secondary"
-                  style={{ minWidth: '80px' }}
-                >
+                <button onClick={handleCancel} className={`${styles.btn} ${styles.btnSecondary}`}>
                   {(options as ConfirmOptions).cancelText || 'Cancel'}
                 </button>
               )}
               <button
                 onClick={handleConfirm}
-                className={`btn ${
+                className={`${styles.btn} ${
                   isConfirm && (options as ConfirmOptions).variant === 'danger'
-                    ? 'btn-danger'
-                    : 'btn-primary'
+                    ? styles.btnDanger
+                    : styles.btnPrimary
                 }`}
-                style={{ minWidth: '80px' }}
               >
                 {isConfirm
                   ? (options as ConfirmOptions).confirmText || 'Confirm'
@@ -142,27 +108,6 @@ export function ConfirmDialogProvider({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
     </ConfirmDialogContext.Provider>
   );
 }
