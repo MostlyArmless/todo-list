@@ -25,7 +25,9 @@ export default function ListsPage() {
   const loadLists = async () => {
     try {
       const data = await api.getLists();
-      setLists(data);
+      // Sort alphabetically by name for stable ordering
+      const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
+      setLists(sorted);
     } catch (error) {
       console.error('Failed to load lists:', error);
     } finally {

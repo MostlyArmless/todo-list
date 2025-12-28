@@ -48,6 +48,8 @@ export default function ListDetailPage() {
   const [existingPantryItems, setExistingPantryItems] = useState<PantryItem[]>([]);
   const [addingToPantry, setAddingToPantry] = useState(false);
   const [addedItemMessage, setAddedItemMessage] = useState<string | null>(null);
+  const [inlineAddCategory, setInlineAddCategory] = useState<number | null | 'uncategorized'>(null);
+  const [inlineItemName, setInlineItemName] = useState('');
 
   useEffect(() => {
     if (!api.getCurrentUser()) {
@@ -104,6 +106,22 @@ export default function ListDetailPage() {
       }
       setTimeout(() => setAddedItemMessage(null), 3000);
 
+      loadData();
+    } catch (error) {
+      console.error('Failed to create item:', error);
+    }
+  };
+
+  const handleInlineAdd = async (categoryId: number | null) => {
+    if (!inlineItemName.trim()) return;
+
+    try {
+      await api.createItem(listId, {
+        name: inlineItemName,
+        category_id: categoryId || undefined,
+      });
+      setInlineItemName('');
+      setInlineAddCategory(null);
       loadData();
     } catch (error) {
       console.error('Failed to create item:', error);
@@ -604,6 +622,78 @@ export default function ListDetailPage() {
                 categories={categories}
               />
             ))}
+            {/* Inline add button/form */}
+            {inlineAddCategory === 'uncategorized' ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleInlineAdd(null);
+                }}
+                style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  alignItems: 'center',
+                }}
+              >
+                <input
+                  type="text"
+                  className="input"
+                  value={inlineItemName}
+                  onChange={(e) => setInlineItemName(e.target.value)}
+                  placeholder="Add item..."
+                  autoFocus
+                  style={{ flex: 1 }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setInlineAddCategory(null);
+                      setInlineItemName('');
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!inlineItemName.trim()) {
+                      setInlineAddCategory(null);
+                    }
+                  }}
+                />
+                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+                  Add
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => {
+                  setInlineAddCategory('uncategorized');
+                  setInlineItemName('');
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '2px dashed var(--border)',
+                  color: 'var(--text-secondary)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)';
+                  e.currentTarget.style.color = 'var(--accent)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add item
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -639,6 +729,18 @@ export default function ListDetailPage() {
               onDeleteItem={handleDeleteItem}
               onUpdateItem={handleUpdateItem}
               allCategories={categories}
+              isInlineAdding={inlineAddCategory === category.id}
+              inlineItemName={inlineItemName}
+              onInlineItemNameChange={setInlineItemName}
+              onStartInlineAdd={() => {
+                setInlineAddCategory(category.id);
+                setInlineItemName('');
+              }}
+              onCancelInlineAdd={() => {
+                setInlineAddCategory(null);
+                setInlineItemName('');
+              }}
+              onSubmitInlineAdd={() => handleInlineAdd(category.id)}
             />
           ))}
         </SortableContext>
@@ -805,6 +907,12 @@ function SortableCategory({
   onDeleteItem,
   onUpdateItem,
   allCategories,
+  isInlineAdding,
+  inlineItemName,
+  onInlineItemNameChange,
+  onStartInlineAdd,
+  onCancelInlineAdd,
+  onSubmitInlineAdd,
 }: {
   category: Category;
   items: Item[];
@@ -824,6 +932,12 @@ function SortableCategory({
   onDeleteItem: (id: number) => void;
   onUpdateItem: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
   allCategories: Category[];
+  isInlineAdding: boolean;
+  inlineItemName: string;
+  onInlineItemNameChange: (name: string) => void;
+  onStartInlineAdd: () => void;
+  onCancelInlineAdd: () => void;
+  onSubmitInlineAdd: () => void;
 }) {
   const {
     attributes,
@@ -984,26 +1098,88 @@ function SortableCategory({
         )}
       </div>
 
-      {items.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {items.map((item) => (
-            <ItemRow
-              key={item.id}
-              item={item}
-              onToggle={onToggleItemCheck}
-              onDelete={onDeleteItem}
-              onUpdate={onUpdateItem}
-              selected={selectedItems.has(item.id)}
-              onSelect={() => onToggleItemSelection(item.id)}
-              categories={allCategories}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {items.map((item) => (
+          <ItemRow
+            key={item.id}
+            item={item}
+            onToggle={onToggleItemCheck}
+            onDelete={onDeleteItem}
+            onUpdate={onUpdateItem}
+            selected={selectedItems.has(item.id)}
+            onSelect={() => onToggleItemSelection(item.id)}
+            categories={allCategories}
+          />
+        ))}
+        {/* Inline add button/form */}
+        {isInlineAdding ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSubmitInlineAdd();
+            }}
+            style={{
+              display: 'flex',
+              gap: '0.5rem',
+              alignItems: 'center',
+            }}
+          >
+            <input
+              type="text"
+              className="input"
+              value={inlineItemName}
+              onChange={(e) => onInlineItemNameChange(e.target.value)}
+              placeholder="Add item..."
+              autoFocus
+              style={{ flex: 1 }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  onCancelInlineAdd();
+                }
+              }}
+              onBlur={() => {
+                if (!inlineItemName.trim()) {
+                  onCancelInlineAdd();
+                }
+              }}
             />
-          ))}
-        </div>
-      ) : (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontStyle: 'italic', marginLeft: '26px' }}>
-          No items in this category yet
-        </p>
-      )}
+            <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>
+              Add
+            </button>
+          </form>
+        ) : (
+          <button
+            onClick={onStartInlineAdd}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem',
+              borderRadius: '8px',
+              border: '2px dashed var(--border)',
+              color: 'var(--text-secondary)',
+              background: 'transparent',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent)';
+              e.currentTarget.style.color = 'var(--accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add item
+          </button>
+        )}
+      </div>
     </div>
   );
 }
