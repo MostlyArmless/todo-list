@@ -69,8 +69,8 @@
   /* Background Colors - Dark Theme */
   --bg-primary: #1a1a2e;
   --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --bg-tertiary-hover: #1a4a7a;
+  --bg-tertiary: #3b5998;
+  --bg-tertiary-hover: #4a6aa8;
   --bg-hover: rgba(59, 130, 246, 0.1);
 
   /* Text Colors */
@@ -225,6 +225,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 1rem;
+  color: var(--text-primary);
 }
 
 /* Card with hover effect (for clickable cards) */

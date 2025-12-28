@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api, type List, type Category, type Item, type PantryItem } from '@/lib/api';
+import IconButton from '@/components/IconButton';
 import {
   DndContext,
   closestCenter,
@@ -767,15 +768,12 @@ export default function ListDetailPage() {
                 Track these {recentlyChecked.length} item{recentlyChecked.length !== 1 ? 's' : ''} in your pantry
               </p>
             </div>
-            <button
-              onClick={dismissPantryPrompt}
-              style={{ color: 'var(--text-secondary)', padding: '0.25rem' }}
-            >
+            <IconButton onClick={dismissPantryPrompt} title="Dismiss">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
-            </button>
+            </IconButton>
           </div>
           <div
             style={{
@@ -1250,7 +1248,7 @@ function ItemRow({
                   key={source.recipe_id ?? `adhoc-${idx}`}
                   style={{
                     fontSize: '0.65rem',
-                    backgroundColor: source.recipe_id ? 'var(--accent)' : 'var(--text-secondary)',
+                    backgroundColor: source.label_color || (source.recipe_id ? '#e6194b' : 'var(--text-secondary)'),
                     color: 'white',
                     padding: '0.1rem 0.4rem',
                     borderRadius: '3px',

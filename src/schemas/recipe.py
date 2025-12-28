@@ -49,6 +49,7 @@ class RecipeCreate(BaseModel):
     name: str
     description: str | None = None
     servings: int | None = None
+    label_color: str | None = None  # Hex color like "#e94560"
     ingredients: list[RecipeIngredientCreate] = []
 
 
@@ -58,6 +59,7 @@ class RecipeUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     servings: int | None = None
+    label_color: str | None = None
 
 
 class RecipeResponse(BaseModel):
@@ -70,6 +72,7 @@ class RecipeResponse(BaseModel):
     name: str
     description: str | None
     servings: int | None
+    label_color: str | None
     ingredients: list[RecipeIngredientResponse]
     created_at: datetime
     updated_at: datetime
@@ -84,6 +87,7 @@ class RecipeListResponse(BaseModel):
     name: str
     description: str | None
     servings: int | None
+    label_color: str | None
     ingredient_count: int
     created_at: datetime
 
@@ -107,6 +111,7 @@ class CheckPantryIngredient(BaseModel):
     pantry_match: PantryMatchResponse | None
     confidence: float
     add_to_list: bool  # Suggested default based on pantry status
+    always_skip: bool = False  # True for items like "water" that are never added
 
 
 class CheckPantryResponse(BaseModel):

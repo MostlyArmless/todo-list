@@ -234,6 +234,10 @@ class ApiClient {
     return this.request<RecipeListItem[]>('/api/v1/recipes');
   }
 
+  async getRecipeLabelColors() {
+    return this.request<{ colors: string[] }>('/api/v1/recipes/colors');
+  }
+
   async getRecipe(id: number) {
     return this.request<Recipe>(`/api/v1/recipes/${id}`);
   }
@@ -255,7 +259,7 @@ class ApiClient {
     });
   }
 
-  async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number }) {
+  async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number; label_color?: string }) {
     return this.request<Recipe>(`/api/v1/recipes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -408,7 +412,7 @@ export interface Item {
   checked_at: string | null;
   sort_order: number;
   created_at: string;
-  recipe_sources: { recipe_id: number; recipe_name: string }[] | null;
+  recipe_sources: { recipe_id: number; recipe_name: string; label_color?: string }[] | null;
 }
 
 export interface Recipe {
@@ -417,6 +421,7 @@ export interface Recipe {
   name: string;
   description: string | null;
   servings: number | null;
+  label_color: string | null;
   ingredients: RecipeIngredient[];
   created_at: string;
   updated_at: string;
@@ -427,6 +432,7 @@ export interface RecipeListItem {
   name: string;
   description: string | null;
   servings: number | null;
+  label_color: string | null;
   ingredient_count: number;
   created_at: string;
 }
@@ -498,6 +504,7 @@ export interface CheckPantryIngredient {
   pantry_match: PantryMatch | null;
   confidence: number;
   add_to_list: boolean;
+  always_skip?: boolean;  // True for items like "water" that are never added
 }
 
 export interface CheckPantryResponse {

@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -26,6 +27,21 @@ from src.schemas.recipe import (
     RecipeResponse,
     RecipeUpdate,
 )
+
+# 10 maximally distinguishable colors for recipe labels
+# Selected for maximum perceptual difference and good contrast on dark backgrounds
+RECIPE_LABEL_COLORS = [
+    "#e6194b",  # Red
+    "#3cb44b",  # Green
+    "#ffe119",  # Yellow
+    "#4363d8",  # Blue
+    "#f58231",  # Orange
+    "#911eb4",  # Purple
+    "#42d4f4",  # Cyan
+    "#f032e6",  # Magenta
+    "#fabed4",  # Pink
+    "#469990",  # Teal
+]
 
 router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
 
@@ -66,6 +82,12 @@ def get_user_ingredient(db: Session, ingredient_id: int, user: User) -> RecipeIn
 # --- Static routes first (before /{recipe_id}) ---
 
 
+@router.get("/colors")
+async def get_label_colors():
+    """Get available label colors for recipes."""
+    return {"colors": RECIPE_LABEL_COLORS}
+
+
 @router.get("", response_model=list[RecipeListResponse])
 async def list_recipes(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -87,11 +109,23 @@ async def list_recipes(
                 name=recipe.name,
                 description=recipe.description,
                 servings=recipe.servings,
+                label_color=recipe.label_color,
                 ingredient_count=len(recipe.ingredients),
                 created_at=recipe.created_at,
             )
         )
     return result
+
+
+def get_next_label_color(db: Session, user_id: int) -> str:
+    """Get the next color in the cycle for a new recipe."""
+    # Count existing recipes to determine which color to use next
+    recipe_count = (
+        db.query(func.count(Recipe.id))
+        .filter(Recipe.user_id == user_id, Recipe.deleted_at.is_(None))
+        .scalar()
+    )
+    return RECIPE_LABEL_COLORS[recipe_count % len(RECIPE_LABEL_COLORS)]
 
 
 @router.post("", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
@@ -101,11 +135,17 @@ async def create_recipe(
     db: Annotated[Session, Depends(get_db)],
 ):
     """Create a new recipe with ingredients."""
+    # Auto-assign color if not provided
+    label_color = recipe_data.label_color
+    if not label_color:
+        label_color = get_next_label_color(db, current_user.id)
+
     recipe = Recipe(
         user_id=current_user.id,
         name=recipe_data.name,
         description=recipe_data.description,
         servings=recipe_data.servings,
+        label_color=label_color,
     )
 
     # Add ingredients
@@ -331,6 +371,8 @@ async def update_recipe(
         recipe.description = recipe_data.description
     if recipe_data.servings is not None:
         recipe.servings = recipe_data.servings
+    if recipe_data.label_color is not None:
+        recipe.label_color = recipe_data.label_color
 
     db.commit()
     db.refresh(recipe)

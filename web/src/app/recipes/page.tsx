@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type RecipeListItem } from '@/lib/api';
+import IconButton from '@/components/IconButton';
 
 export default function RecipesPage() {
   const router = useRouter();
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [availableColors, setAvailableColors] = useState<string[]>([]);
+  const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const currentUser = api.getCurrentUser();
@@ -16,7 +20,18 @@ export default function RecipesPage() {
       return;
     }
     loadRecipes();
+    loadColors();
   }, [router]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target as Node)) {
+        setColorPickerOpen(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadRecipes = async () => {
     try {
@@ -26,6 +41,25 @@ export default function RecipesPage() {
       console.error('Failed to load recipes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadColors = async () => {
+    try {
+      const data = await api.getRecipeLabelColors();
+      setAvailableColors(data.colors);
+    } catch (error) {
+      console.error('Failed to load colors:', error);
+    }
+  };
+
+  const handleColorChange = async (recipeId: number, color: string) => {
+    try {
+      await api.updateRecipe(recipeId, { label_color: color });
+      setRecipes(recipes.map(r => r.id === recipeId ? { ...r, label_color: color } : r));
+      setColorPickerOpen(null);
+    } catch (error) {
+      console.error('Failed to update color:', error);
     }
   };
 
@@ -75,7 +109,7 @@ export default function RecipesPage() {
               e.currentTarget.style.transform = 'translateX(0)';
             }}
           >
-            <div>
+            <div style={{ flex: 1 }}>
               <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>{recipe.name}</h2>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                 {recipe.ingredient_count} ingredient{recipe.ingredient_count !== 1 ? 's' : ''}
@@ -88,16 +122,66 @@ export default function RecipesPage() {
               )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button
+              {/* Color swatch - circle on RHS */}
+              <div style={{ position: 'relative' }} ref={colorPickerOpen === recipe.id ? colorPickerRef : null}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setColorPickerOpen(colorPickerOpen === recipe.id ? null : recipe.id);
+                  }}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    backgroundColor: recipe.label_color || '#e6194b',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                  title="Change label color"
+                />
+                {colorPickerOpen === recipe.id && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      right: 0,
+                      marginBottom: '0.5rem',
+                      padding: '0.5rem',
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(5, 1fr)',
+                      gap: '0.5rem',
+                      zIndex: 100,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {availableColors.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => handleColorChange(recipe.id, color)}
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          backgroundColor: color,
+                          border: recipe.label_color === color ? '2px solid white' : '2px solid transparent',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <IconButton
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeleteRecipe(recipe.id, recipe.name);
                 }}
-                style={{
-                  color: 'var(--text-secondary)',
-                  padding: '0.5rem',
-                  flexShrink: 0,
-                }}
+                variant="default"
                 title="Delete recipe"
               >
                 <svg
@@ -113,7 +197,7 @@ export default function RecipesPage() {
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
-              </button>
+              </IconButton>
               <svg
                 width="24"
                 height="24"

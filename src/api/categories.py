@@ -9,6 +9,7 @@ from src.api.dependencies import get_current_user
 from src.api.lists import get_user_list
 from src.database import get_db
 from src.models.category import Category
+from src.models.item import Item
 from src.models.user import User
 from src.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 
@@ -102,8 +103,14 @@ async def delete_category(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Soft delete a category."""
+    """Soft delete a category. Items in the category become uncategorized."""
     category = get_category(db, category_id, current_user)
+
+    # Move items in this category to uncategorized
+    db.query(Item).filter(
+        Item.category_id == category_id,
+        Item.deleted_at.is_(None),
+    ).update({Item.category_id: None})
 
     category.soft_delete()
     db.commit()

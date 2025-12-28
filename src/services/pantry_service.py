@@ -1,17 +1,20 @@
 """Pantry service for ingredient matching."""
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from src.models.pantry import PantryItem
+from src.models.pantry_match_history import PantryMatchHistory
 from src.models.recipe import Recipe
 from src.services.llm import LLMService
 from src.services.llm_prompts import (
     PANTRY_MATCHING_SYSTEM_PROMPT,
     get_pantry_matching_prompt,
 )
+from src.services.recipe_service import SKIP_INGREDIENTS
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +83,7 @@ class PantryService:
                 "ingredients": [],
             }
 
-        # First, try exact/substring matching
+        # First, try exact/substring/word matching
         results = []
         unmatched_ingredients = []
 
@@ -113,45 +116,110 @@ class PantryService:
                     matched = True
                     break
 
+            if matched:
+                continue
+
+            # Try word-level match (e.g., "chicken breast" matches "chicken")
+            ingredient_words = set(normalized.split())
+            for pantry_name, pantry_item in pantry_by_name.items():
+                pantry_words = set(pantry_name.split())
+                # Check if any significant word overlaps (skip common words)
+                common_words = ingredient_words & pantry_words
+                # Filter out very short words that might be noise
+                significant_common = {w for w in common_words if len(w) >= 3}
+                if significant_common:
+                    results.append(
+                        self._build_ingredient_result(
+                            ingredient,
+                            pantry_item,
+                            confidence=0.7,
+                        )
+                    )
+                    matched = True
+                    break
+
             if not matched:
                 unmatched_ingredients.append(ingredient)
 
-        # Use LLM for remaining unmatched ingredients if we have pantry items
+        # For remaining unmatched ingredients, check history first, then LLM
         if unmatched_ingredients and pantry_names:
-            try:
-                llm_matches = await self._llm_match_ingredients(
-                    [ing.name for ing in unmatched_ingredients],
-                    pantry_names,
-                )
+            still_unmatched = []
 
-                for ingredient in unmatched_ingredients:
-                    llm_result = llm_matches.get(ingredient.name.lower())
-                    if llm_result and llm_result["pantry_match"]:
-                        # Find the pantry item by name
-                        pantry_item = next(
-                            (
-                                item
-                                for item in pantry_items
-                                if item.name.lower() == llm_result["pantry_match"].lower()
-                            ),
-                            None,
+            # Check history for cached matches
+            for ingredient in unmatched_ingredients:
+                normalized = ingredient.name.lower().strip()
+                history_match = self._check_match_history(normalized, user_id, pantry_by_name)
+
+                if history_match is not None:
+                    pantry_item, confidence = history_match
+                    results.append(
+                        self._build_ingredient_result(
+                            ingredient,
+                            pantry_item,
+                            confidence=confidence,
                         )
-                        results.append(
-                            self._build_ingredient_result(
-                                ingredient,
-                                pantry_item,
-                                confidence=llm_result["confidence"],
-                            )
-                        )
+                    )
+                    if pantry_item:
+                        logger.info(f"History match: '{normalized}' -> '{pantry_item.name}'")
                     else:
+                        logger.info(f"History cache: '{normalized}' -> no match (cached)")
+                else:
+                    still_unmatched.append(ingredient)
+
+            # Only call LLM for ingredients not in history
+            if still_unmatched:
+                try:
+                    llm_matches = await self._llm_match_ingredients(
+                        [ing.name for ing in still_unmatched],
+                        pantry_names,
+                    )
+
+                    for ingredient in still_unmatched:
+                        normalized_ing = ingredient.name.lower().strip()
+                        llm_result = llm_matches.get(ingredient.name.lower())
+                        if llm_result and llm_result["pantry_match"]:
+                            # Find the pantry item by name
+                            pantry_item = next(
+                                (
+                                    item
+                                    for item in pantry_items
+                                    if item.name.lower() == llm_result["pantry_match"].lower()
+                                ),
+                                None,
+                            )
+                            results.append(
+                                self._build_ingredient_result(
+                                    ingredient,
+                                    pantry_item,
+                                    confidence=llm_result["confidence"],
+                                )
+                            )
+                            # Record this match to history for future use
+                            if pantry_item and llm_result["confidence"] >= 0.7:
+                                self._record_match_history(
+                                    normalized_ing,
+                                    pantry_item.normalized_name,
+                                    llm_result["confidence"],
+                                    user_id,
+                                )
+                        else:
+                            results.append(
+                                self._build_ingredient_result(ingredient, None, confidence=0.0)
+                            )
+                            # Record "no match" to history so we don't call LLM again
+                            self._record_match_history(
+                                normalized_ing,
+                                "",  # Empty string means "no match"
+                                0.0,
+                                user_id,
+                            )
+                except Exception as e:
+                    logger.error(f"LLM matching failed: {e}")
+                    # Fall back to no matches for remaining
+                    for ingredient in still_unmatched:
                         results.append(
                             self._build_ingredient_result(ingredient, None, confidence=0.0)
                         )
-            except Exception as e:
-                logger.error(f"LLM matching failed: {e}")
-                # Fall back to no matches for remaining
-                for ingredient in unmatched_ingredients:
-                    results.append(self._build_ingredient_result(ingredient, None, confidence=0.0))
         else:
             # No pantry items or no unmatched ingredients
             for ingredient in unmatched_ingredients:
@@ -170,6 +238,11 @@ class PantryService:
         confidence: float,
     ) -> dict[str, Any]:
         """Build the result dict for a single ingredient."""
+        normalized = ingredient.name.lower().strip()
+
+        # Check if this ingredient should always be skipped (e.g., water)
+        always_skip = normalized in SKIP_INGREDIENTS
+
         if pantry_item:
             pantry_match = {
                 "id": pantry_item.id,
@@ -183,13 +256,96 @@ class PantryService:
             pantry_match = None
             add_to_list = True  # Not in pantry, should add
 
+        # Override add_to_list if always_skip
+        if always_skip:
+            add_to_list = False
+
         return {
             "name": ingredient.name,
             "quantity": ingredient.quantity,
             "pantry_match": pantry_match,
             "confidence": confidence,
             "add_to_list": add_to_list,
+            "always_skip": always_skip,
         }
+
+    def _check_match_history(
+        self,
+        normalized_ingredient: str,
+        user_id: int,
+        pantry_by_name: dict[str, PantryItem],
+    ) -> tuple[PantryItem | None, float] | None:
+        """Check if we have a cached match for this ingredient in history.
+
+        Returns:
+            - (PantryItem, confidence) if a match is cached
+            - (None, 0.0) if "no match" is cached (skip LLM)
+            - None if no history exists (need to call LLM)
+        """
+        history = (
+            self.db.query(PantryMatchHistory)
+            .filter(
+                PantryMatchHistory.user_id == user_id,
+                PantryMatchHistory.normalized_ingredient == normalized_ingredient,
+            )
+            .order_by(PantryMatchHistory.occurrence_count.desc())
+            .first()
+        )
+
+        if history:
+            # Update usage stats
+            history.occurrence_count += 1
+            history.last_used_at = datetime.now(UTC)
+            self.db.commit()
+
+            # Empty pantry name means "no match" was cached
+            if not history.normalized_pantry_name:
+                return (None, 0.0)
+
+            # Check if the cached pantry item still exists
+            if history.normalized_pantry_name in pantry_by_name:
+                pantry_item = pantry_by_name[history.normalized_pantry_name]
+                return (pantry_item, history.confidence)
+
+        return None
+
+    def _record_match_history(
+        self,
+        normalized_ingredient: str,
+        normalized_pantry_name: str,
+        confidence: float,
+        user_id: int,
+    ) -> None:
+        """Record a successful LLM match to history for future use."""
+        # Check if this exact match already exists
+        existing = (
+            self.db.query(PantryMatchHistory)
+            .filter(
+                PantryMatchHistory.user_id == user_id,
+                PantryMatchHistory.normalized_ingredient == normalized_ingredient,
+                PantryMatchHistory.normalized_pantry_name == normalized_pantry_name,
+            )
+            .first()
+        )
+
+        if existing:
+            existing.occurrence_count += 1
+            existing.last_used_at = datetime.now(UTC)
+            existing.confidence = max(existing.confidence, confidence)
+        else:
+            history = PantryMatchHistory(
+                user_id=user_id,
+                normalized_ingredient=normalized_ingredient,
+                normalized_pantry_name=normalized_pantry_name,
+                confidence=confidence,
+                occurrence_count=1,
+            )
+            self.db.add(history)
+
+        self.db.commit()
+        logger.info(
+            f"Recorded pantry match history: '{normalized_ingredient}' -> '{normalized_pantry_name}'"
+        )
 
     async def _llm_match_ingredients(
         self,

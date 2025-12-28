@@ -28,12 +28,15 @@ export default function PantryCheckModal({
   const [checkedState, setCheckedState] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     ingredients.forEach((ing) => {
-      initial[ing.name] = ing.add_to_list;
+      // always_skip items are never added
+      initial[ing.name] = ing.always_skip ? false : ing.add_to_list;
     });
     return initial;
   });
 
-  const toggleIngredient = (name: string) => {
+  const toggleIngredient = (name: string, alwaysSkip: boolean) => {
+    // Don't allow toggling always_skip items
+    if (alwaysSkip) return;
     setCheckedState((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
@@ -98,6 +101,7 @@ export default function PantryCheckModal({
           {ingredients.map((ing) => {
             const isChecked = checkedState[ing.name] ?? true;
             const hasPantryMatch = ing.pantry_match !== null;
+            const alwaysSkip = ing.always_skip ?? false;
 
             return (
               <label
@@ -106,30 +110,33 @@ export default function PantryCheckModal({
                   display: 'flex',
                   alignItems: 'center',
                   padding: '0.75rem 1rem',
-                  cursor: 'pointer',
+                  cursor: alwaysSkip ? 'not-allowed' : 'pointer',
                   transition: 'background-color 0.15s',
                   backgroundColor: isChecked ? 'transparent' : 'var(--bg-secondary)',
+                  opacity: alwaysSkip ? 0.6 : 1,
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+                onMouseOver={(e) => !alwaysSkip && (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
                 onMouseOut={(e) => (e.currentTarget.style.backgroundColor = isChecked ? 'transparent' : 'var(--bg-secondary)')}
               >
                 <input
                   type="checkbox"
                   checked={isChecked}
-                  onChange={() => toggleIngredient(ing.name)}
+                  onChange={() => toggleIngredient(ing.name, alwaysSkip)}
+                  disabled={alwaysSkip}
                   style={{
                     width: '18px',
                     height: '18px',
                     marginRight: '0.75rem',
                     accentColor: 'var(--accent)',
+                    cursor: alwaysSkip ? 'not-allowed' : 'pointer',
                   }}
                 />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span
                       style={{
-                        textDecoration: isChecked ? 'none' : 'line-through',
-                        color: isChecked ? 'inherit' : 'var(--text-secondary)',
+                        textDecoration: alwaysSkip || !isChecked ? 'line-through' : 'none',
+                        color: alwaysSkip || !isChecked ? 'var(--text-secondary)' : 'inherit',
                       }}
                     >
                       {ing.name}
@@ -140,7 +147,18 @@ export default function PantryCheckModal({
                       </span>
                     )}
                   </div>
-                  {hasPantryMatch && ing.pantry_match && (
+                  {alwaysSkip ? (
+                    <div
+                      style={{
+                        fontSize: '0.75rem',
+                        marginTop: '0.125rem',
+                        color: 'var(--text-secondary)',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      Never added to lists
+                    </div>
+                  ) : hasPantryMatch && ing.pantry_match && (
                     <div
                       style={{
                         fontSize: '0.75rem',
@@ -190,6 +208,7 @@ export default function PantryCheckModal({
               borderRadius: '0.5rem',
               border: '1px solid var(--border)',
               backgroundColor: 'transparent',
+              color: 'var(--text-primary)',
               cursor: 'pointer',
             }}
           >

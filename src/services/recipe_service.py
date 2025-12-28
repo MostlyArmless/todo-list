@@ -112,7 +112,11 @@ class RecipeService:
 
                 key = (target_list.id, normalized)
 
-                recipe_source = {"recipe_id": recipe.id, "recipe_name": recipe.name}
+                recipe_source = {
+                    "recipe_id": recipe.id,
+                    "recipe_name": recipe.name,
+                    "label_color": recipe.label_color,
+                }
 
                 if key in ingredients_by_key:
                     # Merge: append quantity, add recipe source
