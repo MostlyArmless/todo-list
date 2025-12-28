@@ -1,6 +1,7 @@
 """Recipe service for add-to-list and undo operations."""
 
 import logging
+from collections import defaultdict
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
@@ -11,7 +12,6 @@ from src.models.item import Item
 from src.models.list import List
 from src.models.recipe import Recipe
 from src.models.recipe_add_event import RecipeAddEvent, RecipeAddEventItem
-from src.services.categorization import CategorizationService
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +37,8 @@ class RecipeService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.categorization_service = CategorizationService(db)
 
-    async def add_recipes_to_shopping_lists(
+    def add_recipes_to_shopping_lists(
         self,
         recipe_ids: list[int],
         user_id: int,
@@ -133,7 +132,7 @@ class RecipeService:
                         "list_id": target_list.id,
                     }
 
-        # Step 5: Create/merge items on lists
+        # Step 5: Create/merge items on lists (without categorization for speed)
         result = {
             "event_id": event.id,
             "grocery_items_added": 0,
@@ -142,15 +141,33 @@ class RecipeService:
             "items_skipped": skipped_count,
         }
 
+        # Track new items by list for background categorization
+        new_items_by_list: dict[int, list[int]] = defaultdict(list)
+
         for (list_id, normalized), data in ingredients_by_key.items():
-            added, merged = await self._add_or_merge_item(event, list_id, normalized, data, user_id)
+            added, merged, item_id = self._add_or_merge_item(
+                event, list_id, normalized, data, user_id
+            )
             if list_id == grocery_list.id:
                 result["grocery_items_added"] += added
             else:
                 result["costco_items_added"] += added
             result["items_merged"] += merged
 
+            # Track new items for categorization
+            if item_id is not None:
+                new_items_by_list[list_id].append(item_id)
+
         self.db.commit()
+
+        # Queue background categorization tasks for each list
+        from src.tasks.categorization import categorize_list_items
+
+        for list_id, item_ids in new_items_by_list.items():
+            if item_ids:
+                categorize_list_items.delay(list_id, user_id, item_ids)
+                logger.info(f"Queued categorization for {len(item_ids)} items on list {list_id}")
+
         return result
 
     def undo_add_event(self, event_id: int, user_id: int) -> None:
@@ -235,18 +252,18 @@ class RecipeService:
         # Priority 3: Default to Grocery
         return GROCERY_LIST_NAME
 
-    async def _add_or_merge_item(
+    def _add_or_merge_item(
         self,
         event: RecipeAddEvent,
         list_id: int,
         normalized: str,
         data: dict,
         user_id: int,
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, int | None]:
         """
         Add or merge an item to a list.
 
-        Returns: (items_added, items_merged)
+        Returns: (items_added, items_merged, new_item_id or None)
         """
         # Check for existing unchecked item with same normalized name
         existing_items = (
@@ -293,19 +310,15 @@ class RecipeService:
                     existing_sources.append(source)
             matching_item.recipe_sources = existing_sources
 
-            return (0, 1)
+            return (0, 1, None)  # Merged, no new item
         else:
-            # Create new item with categorization
-            cat_result = await self.categorization_service.categorize_item(
-                data["name"], list_id, user_id
-            )
-
+            # Create new item WITHOUT categorization (will be done in background)
             item = Item(
                 list_id=list_id,
                 name=data["name"],
                 quantity=data["quantity"],
                 description=data["description"],
-                category_id=cat_result["category_id"],
+                category_id=None,  # Will be categorized in background
                 recipe_sources=data["recipe_sources"],
                 created_by=user_id,
             )
@@ -323,10 +336,4 @@ class RecipeService:
             )
             self.db.add(event_item)
 
-            # Record categorization for learning
-            if cat_result["category_id"]:
-                self.categorization_service.record_categorization(
-                    data["name"], cat_result["category_id"], list_id, user_id
-                )
-
-            return (1, 0)
+            return (1, 0, item.id)  # Added, return new item ID for categorization

@@ -142,7 +142,7 @@ async def add_recipes_to_list(
         overrides = [o.model_dump() for o in request.ingredient_overrides]
 
     service = RecipeService(db)
-    return await service.add_recipes_to_shopping_lists(
+    return service.add_recipes_to_shopping_lists(
         request.recipe_ids, current_user.id, ingredient_overrides=overrides
     )
 

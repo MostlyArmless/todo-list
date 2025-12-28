@@ -10,7 +10,7 @@ app = Celery(
     "todo_list",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["src.tasks.voice_processing"],
+    include=["src.tasks.voice_processing", "src.tasks.categorization"],
 )
 
 # Celery configuration
