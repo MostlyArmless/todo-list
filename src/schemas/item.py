@@ -2,15 +2,15 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ItemCreate(BaseModel):
     """Create a new item."""
 
-    name: str
-    description: str | None = None
-    quantity: str | None = None
+    name: str = Field(..., max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    quantity: str | None = Field(None, max_length=50)
     category_id: int | None = None
     sort_order: int = 0
 
@@ -18,9 +18,9 @@ class ItemCreate(BaseModel):
 class ItemUpdate(BaseModel):
     """Update an item."""
 
-    name: str | None = None
-    description: str | None = None
-    quantity: str | None = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    quantity: str | None = Field(None, max_length=50)
     category_id: int | None = None
     sort_order: int | None = None
 

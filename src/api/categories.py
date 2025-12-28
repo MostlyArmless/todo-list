@@ -29,7 +29,7 @@ def get_category(db: Session, category_id: int, user: User) -> Category:
 
 
 @router.get("/lists/{list_id}/categories", response_model=list[CategoryResponse])
-async def get_categories(
+def get_categories(
     list_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -53,7 +53,7 @@ async def get_categories(
     response_model=CategoryResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_category(
+def create_category(
     list_id: int,
     category_data: CategoryCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -76,7 +76,7 @@ async def create_category(
 
 
 @router.put("/categories/{category_id}", response_model=CategoryResponse)
-async def update_category(
+def update_category(
     category_id: int,
     category_data: CategoryUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -98,7 +98,7 @@ async def update_category(
 
 
 @router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_category(
+def delete_category(
     category_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],

@@ -4,6 +4,7 @@ import base64
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -39,7 +40,7 @@ def get_user_pantry_item(db: Session, item_id: int, user: User) -> PantryItem:
 
 
 @router.get("", response_model=list[PantryItemResponse])
-async def list_pantry_items(
+def list_pantry_items(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -54,7 +55,7 @@ async def list_pantry_items(
 
 
 @router.post("", response_model=PantryItemResponse, status_code=status.HTTP_201_CREATED)
-async def create_pantry_item(
+def create_pantry_item(
     item_data: PantryItemCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -92,7 +93,7 @@ async def create_pantry_item(
 
 
 @router.get("/{item_id}", response_model=PantryItemResponse)
-async def get_pantry_item(
+def get_pantry_item(
     item_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -102,7 +103,7 @@ async def get_pantry_item(
 
 
 @router.put("/{item_id}", response_model=PantryItemResponse)
-async def update_pantry_item(
+def update_pantry_item(
     item_id: int,
     item_data: PantryItemUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -121,13 +122,20 @@ async def update_pantry_item(
     if item_data.preferred_store is not None:
         item.preferred_store = item_data.preferred_store if item_data.preferred_store else None
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An item with this name already exists in your pantry",
+        ) from None
     db.refresh(item)
     return item
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_pantry_item(
+def delete_pantry_item(
     item_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -139,7 +147,7 @@ async def delete_pantry_item(
 
 
 @router.post("/bulk", response_model=PantryBulkAddResponse)
-async def bulk_add_pantry_items(
+def bulk_add_pantry_items(
     request: PantryBulkAddRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -206,6 +214,8 @@ async def scan_receipt(
 
     The receipt will be processed asynchronously using Claude Vision.
     Poll the status endpoint to check when processing is complete.
+
+    Note: This endpoint must remain async because UploadFile.read() is async.
     """
     from src.tasks.receipt_scan import process_receipt_scan
 
@@ -247,7 +257,7 @@ async def scan_receipt(
 
 
 @router.get("/scan-receipt/{scan_id}", response_model=ReceiptScanResponse)
-async def get_receipt_scan(
+def get_receipt_scan(
     scan_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -272,7 +282,7 @@ async def get_receipt_scan(
 
 
 @router.get("/scan-receipts", response_model=list[ReceiptScanResponse])
-async def list_receipt_scans(
+def list_receipt_scans(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     limit: int = 10,

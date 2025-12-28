@@ -1,21 +1,21 @@
 """Authentication schemas."""
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserRegister(BaseModel):
     """User registration request."""
 
-    email: EmailStr
-    password: str
-    name: str | None = None
+    email: EmailStr = Field(..., max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
+    name: str | None = Field(None, max_length=255)
 
 
 class UserLogin(BaseModel):
     """User login request."""
 
-    email: EmailStr
-    password: str
+    email: EmailStr = Field(..., max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class Token(BaseModel):

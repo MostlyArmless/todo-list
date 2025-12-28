@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.schemas.recipe import RecipeIngredientCreate
 
@@ -10,24 +10,24 @@ from src.schemas.recipe import RecipeIngredientCreate
 class RecipeImportCreate(BaseModel):
     """Request to create a recipe import."""
 
-    raw_text: str
+    raw_text: str = Field(..., max_length=50000)
 
 
 class ParsedIngredient(BaseModel):
     """Parsed ingredient from LLM."""
 
-    name: str
-    quantity: str | None = None
-    description: str | None = None
+    name: str = Field(..., max_length=255)
+    quantity: str | None = Field(None, max_length=50)
+    description: str | None = Field(None, max_length=2000)
 
 
 class ParsedRecipe(BaseModel):
     """Parsed recipe structure from LLM."""
 
-    name: str
+    name: str = Field(..., max_length=255)
     servings: int | None = None
     ingredients: list[ParsedIngredient]
-    instructions: str
+    instructions: str = Field(..., max_length=50000)
 
 
 class RecipeImportResponse(BaseModel):
@@ -48,10 +48,10 @@ class RecipeImportConfirm(BaseModel):
     """Request to confirm and save a parsed recipe."""
 
     # Optional edits before saving
-    name: str | None = None
+    name: str | None = Field(None, max_length=255)
     servings: int | None = None
     ingredients: list[RecipeIngredientCreate] | None = None
-    instructions: str | None = None
+    instructions: str | None = Field(None, max_length=50000)
 
 
 class StepCompletionsResponse(BaseModel):

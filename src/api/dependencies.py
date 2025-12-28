@@ -9,11 +9,15 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.user import User
 from src.services.auth import decode_access_token
+from src.services.categorization import CategorizationService
+from src.services.llm import LLMService
+from src.services.pantry_service import PantryService
+from src.services.recipe_service import RecipeService
 
 security = HTTPBearer()
 
 
-async def get_current_user(
+def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
@@ -45,3 +49,29 @@ async def get_current_user(
         )
 
     return user
+
+
+def get_llm_service() -> LLMService:
+    """Get LLM service instance."""
+    return LLMService()
+
+
+def get_categorization_service(
+    db: Annotated[Session, Depends(get_db)],
+) -> CategorizationService:
+    """Get categorization service with dependencies."""
+    return CategorizationService(db, LLMService())
+
+
+def get_recipe_service(
+    db: Annotated[Session, Depends(get_db)],
+) -> RecipeService:
+    """Get recipe service with dependencies."""
+    return RecipeService(db)
+
+
+def get_pantry_service(
+    db: Annotated[Session, Depends(get_db)],
+) -> PantryService:
+    """Get pantry service with dependencies."""
+    return PantryService(db)

@@ -20,7 +20,7 @@ class LLMService:
         self.model = self.settings.llm_model
         self.timeout = 120.0  # 2 minutes for LLM responses
 
-    async def generate(
+    def generate(
         self,
         prompt: str,
         system_prompt: str | None = None,
@@ -33,8 +33,8 @@ class LLMService:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.post(
                 f"{self.base_url}/api/chat",
                 json={
                     "model": self.model,
@@ -50,7 +50,7 @@ class LLMService:
             data = response.json()
             return data["message"]["content"]
 
-    async def generate_json(
+    def generate_json(
         self,
         prompt: str,
         system_prompt: str | None = None,
@@ -58,7 +58,7 @@ class LLMService:
     ) -> dict[str, Any]:
         """Generate structured JSON response from the LLM."""
         try:
-            result = await self.generate(
+            result = self.generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 temperature=temperature,
@@ -82,11 +82,11 @@ class LLMService:
             logger.error(f"HTTP error calling Ollama: {e}")
             raise
 
-    async def health_check(self) -> bool:
+    def health_check(self) -> bool:
         """Check if Ollama is available and the model is loaded."""
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(f"{self.base_url}/api/tags")
                 response.raise_for_status()
                 data = response.json()
                 models = [m["name"] for m in data.get("models", [])]

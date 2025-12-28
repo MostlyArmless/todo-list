@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from src.api.dependencies import get_current_user
 from src.database import get_db
@@ -97,13 +97,13 @@ def get_user_ingredient(db: Session, ingredient_id: int, user: User) -> RecipeIn
 
 
 @router.get("/colors")
-async def get_label_colors():
+def get_label_colors():
     """Get available label colors for recipes."""
     return {"colors": RECIPE_LABEL_COLORS}
 
 
 @router.post("/{recipe_id}/compute-nutrition")
-async def compute_nutrition(
+def compute_nutrition(
     recipe_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -143,13 +143,17 @@ class RecipeSortBy(str, Enum):
 
 
 @router.get("", response_model=list[RecipeListResponse])
-async def list_recipes(
+def list_recipes(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
     sort_by: RecipeSortBy = RecipeSortBy.name_asc,
 ):
     """List all recipes for the current user."""
-    query = db.query(Recipe).filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+    query = (
+        db.query(Recipe)
+        .options(selectinload(Recipe.ingredients))
+        .filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+    )
 
     # Apply sorting
     if sort_by == RecipeSortBy.name_asc:
@@ -216,7 +220,7 @@ def get_next_label_color(db: Session, user_id: int) -> str:
 
 
 @router.post("", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-async def create_recipe(
+def create_recipe(
     recipe_data: RecipeCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -256,7 +260,7 @@ async def create_recipe(
 
 
 @router.post("/add-to-list", response_model=AddToListResult)
-async def add_recipes_to_list(
+def add_recipes_to_list(
     request: AddToListRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -279,7 +283,7 @@ async def add_recipes_to_list(
 
 
 @router.get("/add-events", response_model=list[RecipeAddEventResponse])
-async def list_add_events(
+def list_add_events(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -298,7 +302,7 @@ async def list_add_events(
 
 
 @router.post("/add-events/{event_id}/undo", status_code=status.HTTP_200_OK)
-async def undo_add_event(
+def undo_add_event(
     event_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -315,7 +319,7 @@ async def undo_add_event(
 
 
 @router.get("/store-defaults", response_model=list[IngredientStoreDefaultResponse])
-async def list_store_defaults(
+def list_store_defaults(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -334,7 +338,7 @@ async def list_store_defaults(
     response_model=IngredientStoreDefaultResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def set_store_default(
+def set_store_default(
     data: IngredientStoreDefaultCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -373,7 +377,7 @@ async def set_store_default(
 
 
 @router.get("/pantry-status", response_model=BulkPantryCheckResponse)
-async def bulk_check_pantry(
+def bulk_check_pantry(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -455,7 +459,7 @@ async def bulk_check_pantry(
 
 
 @router.post("/import", response_model=RecipeImportResponse)
-async def create_recipe_import(
+def create_recipe_import(
     data: RecipeImportCreate,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -479,7 +483,7 @@ async def create_recipe_import(
 
 
 @router.get("/import/{import_id}", response_model=RecipeImportResponse)
-async def get_recipe_import(
+def get_recipe_import(
     import_id: int,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -499,7 +503,7 @@ async def get_recipe_import(
 
 
 @router.post("/import/{import_id}/confirm", response_model=RecipeResponse)
-async def confirm_recipe_import(
+def confirm_recipe_import(
     import_id: int,
     data: RecipeImportConfirm,
     db: Annotated[Session, Depends(get_db)],
@@ -561,7 +565,7 @@ async def confirm_recipe_import(
 
 
 @router.delete("/import/{import_id}", status_code=204)
-async def delete_recipe_import(
+def delete_recipe_import(
     import_id: int,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -584,7 +588,7 @@ async def delete_recipe_import(
 
 
 @router.put("/ingredients/{ingredient_id}", response_model=RecipeIngredientResponse)
-async def update_ingredient(
+def update_ingredient(
     ingredient_id: int,
     ingredient_data: RecipeIngredientUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -608,7 +612,7 @@ async def update_ingredient(
 
 
 @router.delete("/ingredients/{ingredient_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_ingredient(
+def delete_ingredient(
     ingredient_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -623,7 +627,7 @@ async def delete_ingredient(
 
 
 @router.post("/{recipe_id}/check-pantry", response_model=CheckPantryResponse)
-async def check_recipe_pantry(
+def check_recipe_pantry(
     recipe_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -632,7 +636,7 @@ async def check_recipe_pantry(
     from src.services.pantry_service import PantryService
 
     service = PantryService(db)
-    result = await service.check_recipe_against_pantry(recipe_id, current_user.id)
+    result = service.check_recipe_against_pantry(recipe_id, current_user.id)
 
     if "error" in result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=result["error"])
@@ -644,7 +648,7 @@ async def check_recipe_pantry(
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
-async def get_recipe(
+def get_recipe(
     recipe_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -655,7 +659,7 @@ async def get_recipe(
 
 
 @router.put("/{recipe_id}", response_model=RecipeResponse)
-async def update_recipe(
+def update_recipe(
     recipe_id: int,
     recipe_data: RecipeUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -702,7 +706,7 @@ async def update_recipe(
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_recipe(
+def delete_recipe(
     recipe_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -718,7 +722,7 @@ async def delete_recipe(
     response_model=RecipeIngredientResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def add_ingredient(
+def add_ingredient(
     recipe_id: int,
     ingredient_data: RecipeIngredientCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -744,7 +748,7 @@ async def add_ingredient(
 
 
 @router.get("/{recipe_id}/step-completions", response_model=StepCompletionsResponse)
-async def get_step_completions(
+def get_step_completions(
     recipe_id: int,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -782,7 +786,7 @@ def count_recipe_steps(instructions: str | None) -> int:
 
 
 @router.post("/{recipe_id}/steps/{step_index}/toggle", response_model=StepToggleResponse)
-async def toggle_step_completion(
+def toggle_step_completion(
     recipe_id: int,
     step_index: int,
     db: Annotated[Session, Depends(get_db)],
@@ -845,7 +849,7 @@ async def toggle_step_completion(
 
 
 @router.delete("/{recipe_id}/step-completions", status_code=204)
-async def reset_step_completions(
+def reset_step_completions(
     recipe_id: int,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],

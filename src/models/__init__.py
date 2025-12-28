@@ -1,6 +1,7 @@
 """SQLAlchemy models."""
 
 from src.models.category import Category
+from src.models.enums import Permission
 from src.models.ingredient_store_default import IngredientStoreDefault
 from src.models.item import Item
 from src.models.item_history import ItemHistory
@@ -23,6 +24,7 @@ __all__ = [
     "Category",
     "Item",
     "ItemHistory",
+    "Permission",
     "VoiceInput",
     "PendingConfirmation",
     "Recipe",

@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +36,16 @@ class Settings(BaseSettings):
 
     # API
     environment: str = Field(default="development")
+
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Validate that production has secure settings."""
+        if self.environment == "production":
+            if self.jwt_secret == "change-me-in-production":  # noqa: S105
+                raise ValueError("JWT_SECRET must be changed in production")
+            if "localhost" in self.database_url:
+                raise ValueError("DATABASE_URL should not use localhost in production")
+        return self
 
     @property
     def is_production(self) -> bool:

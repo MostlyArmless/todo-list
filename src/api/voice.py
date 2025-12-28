@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.api.auth import get_current_user
+from src.api.dependencies import get_current_user
 from src.database import get_db
 from src.models.pending_confirmation import PendingConfirmation
 from src.models.user import User
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
 
 
 @router.post("", response_model=VoiceInputResponse, status_code=status.HTTP_201_CREATED)
-async def create_voice_input(
+def create_voice_input(
     voice_data: VoiceInputCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -51,7 +51,7 @@ async def create_voice_input(
 
 
 @router.get("/{voice_input_id}", response_model=VoiceInputResponse)
-async def get_voice_input(
+def get_voice_input(
     voice_input_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -68,7 +68,7 @@ async def get_voice_input(
 
 
 @router.get("/pending/list", response_model=list[PendingConfirmationResponse])
-async def list_pending_confirmations(
+def list_pending_confirmations(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -86,7 +86,7 @@ async def list_pending_confirmations(
 
 
 @router.get("/pending/{confirmation_id}", response_model=PendingConfirmationResponse)
-async def get_pending_confirmation(
+def get_pending_confirmation(
     confirmation_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -105,7 +105,7 @@ async def get_pending_confirmation(
 
 
 @router.post("/pending/{confirmation_id}/action", response_model=PendingConfirmationResponse)
-async def action_pending_confirmation(
+def action_pending_confirmation(
     confirmation_id: int,
     action_data: ConfirmationAction,
     current_user: Annotated[User, Depends(get_current_user)],

@@ -2,22 +2,22 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CategoryCreate(BaseModel):
     """Create a new category."""
 
-    name: str
-    color: str | None = None
+    name: str = Field(..., max_length=255)
+    color: str | None = Field(None, max_length=50)
     sort_order: int = 0
 
 
 class CategoryUpdate(BaseModel):
     """Update a category."""
 
-    name: str | None = None
-    color: str | None = None
+    name: str | None = Field(None, max_length=255)
+    color: str | None = Field(None, max_length=50)
     sort_order: int | None = None
 
 

@@ -2,13 +2,13 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class VoiceInputCreate(BaseModel):
     """Request to create a voice input."""
 
-    raw_text: str
+    raw_text: str = Field(..., max_length=50000)
 
 
 class VoiceInputResponse(BaseModel):
@@ -42,4 +42,4 @@ class PendingConfirmationResponse(BaseModel):
 class ConfirmationAction(BaseModel):
     """Action to take on a pending confirmation."""
 
-    action: str  # "confirm" or "reject"
+    action: str = Field(..., max_length=50)  # "confirm" or "reject"

@@ -10,19 +10,19 @@ from pydantic import BaseModel, ConfigDict, Field
 class RecipeIngredientCreate(BaseModel):
     """Create a recipe ingredient."""
 
-    name: str
-    quantity: str | None = None
-    description: str | None = Field(None, max_length=200)
-    store_preference: str | None = None  # "Grocery", "Costco", or None
+    name: str = Field(..., max_length=255)
+    quantity: str | None = Field(None, max_length=50)
+    description: str | None = Field(None, max_length=2000)
+    store_preference: str | None = Field(None, max_length=50)  # "Grocery", "Costco", or None
 
 
 class RecipeIngredientUpdate(BaseModel):
     """Update a recipe ingredient."""
 
-    name: str | None = None
-    quantity: str | None = None
-    description: str | None = Field(None, max_length=200)
-    store_preference: str | None = None
+    name: str | None = Field(None, max_length=255)
+    quantity: str | None = Field(None, max_length=50)
+    description: str | None = Field(None, max_length=2000)
+    store_preference: str | None = Field(None, max_length=50)
 
 
 class RecipeIngredientResponse(BaseModel):
@@ -46,22 +46,22 @@ class RecipeIngredientResponse(BaseModel):
 class RecipeCreate(BaseModel):
     """Create a new recipe."""
 
-    name: str
-    description: str | None = None
+    name: str = Field(..., max_length=255)
+    description: str | None = Field(None, max_length=2000)
     servings: int | None = None
-    label_color: str | None = None  # Hex color like "#e94560"
-    instructions: str | None = None
+    label_color: str | None = Field(None, max_length=50)  # Hex color like "#e94560"
+    instructions: str | None = Field(None, max_length=50000)
     ingredients: list[RecipeIngredientCreate] = []
 
 
 class RecipeUpdate(BaseModel):
     """Update a recipe."""
 
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=2000)
     servings: int | None = None
-    label_color: str | None = None
-    instructions: str | None = None
+    label_color: str | None = Field(None, max_length=50)
+    instructions: str | None = Field(None, max_length=50000)
 
 
 class RecipeResponse(BaseModel):
@@ -145,7 +145,7 @@ class CheckPantryResponse(BaseModel):
 class IngredientOverride(BaseModel):
     """Override for an ingredient when adding to list."""
 
-    name: str
+    name: str = Field(..., max_length=255)
     add_to_list: bool
 
 
@@ -186,8 +186,8 @@ class RecipeAddEventResponse(BaseModel):
 class IngredientStoreDefaultCreate(BaseModel):
     """Set default store for an ingredient."""
 
-    ingredient_name: str
-    store_preference: str  # "Grocery" or "Costco"
+    ingredient_name: str = Field(..., max_length=255)
+    store_preference: str = Field(..., max_length=50)  # "Grocery" or "Costco"
 
 
 class IngredientStoreDefaultResponse(BaseModel):

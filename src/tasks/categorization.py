@@ -1,6 +1,5 @@
 """Celery tasks for item categorization."""
 
-import asyncio
 import logging
 
 from sqlalchemy.orm import Session
@@ -43,12 +42,10 @@ def categorize_list_items(self, list_id: int, user_id: int, item_ids: list[int])
                 continue
 
             try:
-                result = asyncio.run(
-                    categorization_service.categorize_item(
-                        item_name=item.name,
-                        list_id=list_id,
-                        user_id=user_id,
-                    )
+                result = categorization_service.categorize_item(
+                    item_name=item.name,
+                    list_id=list_id,
+                    user_id=user_id,
                 )
 
                 if result["category_id"]:

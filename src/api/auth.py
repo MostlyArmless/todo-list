@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(
+def register(
     user_data: UserRegister,
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -41,7 +41,7 @@ async def register(
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(
+def login(
     credentials: UserLogin,
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -64,7 +64,7 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(
+def get_me(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Get current user information."""
@@ -72,7 +72,7 @@ async def get_me(
 
 
 @router.post("/logout")
-async def logout(
+def logout(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Logout (client should discard token)."""

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.database import get_db
+from src.models.enums import Permission
 from src.models.item import Item
 from src.models.list import List, ListShare
 from src.models.user import User
@@ -38,7 +39,7 @@ def get_user_list(db: Session, list_id: int, user: User) -> List:
 
 
 @router.get("", response_model=list[ListResponse])
-async def get_lists(
+def get_lists(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
@@ -85,7 +86,7 @@ async def get_lists(
 
 
 @router.post("", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
-async def create_list(
+def create_list(
     list_data: ListCreate,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -107,7 +108,7 @@ async def create_list(
 
 
 @router.get("/{list_id}", response_model=ListResponse)
-async def get_list(
+def get_list(
     list_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -132,7 +133,7 @@ async def get_list(
 
 
 @router.put("/{list_id}", response_model=ListResponse)
-async def update_list(
+def update_list(
     list_id: int,
     list_data: ListUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -148,7 +149,7 @@ async def update_list(
             .filter(ListShare.list_id == list_id, ListShare.user_id == current_user.id)
             .first()
         )
-        if not share or share.permission == "view":
+        if not share or not Permission(share.permission).can_edit():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to edit this list",
@@ -184,7 +185,7 @@ async def update_list(
 
 
 @router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_list(
+def delete_list(
     list_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -203,7 +204,7 @@ async def delete_list(
 
 
 @router.post("/{list_id}/share", status_code=status.HTTP_201_CREATED)
-async def share_list(
+def share_list(
     list_id: int,
     share_data: ListShareCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -247,7 +248,7 @@ async def share_list(
 
 
 @router.delete("/{list_id}/share/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def unshare_list(
+def unshare_list(
     list_id: int,
     user_id: int,
     current_user: Annotated[User, Depends(get_current_user)],

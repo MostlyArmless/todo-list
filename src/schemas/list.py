@@ -2,23 +2,23 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ListCreate(BaseModel):
     """Create a new list."""
 
-    name: str
-    description: str | None = None
-    icon: str | None = None
+    name: str = Field(..., max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    icon: str | None = Field(None, max_length=50)
 
 
 class ListUpdate(BaseModel):
     """Update a list."""
 
-    name: str | None = None
-    description: str | None = None
-    icon: str | None = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    icon: str | None = Field(None, max_length=50)
     sort_order: int | None = None
 
 
@@ -41,5 +41,5 @@ class ListResponse(BaseModel):
 class ListShareCreate(BaseModel):
     """Share a list with another user."""
 
-    user_email: str
-    permission: str = "edit"  # 'view', 'edit', 'admin'
+    user_email: str = Field(..., max_length=255)
+    permission: str = Field("edit", max_length=50)  # 'view', 'edit', 'admin'

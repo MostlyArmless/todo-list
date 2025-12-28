@@ -50,7 +50,7 @@ def get_item(db: Session, item_id: int, user: User) -> Item:
 
 
 @router.get("/lists/{list_id}/items", response_model=list[ItemResponse])
-async def get_items(
+def get_items(
     list_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -72,7 +72,7 @@ async def get_items(
 @router.post(
     "/lists/{list_id}/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED
 )
-async def create_item(
+def create_item(
     list_id: int,
     item_data: ItemCreate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -145,7 +145,7 @@ async def create_item(
 
 
 @router.put("/items/{item_id}", response_model=ItemResponse)
-async def update_item(
+def update_item(
     item_id: int,
     item_data: ItemUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
@@ -171,7 +171,7 @@ async def update_item(
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_item(
+def delete_item(
     item_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -184,7 +184,7 @@ async def delete_item(
 
 
 @router.post("/items/{item_id}/check", response_model=ItemResponse)
-async def check_item(
+def check_item(
     item_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -202,7 +202,7 @@ async def check_item(
 
 
 @router.post("/items/{item_id}/uncheck", response_model=ItemResponse)
-async def uncheck_item(
+def uncheck_item(
     item_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -220,7 +220,7 @@ async def uncheck_item(
 
 
 @router.post("/lists/{list_id}/items/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
-async def bulk_delete_items(
+def bulk_delete_items(
     list_id: int,
     item_ids: list[int],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -243,7 +243,7 @@ async def bulk_delete_items(
 
 
 @router.post("/lists/{list_id}/items/auto-categorize")
-async def auto_categorize_items(
+def auto_categorize_items(
     list_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
@@ -273,7 +273,7 @@ async def auto_categorize_items(
     results = []
 
     for item in uncategorized:
-        result = await categorization_service.categorize_item(item.name, list_id, current_user.id)
+        result = categorization_service.categorize_item(item.name, list_id, current_user.id)
         if result["category_id"]:
             item.category_id = result["category_id"]
             # Record to history for learning

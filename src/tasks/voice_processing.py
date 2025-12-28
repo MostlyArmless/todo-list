@@ -1,6 +1,5 @@
 """Celery tasks for voice input processing."""
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 
@@ -66,12 +65,10 @@ def process_voice_input(self, voice_input_id: int) -> dict:
         items_with_categories = []
 
         for item_name in parsed_data["items"]:
-            result = asyncio.run(
-                categorization_service.categorize_item(
-                    item_name=item_name,
-                    list_id=target_list.id,
-                    user_id=voice_input.user_id,
-                )
+            result = categorization_service.categorize_item(
+                item_name=item_name,
+                list_id=target_list.id,
+                user_id=voice_input.user_id,
             )
             items_with_categories.append(
                 {

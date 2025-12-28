@@ -4,6 +4,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from src.database import Base
+from src.models.enums import Permission
 from src.models.mixins import SoftDeleteMixin, TimestampMixin
 
 
@@ -34,7 +35,7 @@ class ListShare(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
     list_id = Column(Integer, ForeignKey("lists.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    permission = Column(String(20), default="edit")  # 'view', 'edit', 'admin'
+    permission = Column(String(20), default=Permission.EDIT.value)  # 'view', 'edit', 'admin'
 
     # Relationships
     list = relationship("List", back_populates="shares")

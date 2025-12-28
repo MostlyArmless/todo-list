@@ -25,7 +25,7 @@ class CategorizationService:
         self.db = db
         self.llm_service = llm_service or LLMService()
 
-    async def categorize_item(
+    def categorize_item(
         self,
         item_name: str,
         list_id: int,
@@ -52,7 +52,7 @@ class CategorizationService:
             return fuzzy_match
 
         # Step 3: Use LLM with historical context
-        llm_result = await self._categorize_with_llm(item_name, list_id, user_id)
+        llm_result = self._categorize_with_llm(item_name, list_id, user_id)
         return llm_result
 
     def _check_history_exact(
@@ -120,9 +120,7 @@ class CategorizationService:
 
         return None
 
-    async def _categorize_with_llm(
-        self, item_name: str, list_id: int, user_id: int
-    ) -> dict[str, Any]:
+    def _categorize_with_llm(self, item_name: str, list_id: int, user_id: int) -> dict[str, Any]:
         """Use LLM to categorize item with historical context."""
         # Get all categories for this list
         categories = (
@@ -153,7 +151,7 @@ class CategorizationService:
 
         try:
             prompt = get_categorization_prompt(item_name, categories_data, dict(item_history))
-            result = await self.llm_service.generate_json(
+            result = self.llm_service.generate_json(
                 prompt=prompt,
                 system_prompt=CATEGORIZATION_SYSTEM_PROMPT,
                 temperature=0.1,

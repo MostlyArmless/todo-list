@@ -26,7 +26,7 @@ class PantryService:
         self.db = db
         self.llm_service = llm_service or LLMService()
 
-    async def check_recipe_against_pantry(
+    def check_recipe_against_pantry(
         self,
         recipe_id: int,
         user_id: int,
@@ -169,7 +169,7 @@ class PantryService:
             # Only call LLM for ingredients not in history
             if still_unmatched:
                 try:
-                    llm_matches = await self._llm_match_ingredients(
+                    llm_matches = self._llm_match_ingredients(
                         [ing.name for ing in still_unmatched],
                         pantry_names,
                     )
@@ -347,7 +347,7 @@ class PantryService:
             f"Recorded pantry match history: '{normalized_ingredient}' -> '{normalized_pantry_name}'"
         )
 
-    async def _llm_match_ingredients(
+    def _llm_match_ingredients(
         self,
         ingredients: list[str],
         pantry_names: list[str],
@@ -358,7 +358,7 @@ class PantryService:
             Dict mapping lowercase ingredient name to match result
         """
         prompt = get_pantry_matching_prompt(ingredients, pantry_names)
-        result = await self.llm_service.generate_json(
+        result = self.llm_service.generate_json(
             prompt=prompt,
             system_prompt=PANTRY_MATCHING_SYSTEM_PROMPT,
             temperature=0.1,
