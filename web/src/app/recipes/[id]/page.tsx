@@ -64,6 +64,10 @@ export default function RecipeDetailPage() {
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsText, setInstructionsText] = useState('');
 
+  // Title editing state
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleText, setTitleText] = useState('');
+
   // Pantry state - maps normalized ingredient name to pantry item
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [pantryByName, setPantryByName] = useState<Map<string, PantryItem>>(new Map());
@@ -212,6 +216,32 @@ export default function RecipeDetailPage() {
     }
   };
 
+  const startEditTitle = () => {
+    setEditingTitle(true);
+    setTitleText(recipe?.name || '');
+  };
+
+  const saveTitle = async () => {
+    if (!recipe || !titleText.trim()) return;
+    try {
+      await api.updateRecipe(recipe.id, { name: titleText.trim() });
+      setRecipe({ ...recipe, name: titleText.trim() });
+      setEditingTitle(false);
+    } catch (e) {
+      console.error('Failed to update title:', e);
+    }
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveTitle();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingTitle(false);
+    }
+  };
+
   const startEdit = (ing: RecipeIngredient) => {
     setEditingId(ing.id);
     setEditName(ing.name);
@@ -340,24 +370,27 @@ export default function RecipeDetailPage() {
   };
 
   // Update pantry status for an ingredient
+  // Uses EXACT matching only - we want to modify this specific ingredient, not a fuzzy match
   const handlePantryStatusChange = async (
     ingredientName: string,
     newStatus: 'have' | 'low' | 'out' | ''
   ) => {
     const normalized = ingredientName.toLowerCase().trim();
-    const existingItem = findPantryItem(ingredientName);
+    // Only look for exact match when modifying - don't accidentally modify a different item
+    const exactMatch = pantryByName.get(normalized);
 
     try {
       if (newStatus === '') {
-        // Remove from pantry
-        if (existingItem) {
-          await api.deletePantryItem(existingItem.id);
+        // Remove from pantry - only if there's an exact match for this ingredient
+        if (exactMatch) {
+          await api.deletePantryItem(exactMatch.id);
         }
-      } else if (existingItem) {
-        // Update existing item
-        await api.updatePantryItem(existingItem.id, { status: newStatus });
+        // If no exact match, nothing to delete (fuzzy match doesn't count)
+      } else if (exactMatch) {
+        // Update existing exact match
+        await api.updatePantryItem(exactMatch.id, { status: newStatus });
       } else {
-        // Create new pantry item
+        // Create new pantry item for this specific ingredient
         await api.createPantryItem({ name: ingredientName, status: newStatus });
       }
       // Reload pantry items to reflect changes
@@ -427,8 +460,47 @@ export default function RecipeDetailPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem' }}>{recipe.name}</h1>
+        <div style={{ flex: 1 }}>
+          {editingTitle ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="text"
+                className="input"
+                value={titleText}
+                onChange={(e) => setTitleText(e.target.value)}
+                onKeyDown={handleTitleKeyDown}
+                autoFocus
+                style={{ fontSize: '1.25rem', fontWeight: 600, flex: 1 }}
+              />
+              <IconButton onClick={saveTitle} variant="accent" size="sm" title="Save">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </IconButton>
+              <IconButton onClick={() => setEditingTitle(false)} size="sm" title="Cancel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </IconButton>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h1
+                style={{ fontSize: '1.5rem', cursor: 'pointer' }}
+                onClick={startEditTitle}
+                title="Click to edit"
+              >
+                {recipe.name}
+              </h1>
+              <IconButton onClick={startEditTitle} size="sm" title="Edit title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </IconButton>
+            </div>
+          )}
           {(recipe.description || recipe.servings) && (
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
               {recipe.description}{recipe.description && recipe.servings ? ' · ' : ''}{recipe.servings ? `${recipe.servings} servings` : ''}

@@ -1027,8 +1027,13 @@ def test_bulk_pantry_status_exact_match(client, auth_headers):
     assert status["ingredients_in_pantry"] == 2  # Only flour and sugar (have status)
 
 
-def test_bulk_pantry_status_substring_match(client, auth_headers):
-    """Test bulk pantry status with substring matching."""
+def test_bulk_pantry_status_exact_match_only(client, auth_headers):
+    """Test that pantry status uses exact matching only (no fuzzy matching).
+
+    This ensures users have fine-grained control over which ingredients are tracked.
+    If they have "garlic" in pantry, it should NOT match "garlic cloves" - they
+    need to add "garlic cloves" explicitly if they want it tracked.
+    """
     # Create a recipe with "garlic cloves"
     recipe = client.post(
         "/api/v1/recipes",
@@ -1039,7 +1044,7 @@ def test_bulk_pantry_status_substring_match(client, auth_headers):
         },
     ).json()
 
-    # Add "garlic" to pantry (substring match)
+    # Add "garlic" to pantry - should NOT match "garlic cloves"
     client.post(
         "/api/v1/pantry",
         headers=auth_headers,
@@ -1051,26 +1056,41 @@ def test_bulk_pantry_status_substring_match(client, auth_headers):
     data = response.json()
 
     status = next(r for r in data["recipes"] if r["recipe_id"] == recipe["id"])
-    assert status["ingredients_in_pantry"] == 1  # Garlic matches garlic cloves
+    # "garlic" does NOT match "garlic cloves" - exact matching only
+    assert status["ingredients_in_pantry"] == 0
+    assert status["unmatched_count"] == 1
+
+    # Now add the exact ingredient name
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Garlic cloves", "status": "have"},
+    )
+
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    data = response.json()
+    status = next(r for r in data["recipes"] if r["recipe_id"] == recipe["id"])
+    # Now it matches exactly
+    assert status["ingredients_in_pantry"] == 1
 
 
-def test_bulk_pantry_status_word_match(client, auth_headers):
-    """Test bulk pantry status with word-level matching."""
-    # Create a recipe with "chicken breast"
+def test_bulk_pantry_status_case_insensitive(client, auth_headers):
+    """Test that pantry status matching is case-insensitive."""
+    # Create a recipe with mixed case ingredient
     recipe = client.post(
         "/api/v1/recipes",
         headers=auth_headers,
         json={
             "name": "Test Recipe",
-            "ingredients": [{"name": "Chicken breast"}],
+            "ingredients": [{"name": "Chicken Breast"}],
         },
     ).json()
 
-    # Add "chicken" to pantry (word-level match)
+    # Add lowercase version to pantry
     client.post(
         "/api/v1/pantry",
         headers=auth_headers,
-        json={"name": "Chicken", "status": "have"},
+        json={"name": "chicken breast", "status": "have"},
     )
 
     response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
@@ -1078,7 +1098,8 @@ def test_bulk_pantry_status_word_match(client, auth_headers):
     data = response.json()
 
     status = next(r for r in data["recipes"] if r["recipe_id"] == recipe["id"])
-    assert status["ingredients_in_pantry"] == 1  # Chicken matches chicken breast
+    # Should match despite case difference
+    assert status["ingredients_in_pantry"] == 1
 
 
 def test_bulk_pantry_status_multiple_recipes(client, auth_headers):

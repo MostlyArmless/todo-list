@@ -39,6 +39,7 @@ from src.schemas.recipe_import import (
     StepCompletionsResponse,
     StepToggleResponse,
 )
+from src.services.recipe_service import SKIP_INGREDIENTS
 
 # 10 maximally distinguishable colors for recipe labels
 # Selected for maximum perceptual difference and good contrast on dark backgrounds
@@ -326,26 +327,14 @@ async def bulk_check_pantry(
     pantry_by_name: dict[str, str] = {item.normalized_name: item.status for item in pantry_items}
 
     def match_ingredient(normalized: str) -> str | None:
-        """Match ingredient to pantry and return status, or None if no match."""
-        # Exact match
-        if normalized in pantry_by_name:
-            return pantry_by_name[normalized]
+        """Match ingredient to pantry and return status, or None if no match.
 
-        # Substring match (e.g., "garlic" matches "garlic cloves")
-        for pantry_name, status in pantry_by_name.items():
-            if normalized in pantry_name or pantry_name in normalized:
-                return status
-
-        # Word-level match (e.g., "chicken breast" matches "chicken")
-        ingredient_words = set(normalized.split())
-        for pantry_name, status in pantry_by_name.items():
-            pantry_words = set(pantry_name.split())
-            common_words = ingredient_words & pantry_words
-            significant_common = {w for w in common_words if len(w) >= 3}
-            if significant_common:
-                return status
-
-        return None
+        Uses EXACT matching only. This ensures users have fine-grained control:
+        if they want "garlic powder" tracked separately from "garlic", they can
+        set different statuses for each. Fuzzy matching was too aggressive and
+        would override user intent.
+        """
+        return pantry_by_name.get(normalized)
 
     results = []
     for recipe in recipes:
@@ -357,6 +346,12 @@ async def bulk_check_pantry(
 
         for ingredient in recipe.ingredients:
             normalized = ingredient.name.lower().strip()
+
+            # Skip ingredients (like water) count as "have" - they're always available
+            if normalized in SKIP_INGREDIENTS:
+                have_count += 1
+                continue
+
             status = match_ingredient(normalized)
 
             if status == "have":
