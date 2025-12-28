@@ -42,6 +42,7 @@ export default function RecipeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [checkingPantry, setCheckingPantry] = useState(false);
+  const [calculatingNutrition, setCalculatingNutrition] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [pantryCheck, setPantryCheck] = useState<PantryCheckState>({ isOpen: false, ingredients: [] });
 
@@ -169,6 +170,35 @@ export default function RecipeDetailPage() {
       setCompletedSteps([]);
     } catch (e) {
       console.error('Failed to reset progress:', e);
+    }
+  };
+
+  const handleCalculateNutrition = async () => {
+    if (!recipe) return;
+    setCalculatingNutrition(true);
+    try {
+      await api.computeRecipeNutrition(recipe.id);
+      // Poll for updated recipe with nutrition data
+      let attempts = 0;
+      const pollForNutrition = async () => {
+        const updated = await api.getRecipe(recipe.id);
+        if (updated.nutrition_computed_at || attempts >= 10) {
+          setRecipe(updated);
+          if (updated.calories_per_serving != null) {
+            setToast({ message: 'Nutrition calculated successfully', eventId: null, type: 'success' });
+          } else {
+            setToast({ message: 'Could not calculate nutrition for these ingredients', eventId: null, type: 'error' });
+          }
+        } else {
+          attempts++;
+          setTimeout(pollForNutrition, 1000);
+        }
+      };
+      setTimeout(pollForNutrition, 1000);
+    } catch {
+      setToast({ message: 'Failed to calculate nutrition', eventId: null, type: 'error' });
+    } finally {
+      setCalculatingNutrition(false);
     }
   };
 
@@ -522,6 +552,41 @@ export default function RecipeDetailPage() {
           isSubmitting={adding}
         />
       )}
+
+      {/* Nutrition Section */}
+      <div
+        className="card"
+        style={{
+          padding: '0.75rem',
+          marginBottom: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem',
+        }}
+      >
+        {recipe.calories_per_serving != null ? (
+          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', flexWrap: 'wrap' }}>
+            <span><strong>{recipe.calories_per_serving}</strong> cal</span>
+            {recipe.protein_grams != null && <span><strong>{recipe.protein_grams}g</strong> protein</span>}
+            {recipe.carbs_grams != null && <span><strong>{recipe.carbs_grams}g</strong> carbs</span>}
+            {recipe.fat_grams != null && <span><strong>{recipe.fat_grams}g</strong> fat</span>}
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>per serving</span>
+          </div>
+        ) : (
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+            No nutrition data
+          </span>
+        )}
+        <button
+          onClick={handleCalculateNutrition}
+          disabled={calculatingNutrition || recipe.ingredients.length === 0}
+          className="btn btn-secondary"
+          style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', whiteSpace: 'nowrap' }}
+        >
+          {calculatingNutrition ? 'Calculating...' : recipe.calories_per_serving != null ? 'Recalculate' : 'Calculate'}
+        </button>
+      </div>
 
       {/* Add to List Button */}
       <button
