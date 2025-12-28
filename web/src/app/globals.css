@@ -309,3 +309,8 @@ a {
   color: var(--accent);
   font-size: 0.875rem;
 }
+
+/* Navbar Links - Hide scrollbar while allowing horizontal scroll */
+.navbar-links::-webkit-scrollbar {
+  display: none;
+}

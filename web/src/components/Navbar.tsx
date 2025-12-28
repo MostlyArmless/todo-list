@@ -55,7 +55,19 @@ export default function Navbar() {
           padding: '0.75rem 1rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1.5rem',
+            overflowX: 'auto',
+            flexShrink: 1,
+            minWidth: 0,
+            scrollbarWidth: 'none', // Firefox
+            msOverflowStyle: 'none', // IE/Edge
+          }}
+          className="navbar-links"
+        >
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
@@ -68,6 +80,8 @@ export default function Navbar() {
                   transition: 'color 0.2s',
                   padding: '0.25rem 0',
                   borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 {item.label}
@@ -76,7 +90,7 @@ export default function Navbar() {
           })}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
             {user.name || user.email}
           </span>

@@ -35,7 +35,9 @@ export const ingredientStyles = {
     display: 'flex',
     gap: '0.25rem',
     marginBottom: '0.25rem',
+    paddingBottom: '0.5rem',
     alignItems: 'center',
+    borderBottom: '1px solid var(--border)',
   } as const,
   input: {
     padding: '0.35rem 0.5rem',
