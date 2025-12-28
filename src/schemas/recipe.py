@@ -77,6 +77,12 @@ class RecipeResponse(BaseModel):
     label_color: str | None
     instructions: str | None
     ingredients: list[RecipeIngredientResponse]
+    # Nutrition data (null if not yet computed)
+    calories_per_serving: int | None
+    protein_grams: float | None
+    carbs_grams: float | None
+    fat_grams: float | None
+    nutrition_computed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -93,6 +99,11 @@ class RecipeListResponse(BaseModel):
     label_color: str | None
     instructions: str | None
     ingredient_count: int
+    # Nutrition data (null if not yet computed)
+    calories_per_serving: int | None
+    protein_grams: float | None
+    carbs_grams: float | None
+    fat_grams: float | None
     created_at: datetime
 
 

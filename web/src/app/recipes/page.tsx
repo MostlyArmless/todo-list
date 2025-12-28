@@ -144,6 +144,15 @@ export default function RecipesPage() {
                   {recipe.description}
                 </p>
               )}
+              {/* Nutrition info */}
+              {recipe.calories_per_serving != null && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  {recipe.calories_per_serving} cal
+                  {recipe.protein_grams != null && ` | ${recipe.protein_grams}g P`}
+                  {recipe.carbs_grams != null && ` | ${recipe.carbs_grams}g C`}
+                  {recipe.fat_grams != null && ` | ${recipe.fat_grams}g F`}
+                </p>
+              )}
               {/* Pantry progress indicator */}
               {(() => {
                 const status = pantryStatus.get(recipe.id);

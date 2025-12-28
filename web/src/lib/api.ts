@@ -242,6 +242,13 @@ class ApiClient {
     return this.request<Recipe>(`/api/v1/recipes/${id}`);
   }
 
+  async computeRecipeNutrition(recipeId: number) {
+    return this.request<{ message: string; recipe_id: number }>(
+      `/api/v1/recipes/${recipeId}/compute-nutrition`,
+      { method: 'POST' }
+    );
+  }
+
   async createRecipe(data: {
     name: string;
     description?: string;
@@ -470,6 +477,12 @@ export interface Recipe {
   label_color: string | null;
   instructions: string | null;
   ingredients: RecipeIngredient[];
+  // Nutrition data (null if not yet computed)
+  calories_per_serving: number | null;
+  protein_grams: number | null;
+  carbs_grams: number | null;
+  fat_grams: number | null;
+  nutrition_computed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -481,6 +494,11 @@ export interface RecipeListItem {
   servings: number | null;
   label_color: string | null;
   ingredient_count: number;
+  // Nutrition data (null if not yet computed)
+  calories_per_serving: number | null;
+  protein_grams: number | null;
+  carbs_grams: number | null;
+  fat_grams: number | null;
   created_at: string;
 }
 

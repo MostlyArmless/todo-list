@@ -101,6 +101,30 @@ async def get_label_colors():
     return {"colors": RECIPE_LABEL_COLORS}
 
 
+@router.post("/{recipe_id}/compute-nutrition")
+async def compute_nutrition(
+    recipe_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Trigger nutrition computation for a recipe.
+
+    This queues an async task to compute nutrition data using the Edamam API.
+    The nutrition data will be available on subsequent GET requests once computed.
+    """
+    from src.tasks.nutrition import compute_recipe_nutrition
+
+    recipe = get_user_recipe(db, recipe_id, current_user)
+
+    # Queue the task
+    compute_recipe_nutrition.delay(recipe.id)
+
+    return {
+        "message": "Nutrition computation queued",
+        "recipe_id": recipe.id,
+    }
+
+
 @router.get("", response_model=list[RecipeListResponse])
 async def list_recipes(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -125,6 +149,10 @@ async def list_recipes(
                 label_color=recipe.label_color,
                 instructions=recipe.instructions,
                 ingredient_count=len(recipe.ingredients),
+                calories_per_serving=recipe.calories_per_serving,
+                protein_grams=recipe.protein_grams,
+                carbs_grams=recipe.carbs_grams,
+                fat_grams=recipe.fat_grams,
                 created_at=recipe.created_at,
             )
         )

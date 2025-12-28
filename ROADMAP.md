@@ -30,31 +30,6 @@ This file tracks pending work items for coordination across agents and sessions.
 
 ---
 
-### [ ] Recipe Macro and Calorie Estimation
-**Context:** Display estimated macros (protein, carbs, fat) and calories for each recipe on the recipes page, derived automatically from the ingredients list and quantities.
-
-**Requirements:**
-- Show at-a-glance nutrition info on recipe cards (protein, carbs, fat, calories)
-- Estimates based on ingredient names and quantities
-- No manual entry required - fully automatic
-
-**Implementation options to evaluate:**
-1. **USDA FoodData Central API** - Free public API with comprehensive food nutrition data. Would need to map ingredient names to USDA food items.
-2. **Nutritionix API** - Commercial API with natural language parsing ("1 cup chicken breast"). Has a free tier with rate limits.
-3. **Edamam Nutrition Analysis API** - Parse full ingredient lines, returns nutrition data. Free tier available.
-4. **Open Food Facts API** - Open source database of food products with nutrition info.
-
-**Considerations:**
-- Accuracy depends on ingredient name matching quality
-- Quantities need to be parsed and normalized (e.g., "2 cups" vs "500g")
-- May want to cache results to reduce API calls
-- Could use LLM to help normalize ingredient names before API lookup
-- Consider fallback strategies when ingredients don't match
-
-**Decision:** Research APIs during implementation to determine best fit for accuracy and cost.
-
----
-
 ### [ ] Recipe Sorting Options
 **Context:** Allow users to sort the /recipes page by different criteria for easier meal planning and decision-making.
 

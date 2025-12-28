@@ -1,6 +1,6 @@
 """Recipe and RecipeIngredient models."""
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from src.database import Base
@@ -19,6 +19,13 @@ class Recipe(Base, TimestampMixin, SoftDeleteMixin):
     servings = Column(Integer, nullable=True)
     label_color = Column(String(7), nullable=True)  # Hex color like "#e94560"
     instructions = Column(Text, nullable=True)
+
+    # Nutrition data (computed from ingredients via Edamam API)
+    calories_per_serving = Column(Integer, nullable=True)
+    protein_grams = Column(Float, nullable=True)
+    carbs_grams = Column(Float, nullable=True)
+    fat_grams = Column(Float, nullable=True)
+    nutrition_computed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     user = relationship("User", backref="recipes")

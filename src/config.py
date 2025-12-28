@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     ollama_base_url: str = Field(default="http://localhost:11434")
     llm_model: str = Field(default="gemma3:12b")
 
+    # Edamam Nutrition API (optional)
+    edamam_app_id: str | None = Field(default=None)
+    edamam_app_key: str | None = Field(default=None)
+
     # API
     environment: str = Field(default="development")
 
