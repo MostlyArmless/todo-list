@@ -10,10 +10,31 @@ from src.api.dependencies import get_current_user
 from src.api.lists import get_user_list
 from src.database import get_db
 from src.models.item import Item
+from src.models.item_history import ItemHistory
 from src.models.user import User
 from src.schemas.item import ItemCreate, ItemResponse, ItemUpdate
 
 router = APIRouter(prefix="/api/v1", tags=["items"])
+
+
+def lookup_category_from_history(db: Session, item_name: str, list_id: int) -> int | None:
+    """Look up category_id from item history for exact match.
+
+    Returns category_id if found in history, None otherwise.
+    """
+    normalized = item_name.lower().strip()
+    history = (
+        db.query(ItemHistory)
+        .filter(
+            ItemHistory.list_id == list_id,
+            ItemHistory.normalized_name == normalized,
+        )
+        .order_by(ItemHistory.occurrence_count.desc())
+        .first()
+    )
+    if history:
+        return history.category_id
+    return None
 
 
 def get_item(db: Session, item_id: int, user: User) -> Item:
@@ -61,12 +82,18 @@ async def create_item(
     # Verify user has access to the list
     get_user_list(db, list_id, current_user)
 
+    # Determine category_id: use provided value, or look up from history
+    category_id = item_data.category_id
+    if category_id is None:
+        # Check item history for an exact match (no LLM call needed)
+        category_id = lookup_category_from_history(db, item_data.name, list_id)
+
     item = Item(
         list_id=list_id,
         name=item_data.name,
         description=item_data.description,
         quantity=item_data.quantity,
-        category_id=item_data.category_id,
+        category_id=category_id,
         sort_order=item_data.sort_order,
         created_by=current_user.id,
     )

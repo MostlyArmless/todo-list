@@ -331,3 +331,156 @@ def test_items_belong_to_correct_list(client, auth_headers):
     # Get items from list2
     items = client.get(f"/api/v1/lists/{list2['id']}/items", headers=auth_headers).json()
     assert len(items) == 0
+
+
+def test_item_creation_uses_history_for_category(client, auth_headers, db):
+    """Test that creating an item without category_id uses item history to assign category."""
+    from src.models.item_history import ItemHistory
+
+    # Create list and category
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Shopping"})
+    list_id = list_response.json()["id"]
+
+    category_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Dairy", "sort_order": 1},
+    )
+    category_id = category_response.json()["id"]
+
+    # Add history record for "milk" -> Dairy
+    history = ItemHistory(
+        list_id=list_id,
+        category_id=category_id,
+        normalized_name="milk",
+        occurrence_count=5,
+    )
+    db.add(history)
+    db.commit()
+
+    # Create an item named "Milk" without specifying category_id
+    item_response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Milk"},  # No category_id provided
+    )
+    assert item_response.status_code == 201
+    item = item_response.json()
+
+    # The item should have been assigned the category from history
+    assert item["category_id"] == category_id, (
+        f"Expected category_id {category_id} from history, got {item['category_id']}"
+    )
+
+
+def test_item_creation_without_history_stays_uncategorized(client, auth_headers):
+    """Test that creating an item without history and without category_id stays uncategorized."""
+    # Create list (no categories, no history)
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Test"})
+    list_id = list_response.json()["id"]
+
+    # Create an item without specifying category_id
+    item_response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Random Item"},
+    )
+    assert item_response.status_code == 201
+    item = item_response.json()
+
+    # The item should have no category
+    assert item["category_id"] is None
+
+
+def test_item_creation_explicit_category_overrides_history(client, auth_headers, db):
+    """Test that explicitly providing category_id overrides history lookup."""
+    from src.models.item_history import ItemHistory
+
+    # Create list and two categories
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Shopping"})
+    list_id = list_response.json()["id"]
+
+    dairy_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Dairy", "sort_order": 1},
+    )
+    dairy_id = dairy_response.json()["id"]
+
+    produce_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Produce", "sort_order": 2},
+    )
+    produce_id = produce_response.json()["id"]
+
+    # Add history record for "apples" -> Dairy (incorrect, but testing override)
+    history = ItemHistory(
+        list_id=list_id,
+        category_id=dairy_id,
+        normalized_name="apples",
+        occurrence_count=3,
+    )
+    db.add(history)
+    db.commit()
+
+    # Create item with explicit category_id (Produce)
+    item_response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Apples", "category_id": produce_id},
+    )
+    assert item_response.status_code == 201
+    item = item_response.json()
+
+    # The item should use the explicitly provided category, not history
+    assert item["category_id"] == produce_id
+
+
+def test_list_unchecked_count(client, auth_headers):
+    """Test that lists include unchecked_count field."""
+    # Create a list
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Test List"})
+    assert list_response.status_code == 201
+    list_data = list_response.json()
+    list_id = list_data["id"]
+
+    # New list should have unchecked_count of 0
+    assert "unchecked_count" in list_data
+    assert list_data["unchecked_count"] == 0
+
+    # Add 3 unchecked items
+    for i in range(3):
+        client.post(
+            f"/api/v1/lists/{list_id}/items",
+            headers=auth_headers,
+            json={"name": f"Item {i + 1}"},
+        )
+
+    # Get the list and verify unchecked_count is 3
+    get_response = client.get(f"/api/v1/lists/{list_id}", headers=auth_headers)
+    assert get_response.status_code == 200
+    assert get_response.json()["unchecked_count"] == 3
+
+    # Also verify via get_lists endpoint
+    lists_response = client.get("/api/v1/lists", headers=auth_headers)
+    assert lists_response.status_code == 200
+    test_list = next(lst for lst in lists_response.json() if lst["id"] == list_id)
+    assert test_list["unchecked_count"] == 3
+
+    # Check one item
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    item_id = items[0]["id"]
+    client.post(f"/api/v1/items/{item_id}/check", headers=auth_headers)
+
+    # Verify unchecked_count is now 2
+    get_response = client.get(f"/api/v1/lists/{list_id}", headers=auth_headers)
+    assert get_response.json()["unchecked_count"] == 2
+
+    # Delete one item
+    item_id_to_delete = items[1]["id"]
+    client.delete(f"/api/v1/items/{item_id_to_delete}", headers=auth_headers)
+
+    # Verify unchecked_count is now 1
+    get_response = client.get(f"/api/v1/lists/{list_id}", headers=auth_headers)
+    assert get_response.json()["unchecked_count"] == 1

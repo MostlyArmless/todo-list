@@ -92,10 +92,29 @@ export default function ListsPage() {
             }}
           >
             <div>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-                {list.icon && <span style={{ marginRight: '0.5rem' }}>{list.icon}</span>}
-                {list.name}
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
+                  {list.icon && <span style={{ marginRight: '0.5rem' }}>{list.icon}</span>}
+                  {list.name}
+                </h2>
+                {(list as List & { unchecked_count?: number }).unchecked_count != null &&
+                  (list as List & { unchecked_count?: number }).unchecked_count! > 0 && (
+                    <span
+                      style={{
+                        backgroundColor: 'var(--accent)',
+                        color: 'white',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '9999px',
+                        minWidth: '1.5rem',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {(list as List & { unchecked_count?: number }).unchecked_count}
+                    </span>
+                  )}
+              </div>
               {list.description && (
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                   {list.description}

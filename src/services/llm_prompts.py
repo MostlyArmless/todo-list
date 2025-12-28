@@ -42,6 +42,11 @@ Consider:
 2. Semantic similarity (e.g., "milk" goes with "dairy")
 3. Store layout context (categories are often store sections)
 
+Important distinctions:
+- PANTRY: Dried spices, dried herbs, and seasonings (bay leaves, paprika, cumin, oregano, cinnamon, anise, peppercorns, chili flakes, etc.), canned goods, dry goods, oils, vinegars
+- PRODUCE: Fresh fruits, fresh vegetables, fresh herbs only if specified as "fresh" (e.g., "fresh basil")
+- When ambiguous (e.g., "coriander" without "fresh"), prefer Pantry for herbs/spices since dried is more common on shopping lists
+
 Respond ONLY with valid JSON:
 {
   "category_id": number | null,

@@ -35,6 +35,7 @@ class ListResponse(BaseModel):
     owner_id: int
     created_at: datetime
     updated_at: datetime
+    unchecked_count: int = 0
 
 
 class ListShareCreate(BaseModel):

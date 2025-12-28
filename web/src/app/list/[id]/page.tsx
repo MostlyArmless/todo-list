@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api, type List, type Category, type Item, type PantryItem } from '@/lib/api';
 import {
@@ -20,6 +20,69 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// Utility function to parse and sum quantities intelligently
+function formatQuantityTotal(quantity: string | null): string {
+  if (!quantity) return '';
+
+  // Check if it contains a '+' (merged quantities)
+  if (!quantity.includes('+')) return quantity;
+
+  const parts = quantity.split('+').map((p) => p.trim());
+
+  // Try to parse each part
+  const parsed: { value: number; unit: string }[] = [];
+  let allParseable = true;
+
+  for (const part of parts) {
+    // Match patterns like "2", "2.5", "1/2", "2 lbs", "1.5 oz", "1/4 cup"
+    const match = part.match(/^([\d.\/]+)\s*(.*)$/);
+    if (match) {
+      let value: number;
+      const rawValue = match[1];
+      const unit = match[2].toLowerCase().trim();
+
+      // Handle fractions
+      if (rawValue.includes('/')) {
+        const [num, denom] = rawValue.split('/');
+        value = parseFloat(num) / parseFloat(denom);
+      } else {
+        value = parseFloat(rawValue);
+      }
+
+      if (!isNaN(value)) {
+        parsed.push({ value, unit });
+      } else {
+        allParseable = false;
+        break;
+      }
+    } else {
+      allParseable = false;
+      break;
+    }
+  }
+
+  if (!allParseable || parsed.length === 0) {
+    // Fall back to original format
+    return quantity;
+  }
+
+  // Check if all units are the same (or all empty for plain numbers)
+  const units = [...new Set(parsed.map((p) => p.unit))];
+  if (units.length === 1) {
+    // All same unit, sum them
+    const total = parsed.reduce((acc, p) => acc + p.value, 0);
+    const unit = units[0];
+
+    // Format the number nicely
+    const formattedTotal = Number.isInteger(total) ? total.toString() : total.toFixed(2).replace(/\.?0+$/, '');
+
+    return unit ? `${formattedTotal} ${unit}` : formattedTotal;
+  }
+
+  // Different units, can't sum - return original
+  return quantity;
+}
 
 export default function ListDetailPage() {
   const router = useRouter();
@@ -43,6 +106,7 @@ export default function ListDetailPage() {
   const [showPantryPrompt, setShowPantryPrompt] = useState(false);
   const [existingPantryItems, setExistingPantryItems] = useState<PantryItem[]>([]);
   const [addingToPantry, setAddingToPantry] = useState(false);
+  const [addedItemMessage, setAddedItemMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!api.getCurrentUser()) {
@@ -74,12 +138,25 @@ export default function ListDetailPage() {
     if (!newItemName.trim()) return;
 
     try {
-      await api.createItem(listId, {
+      const createdItem = await api.createItem(listId, {
         name: newItemName,
         category_id: newItemCategory || undefined,
       });
       setNewItemName('');
       setNewItemCategory(null);
+
+      // Show ghost message indicating which category the item was added to
+      if (createdItem.category_id) {
+        const category = categories.find(c => c.id === createdItem.category_id);
+        if (category) {
+          setAddedItemMessage(`Added to ${category.name}`);
+          setTimeout(() => setAddedItemMessage(null), 3000);
+        }
+      } else {
+        setAddedItemMessage('Added to Uncategorized');
+        setTimeout(() => setAddedItemMessage(null), 3000);
+      }
+
       loadData();
     } catch (error) {
       console.error('Failed to create item:', error);
@@ -158,6 +235,16 @@ export default function ListDetailPage() {
       loadData();
     } catch (error) {
       console.error('Failed to delete item:', error);
+    }
+  };
+
+  const handleUpdateItem = async (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => {
+    try {
+      await api.updateItem(id, data);
+      loadData();
+    } catch (error) {
+      console.error('Failed to update item:', error);
+      throw error;
     }
   };
 
@@ -413,8 +500,29 @@ export default function ListDetailPage() {
           <button type="submit" className="btn btn-primary" style={{ flex: '0 0 auto' }}>
             Add
           </button>
+          {addedItemMessage && (
+            <span
+              style={{
+                color: 'var(--success)',
+                fontSize: '0.875rem',
+                opacity: 1,
+                animation: 'fadeOut 3s ease-out forwards',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {addedItemMessage}
+            </span>
+          )}
         </div>
       </form>
+
+      <style jsx>{`
+        @keyframes fadeOut {
+          0% { opacity: 1; }
+          70% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
 
       {/* Toggle Checked Items & Bulk Actions */}
       <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -516,8 +624,10 @@ export default function ListDetailPage() {
                 item={item}
                 onToggle={handleToggleCheck}
                 onDelete={handleDeleteItem}
+                onUpdate={handleUpdateItem}
                 selected={selectedItems.has(item.id)}
                 onSelect={() => toggleItemSelection(item.id)}
+                categories={categories}
               />
             ))}
           </div>
@@ -553,6 +663,8 @@ export default function ListDetailPage() {
               onToggleItemSelection={toggleItemSelection}
               onToggleItemCheck={handleToggleCheck}
               onDeleteItem={handleDeleteItem}
+              onUpdateItem={handleUpdateItem}
+              allCategories={categories}
             />
           ))}
         </SortableContext>
@@ -720,6 +832,8 @@ function SortableCategory({
   onToggleItemSelection,
   onToggleItemCheck,
   onDeleteItem,
+  onUpdateItem,
+  allCategories,
 }: {
   category: Category;
   items: Item[];
@@ -737,6 +851,8 @@ function SortableCategory({
   onToggleItemSelection: (id: number) => void;
   onToggleItemCheck: (item: Item) => void;
   onDeleteItem: (id: number) => void;
+  onUpdateItem: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  allCategories: Category[];
 }) {
   const {
     attributes,
@@ -905,8 +1021,10 @@ function SortableCategory({
               item={item}
               onToggle={onToggleItemCheck}
               onDelete={onDeleteItem}
+              onUpdate={onUpdateItem}
               selected={selectedItems.has(item.id)}
               onSelect={() => onToggleItemSelection(item.id)}
+              categories={allCategories}
             />
           ))}
         </div>
@@ -923,15 +1041,138 @@ function ItemRow({
   item,
   onToggle,
   onDelete,
+  onUpdate,
   selected,
   onSelect,
+  categories,
 }: {
   item: Item;
   onToggle: (item: Item) => void;
   onDelete: (id: number) => void;
+  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
   selected: boolean;
   onSelect: () => void;
+  categories: Category[];
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(item.name);
+  const [editQuantity, setEditQuantity] = useState(item.quantity || '');
+  const [editDescription, setEditDescription] = useState(item.description || '');
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id);
+  const [saving, setSaving] = useState(false);
+
+  const handleStartEdit = () => {
+    setEditName(item.name);
+    setEditQuantity(item.quantity || '');
+    setEditDescription(item.description || '');
+    setEditCategoryId(item.category_id);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) return;
+    setSaving(true);
+    try {
+      await onUpdate(item.id, {
+        name: editName.trim(),
+        quantity: editQuantity.trim() || undefined,
+        description: editDescription.trim() || undefined,
+        category_id: editCategoryId,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update item:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+        }}
+      >
+        <input
+          type="text"
+          className="input"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          placeholder="Item name"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSaveEdit();
+            if (e.key === 'Escape') handleCancelEdit();
+          }}
+        />
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            className="input"
+            value={editQuantity}
+            onChange={(e) => setEditQuantity(e.target.value)}
+            placeholder="Quantity (e.g., 2 lbs)"
+            style={{ flex: '1 1 120px' }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+          <input
+            type="text"
+            className="input"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Description"
+            style={{ flex: '1 1 150px' }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+        </div>
+        <select
+          className="input"
+          value={editCategoryId || ''}
+          onChange={(e) => setEditCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+        >
+          <option value="">No category</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={handleSaveEdit}
+            disabled={saving || !editName.trim()}
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+          <button
+            onClick={handleCancelEdit}
+            disabled={saving}
+            className="btn btn-secondary"
+            style={{ flex: 1 }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="card"
@@ -1019,12 +1260,37 @@ function ItemRow({
         </div>
         {(item.quantity || item.description) && (
           <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            {item.quantity && <span>{item.quantity}</span>}
-            {item.quantity && item.description && <span> • </span>}
+            {item.quantity && <span>{formatQuantityTotal(item.quantity)}</span>}
+            {item.quantity && item.description && <span> - </span>}
             {item.description && <span>{item.description}</span>}
           </div>
         )}
       </div>
+
+      {/* Edit button */}
+      <button
+        onClick={handleStartEdit}
+        style={{
+          color: 'var(--text-secondary)',
+          padding: '0.5rem',
+          flexShrink: 0,
+        }}
+        title="Edit item"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      </button>
 
       <button
         onClick={() => onDelete(item.id)}
@@ -1033,6 +1299,7 @@ function ItemRow({
           padding: '0.5rem',
           flexShrink: 0,
         }}
+        title="Delete item"
       >
         <svg
           width="20"

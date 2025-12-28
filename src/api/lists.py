@@ -3,10 +3,12 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.database import get_db
+from src.models.item import Item
 from src.models.list import List, ListShare
 from src.models.user import User
 from src.schemas.list import ListCreate, ListResponse, ListShareCreate, ListUpdate
@@ -55,7 +57,31 @@ async def get_lists(
     )
 
     all_lists = list(set(owned_lists + shared_lists))  # Remove duplicates
-    return sorted(all_lists, key=lambda x: x.sort_order)
+
+    # Get unchecked item counts for all lists in one query
+    list_ids = [lst.id for lst in all_lists]
+    unchecked_counts = {}
+    if list_ids:
+        counts = (
+            db.query(Item.list_id, func.count(Item.id))
+            .filter(
+                Item.list_id.in_(list_ids),
+                Item.checked == False,  # noqa: E712
+                Item.deleted_at.is_(None),
+            )
+            .group_by(Item.list_id)
+            .all()
+        )
+        unchecked_counts = {list_id: count for list_id, count in counts}
+
+    # Build response with unchecked counts
+    result = []
+    for lst in sorted(all_lists, key=lambda x: x.sort_order):
+        list_response = ListResponse.model_validate(lst)
+        list_response.unchecked_count = unchecked_counts.get(lst.id, 0)
+        result.append(list_response)
+
+    return result
 
 
 @router.post("", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
@@ -74,7 +100,10 @@ async def create_list(
     db.add(new_list)
     db.commit()
     db.refresh(new_list)
-    return new_list
+
+    list_response = ListResponse.model_validate(new_list)
+    list_response.unchecked_count = 0  # New list has no items
+    return list_response
 
 
 @router.get("/{list_id}", response_model=ListResponse)
@@ -84,7 +113,22 @@ async def get_list(
     db: Annotated[Session, Depends(get_db)],
 ):
     """Get a specific list."""
-    return get_user_list(db, list_id, current_user)
+    lst = get_user_list(db, list_id, current_user)
+
+    # Count unchecked items
+    unchecked_count = (
+        db.query(func.count(Item.id))
+        .filter(
+            Item.list_id == list_id,
+            Item.checked == False,  # noqa: E712
+            Item.deleted_at.is_(None),
+        )
+        .scalar()
+    )
+
+    list_response = ListResponse.model_validate(lst)
+    list_response.unchecked_count = unchecked_count or 0
+    return list_response
 
 
 @router.put("/{list_id}", response_model=ListResponse)
@@ -122,7 +166,21 @@ async def update_list(
 
     db.commit()
     db.refresh(list_obj)
-    return list_obj
+
+    # Count unchecked items
+    unchecked_count = (
+        db.query(func.count(Item.id))
+        .filter(
+            Item.list_id == list_id,
+            Item.checked == False,  # noqa: E712
+            Item.deleted_at.is_(None),
+        )
+        .scalar()
+    )
+
+    list_response = ListResponse.model_validate(list_obj)
+    list_response.unchecked_count = unchecked_count or 0
+    return list_response
 
 
 @router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
