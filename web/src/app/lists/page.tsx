@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type List } from '@/lib/api';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function ListsPage() {
   const router = useRouter();
+  const { confirm, alert } = useConfirmDialog();
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewList, setShowNewList] = useState(false);
@@ -46,13 +48,19 @@ export default function ListsPage() {
   };
 
   const handleDeleteList = async (id: number, name: string) => {
-    if (!confirm(`Delete "${name}"? This will permanently delete the list and all its items.`)) return;
+    const confirmed = await confirm({
+      title: 'Delete List',
+      message: `Delete "${name}"? This will permanently delete the list and all its items.`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await api.deleteList(id);
       loadLists();
     } catch (error) {
       console.error('Failed to delete list:', error);
-      alert('Failed to delete list. Please try again.');
+      await alert({ message: 'Failed to delete list. Please try again.' });
     }
   };
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type PantryItem, type List } from '@/lib/api';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 
 const STATUS_ORDER = ['have', 'low', 'out'] as const;
 const STATUS_LABELS: Record<string, string> = {
@@ -18,6 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function PantryPage() {
   const router = useRouter();
+  const { confirm, alert } = useConfirmDialog();
   const [items, setItems] = useState<PantryItem[]>([]);
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function PantryPage() {
       loadPantry();
     } catch (error) {
       console.error('Failed to add item:', error);
-      alert('Failed to add item. It may already exist in your pantry.');
+      await alert({ message: 'Failed to add item. It may already exist in your pantry.' });
     }
   };
 
@@ -93,7 +95,13 @@ export default function PantryPage() {
   };
 
   const handleDeleteItem = async (item: PantryItem) => {
-    if (!confirm(`Remove "${item.name}" from pantry?`)) return;
+    const confirmed = await confirm({
+      title: 'Remove from Pantry',
+      message: `Remove "${item.name}" from pantry?`,
+      confirmText: 'Remove',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await api.deletePantryItem(item.id);
       loadPantry();
@@ -106,16 +114,19 @@ export default function PantryPage() {
     // Find the Grocery list
     const groceryList = lists.find(l => l.name.toLowerCase() === 'grocery');
     if (!groceryList) {
-      alert('No "Grocery" list found. Please create one first.');
+      await alert({ message: 'No "Grocery" list found. Please create one first.' });
       return;
     }
 
     try {
       await api.createItem(groceryList.id, { name: item.name });
-      alert(`Added "${item.name}" to shopping list`);
+      await alert({
+        title: 'Added to List',
+        message: `Added "${item.name}" to shopping list`,
+      });
     } catch (error) {
       console.error('Failed to add to shopping list:', error);
-      alert('Failed to add to shopping list');
+      await alert({ message: 'Failed to add to shopping list' });
     }
   };
 

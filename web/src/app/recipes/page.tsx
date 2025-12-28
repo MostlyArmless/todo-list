@@ -4,9 +4,11 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type RecipeListItem } from '@/lib/api';
 import IconButton from '@/components/IconButton';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function RecipesPage() {
   const router = useRouter();
+  const { confirm, alert } = useConfirmDialog();
   const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableColors, setAvailableColors] = useState<string[]>([]);
@@ -64,13 +66,19 @@ export default function RecipesPage() {
   };
 
   const handleDeleteRecipe = async (id: number, name: string) => {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    const confirmed = await confirm({
+      title: 'Delete Recipe',
+      message: `Delete "${name}"? This cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await api.deleteRecipe(id);
       loadRecipes();
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      alert('Failed to delete recipe. Please try again.');
+      await alert({ message: 'Failed to delete recipe. Please try again.' });
     }
   };
 

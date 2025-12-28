@@ -9,6 +9,7 @@ import {
 } from '@/hooks/useIngredientKeyboard';
 import PantryCheckModal from '@/components/PantryCheckModal';
 import IconButton from '@/components/IconButton';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 
 interface Toast {
   message: string;
@@ -25,6 +26,7 @@ export default function RecipeDetailPage() {
   const router = useRouter();
   const params = useParams();
   const recipeId = parseInt(params.id as string, 10);
+  const { confirm } = useConfirmDialog();
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +145,13 @@ export default function RecipeDetailPage() {
   };
 
   const deleteIngredient = async (id: number) => {
-    if (!confirm('Delete this ingredient?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Ingredient',
+      message: 'Are you sure you want to delete this ingredient?',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await api.deleteIngredient(id);
       loadRecipe();

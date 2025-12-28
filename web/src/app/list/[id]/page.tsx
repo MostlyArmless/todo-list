@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { api, type List, type Category, type Item, type PantryItem } from '@/lib/api';
 import { formatQuantityTotal } from '@/lib/formatQuantity';
 import IconButton from '@/components/IconButton';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 import {
   DndContext,
   closestCenter,
@@ -27,6 +28,7 @@ export default function ListDetailPage() {
   const router = useRouter();
   const params = useParams();
   const listId = parseInt(params.id as string);
+  const { confirm, alert } = useConfirmDialog();
 
   const [list, setList] = useState<List | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -174,7 +176,13 @@ export default function ListDetailPage() {
   };
 
   const handleDeleteItem = async (id: number) => {
-    if (!confirm('Delete this item?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Item',
+      message: 'Are you sure you want to delete this item?',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await api.deleteItem(id);
       loadData();
@@ -211,7 +219,13 @@ export default function ListDetailPage() {
   };
 
   const handleDeleteCategory = async (id: number) => {
-    if (!confirm('Delete this category? Items in it will become uncategorized.')) return;
+    const confirmed = await confirm({
+      title: 'Delete Category',
+      message: 'Delete this category? Items in it will become uncategorized.',
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await api.deleteCategory(id);
       loadData();
@@ -323,7 +337,13 @@ export default function ListDetailPage() {
 
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) return;
-    if (!confirm(`Delete ${selectedItems.size} selected item${selectedItems.size > 1 ? 's' : ''}?`)) return;
+    const confirmed = await confirm({
+      title: 'Delete Items',
+      message: `Delete ${selectedItems.size} selected item${selectedItems.size > 1 ? 's' : ''}?`,
+      confirmText: 'Delete',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
       await api.bulkDeleteItems(listId, Array.from(selectedItems));
@@ -339,14 +359,23 @@ export default function ListDetailPage() {
     try {
       const result = await api.autoCategorizeItems(listId);
       if (result.categorized > 0) {
-        alert(`Categorized ${result.categorized} item${result.categorized > 1 ? 's' : ''}${result.failed > 0 ? ` (${result.failed} could not be categorized)` : ''}`);
+        await alert({
+          title: 'Auto-Categorize Complete',
+          message: `Categorized ${result.categorized} item${result.categorized > 1 ? 's' : ''}${result.failed > 0 ? ` (${result.failed} could not be categorized)` : ''}`,
+        });
         loadData();
       } else if (result.failed > 0) {
-        alert(`Could not categorize any items. ${result.failed} item${result.failed > 1 ? 's' : ''} remain uncategorized.`);
+        await alert({
+          title: 'Auto-Categorize',
+          message: `Could not categorize any items. ${result.failed} item${result.failed > 1 ? 's' : ''} remain uncategorized.`,
+        });
       }
     } catch (error) {
       console.error('Failed to auto-categorize:', error);
-      alert('Failed to auto-categorize items. Please try again.');
+      await alert({
+        title: 'Error',
+        message: 'Failed to auto-categorize items. Please try again.',
+      });
     } finally {
       setAutoCategorizing(false);
     }

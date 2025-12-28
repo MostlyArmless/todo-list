@@ -7,6 +7,7 @@ import {
   useIngredientKeyboard,
   ingredientStyles,
 } from '@/hooks/useIngredientKeyboard';
+import { useConfirmDialog } from '@/components/ConfirmDialog';
 
 interface IngredientDraft {
   id: string;
@@ -18,6 +19,7 @@ interface IngredientDraft {
 
 export default function NewRecipePage() {
   const router = useRouter();
+  const { alert } = useConfirmDialog();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [servings, setServings] = useState('');
@@ -82,7 +84,7 @@ export default function NewRecipePage() {
       router.push(`/recipes/${recipe.id}`);
     } catch (error) {
       console.error('Failed to create recipe:', error);
-      alert('Failed to create recipe. Please try again.');
+      await alert({ message: 'Failed to create recipe. Please try again.' });
     } finally {
       setSaving(false);
     }
