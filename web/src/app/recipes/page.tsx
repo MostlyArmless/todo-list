@@ -148,7 +148,12 @@ export default function RecipesPage() {
               {(() => {
                 const status = pantryStatus.get(recipe.id);
                 if (!status || status.total_ingredients === 0) return null;
-                const percent = Math.round((status.ingredients_in_pantry / status.total_ingredients) * 100);
+                const total = status.total_ingredients;
+                const havePercent = (status.have_count / total) * 100;
+                const lowPercent = (status.low_count / total) * 100;
+                const outPercent = (status.out_count / total) * 100;
+                const unmatchedPercent = (status.unmatched_count / total) * 100;
+                const matchedCount = status.have_count + status.low_count + status.out_count;
                 return (
                   <div style={{ marginTop: '0.5rem' }}>
                     <div style={{
@@ -165,16 +170,46 @@ export default function RecipesPage() {
                         borderRadius: '2px',
                         overflow: 'hidden',
                         maxWidth: '100px',
+                        display: 'flex',
                       }}>
-                        <div style={{
-                          width: `${percent}%`,
-                          height: '100%',
-                          backgroundColor: percent === 100 ? 'var(--success)' : 'var(--accent)',
-                          borderRadius: '2px',
-                          transition: 'width 0.3s ease',
-                        }} />
+                        {/* Green: Have */}
+                        {havePercent > 0 && (
+                          <div style={{
+                            width: `${havePercent}%`,
+                            height: '100%',
+                            backgroundColor: '#22c55e',
+                            transition: 'width 0.3s ease',
+                          }} />
+                        )}
+                        {/* Orange: Low */}
+                        {lowPercent > 0 && (
+                          <div style={{
+                            width: `${lowPercent}%`,
+                            height: '100%',
+                            backgroundColor: '#f97316',
+                            transition: 'width 0.3s ease',
+                          }} />
+                        )}
+                        {/* Red: Out */}
+                        {outPercent > 0 && (
+                          <div style={{
+                            width: `${outPercent}%`,
+                            height: '100%',
+                            backgroundColor: '#ef4444',
+                            transition: 'width 0.3s ease',
+                          }} />
+                        )}
+                        {/* Grey: Unmatched/N/A */}
+                        {unmatchedPercent > 0 && (
+                          <div style={{
+                            width: `${unmatchedPercent}%`,
+                            height: '100%',
+                            backgroundColor: '#6b7280',
+                            transition: 'width 0.3s ease',
+                          }} />
+                        )}
                       </div>
-                      <span>{status.ingredients_in_pantry}/{status.total_ingredients} in pantry</span>
+                      <span>{matchedCount}/{total} in pantry</span>
                     </div>
                   </div>
                 );

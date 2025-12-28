@@ -306,7 +306,7 @@ async def bulk_check_pantry(
     """Check all recipes against pantry to get ingredient counts.
 
     Returns a lightweight summary of how many ingredients from each recipe
-    the user already has in their pantry (with "have" status).
+    the user has in their pantry, broken down by status (have/low/out).
     Uses simple matching only (no LLM) for speed.
     """
     from src.models.pantry import PantryItem
@@ -319,55 +319,64 @@ async def bulk_check_pantry(
         .all()
     )
 
-    # Get user's pantry items with "have" status
-    pantry_items = (
-        db.query(PantryItem)
-        .filter(PantryItem.user_id == current_user.id, PantryItem.status == "have")
-        .all()
-    )
+    # Get all user's pantry items (all statuses)
+    pantry_items = db.query(PantryItem).filter(PantryItem.user_id == current_user.id).all()
 
-    # Build pantry lookup by normalized name
-    pantry_names = {item.normalized_name for item in pantry_items}
+    # Build pantry lookup by normalized name -> status
+    pantry_by_name: dict[str, str] = {item.normalized_name: item.status for item in pantry_items}
+
+    def match_ingredient(normalized: str) -> str | None:
+        """Match ingredient to pantry and return status, or None if no match."""
+        # Exact match
+        if normalized in pantry_by_name:
+            return pantry_by_name[normalized]
+
+        # Substring match (e.g., "garlic" matches "garlic cloves")
+        for pantry_name, status in pantry_by_name.items():
+            if normalized in pantry_name or pantry_name in normalized:
+                return status
+
+        # Word-level match (e.g., "chicken breast" matches "chicken")
+        ingredient_words = set(normalized.split())
+        for pantry_name, status in pantry_by_name.items():
+            pantry_words = set(pantry_name.split())
+            common_words = ingredient_words & pantry_words
+            significant_common = {w for w in common_words if len(w) >= 3}
+            if significant_common:
+                return status
+
+        return None
 
     results = []
     for recipe in recipes:
         total = len(recipe.ingredients)
-        in_pantry = 0
+        have_count = 0
+        low_count = 0
+        out_count = 0
+        unmatched_count = 0
 
         for ingredient in recipe.ingredients:
             normalized = ingredient.name.lower().strip()
+            status = match_ingredient(normalized)
 
-            # Exact match
-            if normalized in pantry_names:
-                in_pantry += 1
-                continue
-
-            # Substring match (e.g., "garlic" matches "garlic cloves")
-            matched = False
-            for pantry_name in pantry_names:
-                if normalized in pantry_name or pantry_name in normalized:
-                    in_pantry += 1
-                    matched = True
-                    break
-
-            if matched:
-                continue
-
-            # Word-level match (e.g., "chicken breast" matches "chicken")
-            ingredient_words = set(normalized.split())
-            for pantry_name in pantry_names:
-                pantry_words = set(pantry_name.split())
-                common_words = ingredient_words & pantry_words
-                significant_common = {w for w in common_words if len(w) >= 3}
-                if significant_common:
-                    in_pantry += 1
-                    break
+            if status == "have":
+                have_count += 1
+            elif status == "low":
+                low_count += 1
+            elif status == "out":
+                out_count += 1
+            else:
+                unmatched_count += 1
 
         results.append(
             RecipePantryStatus(
                 recipe_id=recipe.id,
                 total_ingredients=total,
-                ingredients_in_pantry=in_pantry,
+                ingredients_in_pantry=have_count,  # backwards compat
+                have_count=have_count,
+                low_count=low_count,
+                out_count=out_count,
+                unmatched_count=unmatched_count,
             )
         )
 

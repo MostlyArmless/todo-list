@@ -564,6 +564,10 @@ export interface RecipePantryStatus {
   recipe_id: number;
   total_ingredients: number;
   ingredients_in_pantry: number;
+  have_count: number;
+  low_count: number;
+  out_count: number;
+  unmatched_count: number;
 }
 
 export interface BulkPantryCheckResponse {

@@ -195,7 +195,11 @@ class RecipePantryStatus(BaseModel):
 
     recipe_id: int
     total_ingredients: int
-    ingredients_in_pantry: int  # Count of ingredients with "have" status
+    ingredients_in_pantry: int  # Count of ingredients with "have" status (for backwards compat)
+    have_count: int = 0  # Ingredients matched to pantry items with "have" status
+    low_count: int = 0  # Ingredients matched to pantry items with "low" status
+    out_count: int = 0  # Ingredients matched to pantry items with "out" status
+    unmatched_count: int = 0  # Ingredients not matched to any pantry item
 
 
 class BulkPantryCheckResponse(BaseModel):
