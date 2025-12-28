@@ -336,14 +336,14 @@ class ApiClient {
     return this.request<PantryItem[]>('/api/v1/pantry');
   }
 
-  async createPantryItem(data: { name: string; status?: string; category?: string }) {
+  async createPantryItem(data: { name: string; status?: string; category?: string; preferred_store?: string }) {
     return this.request<PantryItem>('/api/v1/pantry', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updatePantryItem(id: number, data: { name?: string; status?: string; category?: string }) {
+  async updatePantryItem(id: number, data: { name?: string; status?: string; category?: string; preferred_store?: string }) {
     return this.request<PantryItem>(`/api/v1/pantry/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -598,6 +598,7 @@ export interface PantryItem {
   normalized_name: string;
   status: 'have' | 'low' | 'out';
   category: string | null;
+  preferred_store: 'Grocery' | 'Costco' | null;
   created_at: string;
   updated_at: string;
 }

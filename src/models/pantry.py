@@ -21,6 +21,7 @@ class PantryItem(Base, TimestampMixin):
     normalized_name = Column(String(255), nullable=False)  # Lowercase, trimmed for matching
     status = Column(String(20), nullable=False, default="have")  # "have" | "low" | "out"
     category = Column(String(100), nullable=True)  # Optional: "spices", "baking", "canned", etc.
+    preferred_store = Column(String(50), nullable=True)  # "Grocery" | "Costco" | null
 
     # Relationships
     user = relationship("User", backref="pantry_items")

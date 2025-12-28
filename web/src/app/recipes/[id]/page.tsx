@@ -566,12 +566,59 @@ export default function RecipeDetailPage() {
         }}
       >
         {recipe.calories_per_serving != null ? (
-          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.875rem', flexWrap: 'wrap' }}>
-            <span><strong>{recipe.calories_per_serving}</strong> cal</span>
-            {recipe.protein_grams != null && <span><strong>{recipe.protein_grams}g</strong> protein</span>}
-            {recipe.carbs_grams != null && <span><strong>{recipe.carbs_grams}g</strong> carbs</span>}
-            {recipe.fat_grams != null && <span><strong>{recipe.fat_grams}g</strong> fat</span>}
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>per serving</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+              {recipe.calories_per_serving} cal
+            </span>
+            {recipe.protein_grams != null && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.125rem 0.5rem',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                color: '#3b82f6',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+              }}>
+                <span style={{ fontWeight: 600 }}>{recipe.protein_grams}g</span> Protein
+              </span>
+            )}
+            {recipe.carbs_grams != null && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.125rem 0.5rem',
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                color: '#a855f7',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(168, 85, 247, 0.2)',
+              }}>
+                <span style={{ fontWeight: 600 }}>{recipe.carbs_grams}g</span> Carbs
+              </span>
+            )}
+            {recipe.fat_grams != null && (
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.125rem 0.5rem',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                color: '#f59e0b',
+                borderRadius: '9999px',
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+              }}>
+                <span style={{ fontWeight: 600 }}>{recipe.fat_grams}g</span> Fat
+              </span>
+            )}
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>per serving</span>
           </div>
         ) : (
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
@@ -851,10 +898,10 @@ export default function RecipeDetailPage() {
       </div>
 
       {/* Instructions Section */}
-      {recipe.instructions && (
-        <div className="card" style={{ padding: '0.75rem', marginTop: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 500 }}>Instructions</h2>
+      <div className="card" style={{ padding: '0.75rem', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 500 }}>Instructions</h2>
+          {recipe.instructions && (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {completedSteps.length > 0 && (
                 <button
@@ -888,23 +935,28 @@ export default function RecipeDetailPage() {
                 {editingInstructions ? 'Cancel' : 'Edit'}
               </button>
             </div>
-          </div>
+          )}
+        </div>
 
-          {editingInstructions ? (
-            <div>
-              <textarea
-                value={instructionsText}
-                onChange={(e) => setInstructionsText(e.target.value)}
-                style={{
-                  width: '100%',
-                  minHeight: '200px',
-                  padding: '0.5rem',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontFamily: 'monospace',
-                  fontSize: '14px',
-                }}
-              />
+        {editingInstructions ? (
+          <div>
+            <textarea
+              value={instructionsText}
+              onChange={(e) => setInstructionsText(e.target.value)}
+              placeholder="Enter recipe instructions here. You can use markdown formatting:&#10;&#10;1. First step&#10;2. Second step&#10;&#10;**Bold text** and *italic text* are supported."
+              style={{
+                width: '100%',
+                minHeight: '200px',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                fontFamily: 'monospace',
+                fontSize: '14px',
+                resize: 'vertical',
+              }}
+              autoFocus={!recipe.instructions}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
               <button
                 onClick={async () => {
                   await api.updateRecipe(recipe.id, { instructions: instructionsText });
@@ -915,7 +967,6 @@ export default function RecipeDetailPage() {
                   setCompletedSteps([]);
                 }}
                 style={{
-                  marginTop: '0.5rem',
                   padding: '0.5rem 1rem',
                   background: 'var(--accent)',
                   color: 'white',
@@ -926,16 +977,81 @@ export default function RecipeDetailPage() {
               >
                 Save Instructions
               </button>
+              {!recipe.instructions && (
+                <button
+                  onClick={() => {
+                    setEditingInstructions(false);
+                    setInstructionsText('');
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
             </div>
-          ) : (
-            <MarkdownInstructions
-              markdown={recipe.instructions}
-              completedSteps={completedSteps}
-              onToggleStep={handleToggleStep}
-            />
-          )}
-        </div>
-      )}
+          </div>
+        ) : recipe.instructions ? (
+          <MarkdownInstructions
+            markdown={recipe.instructions}
+            completedSteps={completedSteps}
+            onToggleStep={handleToggleStep}
+          />
+        ) : (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '2rem 1rem',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              style={{ marginBottom: '1rem', opacity: 0.5 }}
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <p style={{ margin: '0 0 1rem 0', textAlign: 'center' }}>
+              No instructions yet
+            </p>
+            <button
+              onClick={() => {
+                setInstructionsText('');
+                setEditingInstructions(true);
+              }}
+              className="btn btn-primary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Add Instructions
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -12,6 +12,7 @@ class PantryItemCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     status: Literal["have", "low", "out"] = "have"
     category: str | None = Field(None, max_length=100)
+    preferred_store: Literal["Grocery", "Costco"] | None = None
 
 
 class PantryItemUpdate(BaseModel):
@@ -20,6 +21,7 @@ class PantryItemUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=255)
     status: Literal["have", "low", "out"] | None = None
     category: str | None = None
+    preferred_store: Literal["Grocery", "Costco"] | None = None
 
 
 class PantryItemResponse(BaseModel):
@@ -33,6 +35,7 @@ class PantryItemResponse(BaseModel):
     normalized_name: str
     status: str
     category: str | None
+    preferred_store: str | None
     created_at: datetime
     updated_at: datetime
 

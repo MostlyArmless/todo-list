@@ -83,6 +83,7 @@ async def create_pantry_item(
         normalized_name=normalized,
         status=item_data.status,
         category=item_data.category,
+        preferred_store=item_data.preferred_store,
     )
     db.add(item)
     db.commit()
@@ -117,6 +118,8 @@ async def update_pantry_item(
         item.status = item_data.status
     if item_data.category is not None:
         item.category = item_data.category if item_data.category else None
+    if item_data.preferred_store is not None:
+        item.preferred_store = item_data.preferred_store if item_data.preferred_store else None
 
     db.commit()
     db.refresh(item)
@@ -173,6 +176,7 @@ async def bulk_add_pantry_items(
                 normalized_name=normalized,
                 status=item_data.status,
                 category=item_data.category,
+                preferred_store=item_data.preferred_store,
             )
             db.add(item)
             db.flush()

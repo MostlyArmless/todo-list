@@ -427,47 +427,64 @@ export default function ListDetailPage() {
   }
 
   return (
-    <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
+    <div className="container" style={{ paddingTop: '0.5rem', paddingBottom: '4rem' }}>
       {/* Header */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <button
-          onClick={() => router.push('/lists')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            color: 'var(--text-secondary)',
-            marginBottom: '1rem',
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      <div style={{ marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <button
+            onClick={() => router.push('/lists')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              color: 'var(--text-secondary)',
+              marginBottom: '0.25rem',
+              fontSize: '0.875rem',
+            }}
           >
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-          Back to Lists
-        </button>
-        <h1 style={{ fontSize: '2rem' }}>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Back
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={showChecked}
+              onChange={(e) => {
+                setShowChecked(e.target.checked);
+                api.getItems(listId, e.target.checked).then(setItems);
+              }}
+              style={{ width: '14px', height: '14px' }}
+            />
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              Show checked
+            </span>
+          </label>
+        </div>
+        <h1 style={{ fontSize: '1.5rem', margin: 0 }}>
           {list.icon && <span style={{ marginRight: '0.5rem' }}>{list.icon}</span>}
           {list.name}
         </h1>
         {list.description && (
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
             {list.description}
           </p>
         )}
       </div>
 
       {/* Add Item Form */}
-      <form onSubmit={handleAddItem} className="card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <form onSubmit={handleAddItem} className="card" style={{ marginBottom: '0.75rem', padding: '0.5rem 0.75rem', position: 'relative' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             type="text"
             placeholder="Add item..."
@@ -492,20 +509,24 @@ export default function ListDetailPage() {
           <button type="submit" className="btn btn-primary" style={{ flex: '0 0 auto' }}>
             Add
           </button>
-          {addedItemMessage && (
-            <span
-              style={{
-                color: 'var(--success)',
-                fontSize: '0.875rem',
-                opacity: 1,
-                animation: 'fadeOut 3s ease-out forwards',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {addedItemMessage}
-            </span>
-          )}
         </div>
+        {addedItemMessage && (
+          <span
+            style={{
+              position: 'absolute',
+              left: '0.75rem',
+              top: '100%',
+              marginTop: '0.5rem',
+              color: 'var(--success)',
+              fontSize: '0.75rem',
+              opacity: 1,
+              animation: 'fadeOut 3s ease-out forwards',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {addedItemMessage}
+          </span>
+        )}
       </form>
 
       <style jsx>{`
@@ -516,49 +537,35 @@ export default function ListDetailPage() {
         }
       `}</style>
 
-      {/* Toggle Checked Items & Bulk Actions */}
-      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={showChecked}
-            onChange={(e) => {
-              setShowChecked(e.target.checked);
-              api.getItems(listId, e.target.checked).then(setItems);
-            }}
-          />
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Show checked items
-          </span>
-        </label>
-
-        {selectedItems.size > 0 && (
+      {/* Bulk Actions */}
+      {selectedItems.size > 0 && (
+        <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={handleBulkDelete}
             className="btn"
             style={{
               background: '#ef4444',
               color: 'white',
-              padding: '0.5rem 1rem',
-              fontSize: '0.875rem',
+              padding: '0.3rem 0.6rem',
+              fontSize: '0.8rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.35rem',
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
             </svg>
-            Delete {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''}
+            Delete {selectedItems.size}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Uncategorized Items */}
       {getItemsByCategory(null).length > 0 && (
-        <div style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
             <input
               type="checkbox"
               checked={isCategoryFullySelected(null)}
@@ -566,12 +573,13 @@ export default function ListDetailPage() {
                 if (el) el.indeterminate = isCategoryPartiallySelected(null);
               }}
               onChange={() => toggleCategorySelection(null)}
-              style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
               title="Select all uncategorized items"
             />
             <h2
               style={{
-                fontSize: '1.125rem',
+                fontSize: '0.9rem',
+                fontWeight: 600,
                 color: 'var(--text-secondary)',
                 margin: 0,
                 flex: 1,
@@ -585,31 +593,31 @@ export default function ListDetailPage() {
                 disabled={autoCategorizing}
                 className="btn btn-secondary"
                 style={{
-                  padding: '0.4rem 0.75rem',
-                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.5rem',
+                  fontSize: '0.7rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.35rem',
+                  gap: '0.25rem',
                 }}
                 title="Auto-categorize items using AI"
               >
                 {autoCategorizing ? (
                   <>
                     <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
-                    Categorizing...
+                    ...
                   </>
                 ) : (
                   <>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
                     </svg>
-                    Auto-categorize
+                    Auto
                   </>
                 )}
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {getItemsByCategory(null).map((item) => (
               <ItemRow
                 key={item.id}
@@ -669,14 +677,15 @@ export default function ListDetailPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem',
-                  borderRadius: '8px',
-                  border: '2px dashed var(--border)',
+                  gap: '0.35rem',
+                  padding: '0.4rem',
+                  borderRadius: '6px',
+                  border: '1px dashed var(--border)',
                   color: 'var(--text-secondary)',
                   background: 'transparent',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
+                  fontSize: '0.8rem',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = 'var(--accent)';
@@ -687,7 +696,7 @@ export default function ListDetailPage() {
                   e.currentTarget.style.color = 'var(--text-secondary)';
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
@@ -748,15 +757,15 @@ export default function ListDetailPage() {
 
       {/* Empty State */}
       {items.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)' }}>
+        <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
           <p>No items yet. Add your first item above!</p>
         </div>
       )}
 
       {/* Add Category */}
-      <div style={{ marginTop: '2rem' }}>
+      <div style={{ marginTop: '1rem' }}>
         {showNewCategory ? (
-          <form onSubmit={handleAddCategory} className="card">
+          <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <input
               type="text"
               placeholder="Category name"
@@ -764,39 +773,43 @@ export default function ListDetailPage() {
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               autoFocus
-              style={{ marginBottom: '1rem' }}
-            />
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                Add Category
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+              style={{ flex: 1, padding: '0.4rem 0.5rem' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
                   setShowNewCategory(false);
                   setNewCategoryName('');
-                }}
-                className="btn btn-secondary"
-                style={{ flex: 1 }}
-              >
-                Cancel
-              </button>
-            </div>
+                }
+              }}
+            />
+            <button type="submit" className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}>
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewCategory(false);
+                setNewCategoryName('');
+              }}
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.875rem' }}
+            >
+              Cancel
+            </button>
           </form>
         ) : (
           <button
             onClick={() => setShowNewCategory(true)}
             style={{
               color: 'var(--text-secondary)',
-              fontSize: '0.875rem',
+              fontSize: '0.8rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
+              gap: '0.35rem',
             }}
           >
             <svg
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -951,14 +964,14 @@ function SortableCategory({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    marginBottom: '2rem',
+    marginBottom: '1rem',
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1000 : undefined,
   };
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
         {/* Category selection checkbox */}
         {items.length > 0 && (
           <input
@@ -968,7 +981,7 @@ function SortableCategory({
               if (el) el.indeterminate = isPartiallySelected;
             }}
             onChange={onToggleCategorySelection}
-            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
             title={`Select all items in ${category.name}`}
           />
         )}
@@ -980,15 +993,15 @@ function SortableCategory({
           style={{
             cursor: isDragging ? 'grabbing' : 'grab',
             color: 'var(--text-secondary)',
-            padding: '0.25rem',
+            padding: '0.15rem',
             flexShrink: 0,
             touchAction: 'none',
           }}
           title="Drag to reorder"
         >
           <svg
-            width="20"
-            height="20"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1036,7 +1049,8 @@ function SortableCategory({
           <>
             <h2
               style={{
-                fontSize: '1.125rem',
+                fontSize: '0.9rem',
+                fontWeight: 600,
                 flex: 1,
                 color: category.color || 'var(--text-primary)',
                 margin: 0,
@@ -1050,14 +1064,14 @@ function SortableCategory({
               onClick={onStartEdit}
               style={{
                 color: 'var(--text-secondary)',
-                padding: '0.5rem',
+                padding: '0.25rem',
                 flexShrink: 0,
               }}
               title="Edit category name"
             >
               <svg
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -1075,14 +1089,14 @@ function SortableCategory({
               onClick={onDelete}
               style={{
                 color: 'var(--text-secondary)',
-                padding: '0.5rem',
+                padding: '0.25rem',
                 flexShrink: 0,
               }}
               title="Delete category"
             >
               <svg
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -1098,7 +1112,7 @@ function SortableCategory({
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {items.map((item) => (
           <ItemRow
             key={item.id}
@@ -1154,14 +1168,15 @@ function SortableCategory({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem',
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '2px dashed var(--border)',
+              gap: '0.35rem',
+              padding: '0.4rem',
+              borderRadius: '6px',
+              border: '1px dashed var(--border)',
               color: 'var(--text-secondary)',
               background: 'transparent',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
+              fontSize: '0.8rem',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = 'var(--accent)';
@@ -1172,7 +1187,7 @@ function SortableCategory({
               e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -1245,7 +1260,8 @@ function ItemRow({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.75rem',
+          gap: '0.5rem',
+          padding: '0.5rem 0.75rem',
         }}
       >
         <input
@@ -1259,6 +1275,7 @@ function ItemRow({
             if (e.key === 'Enter') handleSaveEdit();
             if (e.key === 'Escape') handleCancelEdit();
           }}
+          style={{ padding: '0.4rem 0.5rem' }}
         />
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <input
@@ -1266,8 +1283,8 @@ function ItemRow({
             className="input"
             value={editQuantity}
             onChange={(e) => setEditQuantity(e.target.value)}
-            placeholder="Quantity (e.g., 2 lbs)"
-            style={{ flex: '1 1 120px' }}
+            placeholder="Qty"
+            style={{ flex: '1 1 80px', padding: '0.4rem 0.5rem' }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
@@ -1279,31 +1296,32 @@ function ItemRow({
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
             placeholder="Description"
-            style={{ flex: '1 1 150px' }}
+            style={{ flex: '1 1 120px', padding: '0.4rem 0.5rem' }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
             }}
           />
+          <select
+            className="input"
+            value={editCategoryId || ''}
+            onChange={(e) => setEditCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+            style={{ flex: '1 1 100px', padding: '0.4rem 0.5rem' }}
+          >
+            <option value="">No category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          className="input"
-          value={editCategoryId || ''}
-          onChange={(e) => setEditCategoryId(e.target.value ? parseInt(e.target.value) : null)}
-        >
-          <option value="">No category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             onClick={handleSaveEdit}
             disabled={saving || !editName.trim()}
             className="btn btn-primary"
-            style={{ flex: 1 }}
+            style={{ flex: 1, padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
@@ -1311,7 +1329,7 @@ function ItemRow({
             onClick={handleCancelEdit}
             disabled={saving}
             className="btn btn-secondary"
-            style={{ flex: 1 }}
+            style={{ flex: 1, padding: '0.35rem 0.75rem', fontSize: '0.875rem' }}
           >
             Cancel
           </button>
@@ -1326,7 +1344,8 @@ function ItemRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '0.75rem',
+        gap: '0.5rem',
+        padding: '0.4rem 0.6rem',
         opacity: item.checked ? 0.5 : 1,
         background: selected ? 'var(--bg-hover, rgba(59, 130, 246, 0.1))' : undefined,
       }}
@@ -1336,7 +1355,7 @@ function ItemRow({
         type="checkbox"
         checked={selected}
         onChange={onSelect}
-        style={{ width: '18px', height: '18px', cursor: 'pointer', flexShrink: 0 }}
+        style={{ width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }}
         title="Select item"
       />
 
@@ -1344,8 +1363,8 @@ function ItemRow({
       <button
         onClick={() => onToggle(item)}
         style={{
-          width: '24px',
-          height: '24px',
+          width: '20px',
+          height: '20px',
           borderRadius: '50%',
           border: '2px solid var(--accent)',
           background: item.checked ? 'var(--accent)' : 'transparent',
@@ -1357,8 +1376,8 @@ function ItemRow({
       >
         {item.checked && (
           <svg
-            width="16"
-            height="16"
+            width="12"
+            height="12"
             viewBox="0 0 24 24"
             fill="none"
             stroke="white"
@@ -1375,25 +1394,32 @@ function ItemRow({
         <div
           style={{
             textDecoration: item.checked ? 'line-through' : 'none',
-            marginBottom: item.quantity || item.description || item.recipe_sources?.length ? '0.25rem' : 0,
+            fontSize: '0.9rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
+            gap: '0.35rem',
             flexWrap: 'wrap',
           }}
         >
           <span>{item.name}</span>
+          {(item.quantity || item.description) && (
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {item.quantity && formatQuantityTotal(item.quantity)}
+              {item.quantity && item.description && ' · '}
+              {item.description}
+            </span>
+          )}
           {/* Recipe source badges */}
           {item.recipe_sources && item.recipe_sources.length > 0 && (
-            <span style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', gap: '0.2rem', flexWrap: 'wrap' }}>
               {item.recipe_sources.map((source, idx) => (
                 <span
                   key={source.recipe_id ?? `adhoc-${idx}`}
                   style={{
-                    fontSize: '0.65rem',
+                    fontSize: '0.6rem',
                     backgroundColor: source.label_color || (source.recipe_id ? '#e6194b' : 'var(--text-secondary)'),
                     color: 'white',
-                    padding: '0.1rem 0.4rem',
+                    padding: '0.05rem 0.3rem',
                     borderRadius: '3px',
                     whiteSpace: 'nowrap',
                   }}
@@ -1405,13 +1431,6 @@ function ItemRow({
             </span>
           )}
         </div>
-        {(item.quantity || item.description) && (
-          <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-            {item.quantity && <span>{formatQuantityTotal(item.quantity)}</span>}
-            {item.quantity && item.description && <span> - </span>}
-            {item.description && <span>{item.description}</span>}
-          </div>
-        )}
       </div>
 
       {/* Edit button */}
@@ -1419,14 +1438,14 @@ function ItemRow({
         onClick={handleStartEdit}
         style={{
           color: 'var(--text-secondary)',
-          padding: '0.5rem',
+          padding: '0.25rem',
           flexShrink: 0,
         }}
         title="Edit item"
       >
         <svg
-          width="20"
-          height="20"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -1443,14 +1462,14 @@ function ItemRow({
         onClick={() => onDelete(item.id)}
         style={{
           color: 'var(--text-secondary)',
-          padding: '0.5rem',
+          padding: '0.25rem',
           flexShrink: 0,
         }}
         title="Delete item"
       >
         <svg
-          width="20"
-          height="20"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
