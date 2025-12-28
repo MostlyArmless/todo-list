@@ -3,9 +3,24 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, type RecipeListItem, type RecipePantryStatus } from '@/lib/api';
+import { api, type RecipeListItem, type RecipePantryStatus, type RecipeSortBy } from '@/lib/api';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
+
+const SORT_OPTIONS: { value: RecipeSortBy; label: string }[] = [
+  { value: 'name_asc', label: 'Name (A-Z)' },
+  { value: 'name_desc', label: 'Name (Z-A)' },
+  { value: 'ingredients_asc', label: 'Fewest Ingredients' },
+  { value: 'ingredients_desc', label: 'Most Ingredients' },
+  { value: 'last_cooked_desc', label: 'Recently Cooked' },
+  { value: 'last_cooked_asc', label: 'Not Cooked Recently' },
+  { value: 'calories_asc', label: 'Lowest Calories' },
+  { value: 'calories_desc', label: 'Highest Calories' },
+  { value: 'protein_desc', label: 'Highest Protein' },
+  { value: 'created_at_desc', label: 'Recently Added' },
+];
+
+const SORT_STORAGE_KEY = 'recipeSortBy';
 
 export default function RecipesPage() {
   const router = useRouter();
@@ -15,6 +30,7 @@ export default function RecipesPage() {
   const [availableColors, setAvailableColors] = useState<string[]>([]);
   const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
   const [pantryStatus, setPantryStatus] = useState<Map<number, RecipePantryStatus>>(new Map());
+  const [sortBy, setSortBy] = useState<RecipeSortBy>('name_asc');
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -23,10 +39,18 @@ export default function RecipesPage() {
       router.push('/login');
       return;
     }
-    loadRecipes();
+    // Load saved sort preference
+    const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as RecipeSortBy | null;
+    if (savedSort && SORT_OPTIONS.some(o => o.value === savedSort)) {
+      setSortBy(savedSort);
+    }
     loadColors();
     loadPantryStatus();
   }, [router]);
+
+  useEffect(() => {
+    loadRecipes(sortBy);
+  }, [sortBy]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -38,15 +62,20 @@ export default function RecipesPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadRecipes = async () => {
+  const loadRecipes = async (sort: RecipeSortBy) => {
     try {
-      const data = await api.getRecipes();
+      const data = await api.getRecipes(sort);
       setRecipes(data);
     } catch (error) {
       console.error('Failed to load recipes:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSortChange = (newSort: RecipeSortBy) => {
+    setSortBy(newSort);
+    localStorage.setItem(SORT_STORAGE_KEY, newSort);
   };
 
   const loadColors = async () => {
@@ -91,7 +120,7 @@ export default function RecipesPage() {
     if (!confirmed) return;
     try {
       await api.deleteRecipe(id);
-      loadRecipes();
+      loadRecipes(sortBy);
     } catch (error) {
       console.error('Failed to delete recipe:', error);
       await alert({ message: 'Failed to delete recipe. Please try again.' });
@@ -108,7 +137,28 @@ export default function RecipesPage() {
 
   return (
     <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
-      <h1 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>Recipes</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h1 style={{ fontSize: '2rem', margin: 0 }}>Recipes</h1>
+        <select
+          value={sortBy}
+          onChange={(e) => handleSortChange(e.target.value as RecipeSortBy)}
+          style={{
+            padding: '0.5rem 0.75rem',
+            backgroundColor: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+          }}
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {recipes.map((recipe) => (

@@ -230,8 +230,9 @@ class ApiClient {
   }
 
   // Recipes
-  async getRecipes() {
-    return this.request<RecipeListItem[]>('/api/v1/recipes');
+  async getRecipes(sortBy?: RecipeSortBy) {
+    const params = sortBy ? `?sort_by=${sortBy}` : '';
+    return this.request<RecipeListItem[]>(`/api/v1/recipes${params}`);
   }
 
   async getRecipeLabelColors() {
@@ -483,9 +484,23 @@ export interface Recipe {
   carbs_grams: number | null;
   fat_grams: number | null;
   nutrition_computed_at: string | null;
+  last_cooked_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type RecipeSortBy =
+  | 'name_asc'
+  | 'name_desc'
+  | 'ingredients_asc'
+  | 'ingredients_desc'
+  | 'last_cooked_asc'
+  | 'last_cooked_desc'
+  | 'calories_asc'
+  | 'calories_desc'
+  | 'protein_asc'
+  | 'protein_desc'
+  | 'created_at_desc';
 
 export interface RecipeListItem {
   id: number;
@@ -499,6 +514,7 @@ export interface RecipeListItem {
   protein_grams: number | null;
   carbs_grams: number | null;
   fat_grams: number | null;
+  last_cooked_at: string | null;
   created_at: string;
 }
 

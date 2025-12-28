@@ -1,6 +1,7 @@
 """Recipe API endpoints."""
 
 from datetime import UTC, datetime
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -125,18 +126,61 @@ async def compute_nutrition(
     }
 
 
+class RecipeSortBy(str, Enum):
+    """Sort options for recipe list."""
+
+    name_asc = "name_asc"
+    name_desc = "name_desc"
+    ingredients_asc = "ingredients_asc"
+    ingredients_desc = "ingredients_desc"
+    last_cooked_asc = "last_cooked_asc"
+    last_cooked_desc = "last_cooked_desc"
+    calories_asc = "calories_asc"
+    calories_desc = "calories_desc"
+    protein_asc = "protein_asc"
+    protein_desc = "protein_desc"
+    created_at_desc = "created_at_desc"
+
+
 @router.get("", response_model=list[RecipeListResponse])
 async def list_recipes(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    sort_by: RecipeSortBy = RecipeSortBy.name_asc,
 ):
     """List all recipes for the current user."""
-    recipes = (
-        db.query(Recipe)
-        .filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
-        .order_by(Recipe.name)
-        .all()
-    )
+    query = db.query(Recipe).filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+
+    # Apply sorting
+    if sort_by == RecipeSortBy.name_asc:
+        query = query.order_by(func.lower(Recipe.name))
+    elif sort_by == RecipeSortBy.name_desc:
+        query = query.order_by(func.lower(Recipe.name).desc())
+    elif sort_by == RecipeSortBy.last_cooked_asc:
+        # Never cooked recipes last
+        query = query.order_by(Recipe.last_cooked_at.asc().nullslast())
+    elif sort_by == RecipeSortBy.last_cooked_desc:
+        # Most recently cooked first, never cooked last
+        query = query.order_by(Recipe.last_cooked_at.desc().nullslast())
+    elif sort_by == RecipeSortBy.calories_asc:
+        query = query.order_by(Recipe.calories_per_serving.asc().nullslast())
+    elif sort_by == RecipeSortBy.calories_desc:
+        query = query.order_by(Recipe.calories_per_serving.desc().nullslast())
+    elif sort_by == RecipeSortBy.protein_asc:
+        query = query.order_by(Recipe.protein_grams.asc().nullslast())
+    elif sort_by == RecipeSortBy.protein_desc:
+        query = query.order_by(Recipe.protein_grams.desc().nullslast())
+    elif sort_by == RecipeSortBy.created_at_desc:
+        query = query.order_by(Recipe.created_at.desc())
+    # For ingredient sorting, we need to count in Python after fetching
+
+    recipes = query.all()
+
+    # Handle ingredient sorting
+    if sort_by == RecipeSortBy.ingredients_asc:
+        recipes = sorted(recipes, key=lambda r: len(r.ingredients))
+    elif sort_by == RecipeSortBy.ingredients_desc:
+        recipes = sorted(recipes, key=lambda r: len(r.ingredients), reverse=True)
 
     result = []
     for recipe in recipes:
@@ -153,6 +197,7 @@ async def list_recipes(
                 protein_grams=recipe.protein_grams,
                 carbs_grams=recipe.carbs_grams,
                 fat_grams=recipe.fat_grams,
+                last_cooked_at=recipe.last_cooked_at,
                 created_at=recipe.created_at,
             )
         )
@@ -716,6 +761,26 @@ async def get_step_completions(
     return {"completed_steps": [c.step_index for c in completions]}
 
 
+def count_recipe_steps(instructions: str | None) -> int:
+    """Count the number of steps in recipe instructions.
+
+    Steps are identified by numbered lines (e.g., "1.", "2.") or bullet points.
+    """
+    if not instructions:
+        return 0
+    import re
+
+    # Match lines starting with numbers followed by . or )
+    # e.g., "1.", "2)", "10."
+    lines = instructions.strip().split("\n")
+    step_count = 0
+    for line in lines:
+        line = line.strip()
+        if re.match(r"^\d+[.)]\s*", line):
+            step_count += 1
+    return step_count
+
+
 @router.post("/{recipe_id}/steps/{step_index}/toggle", response_model=StepToggleResponse)
 async def toggle_step_completion(
     recipe_id: int,
@@ -759,6 +824,22 @@ async def toggle_step_completion(
             completed_at=datetime.now(UTC),
         )
         db.add(completion)
+        db.flush()
+
+        # Check if all steps are now complete
+        total_steps = count_recipe_steps(recipe.instructions)
+        if total_steps > 0:
+            completed_count = (
+                db.query(func.count(RecipeStepCompletion.id))
+                .filter(
+                    RecipeStepCompletion.recipe_id == recipe_id,
+                    RecipeStepCompletion.user_id == current_user.id,
+                )
+                .scalar()
+            )
+            if completed_count >= total_steps:
+                recipe.last_cooked_at = datetime.now(UTC)
+
         db.commit()
         return {"completed": True}
 

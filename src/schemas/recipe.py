@@ -83,6 +83,7 @@ class RecipeResponse(BaseModel):
     carbs_grams: float | None
     fat_grams: float | None
     nutrition_computed_at: datetime | None
+    last_cooked_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -104,6 +105,7 @@ class RecipeListResponse(BaseModel):
     protein_grams: float | None
     carbs_grams: float | None
     fat_grams: float | None
+    last_cooked_at: datetime | None
     created_at: datetime
 
 

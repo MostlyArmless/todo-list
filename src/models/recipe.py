@@ -27,6 +27,9 @@ class Recipe(Base, TimestampMixin, SoftDeleteMixin):
     fat_grams = Column(Float, nullable=True)
     nutrition_computed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Tracking when recipe was last cooked (set when all steps completed)
+    last_cooked_at = Column(DateTime(timezone=True), nullable=True)
+
     # Relationships
     user = relationship("User", backref="recipes")
     ingredients = relationship(
