@@ -383,9 +383,9 @@ async def update_recipe(
                         THEN elem || jsonb_build_object('label_color', :color)
                         ELSE elem END
                     )
-                    FROM jsonb_array_elements(recipe_sources::jsonb) elem
+                    FROM jsonb_array_elements(recipe_sources) elem
                 )
-                WHERE recipe_sources::jsonb @> cast(:match_pattern as jsonb)
+                WHERE recipe_sources @> cast(:match_pattern as jsonb)
                 AND deleted_at IS NULL
             """),
             {
