@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from src.celery_app import celery_app
+from src.celery_app import app as celery_app
 from src.database import SessionLocal
 from src.models.pantry import PantryItem
 from src.models.receipt_scan import ReceiptScan
