@@ -1,0 +1,62 @@
+repos:
+  # Ruff - Python linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: end-of-file-fixer
+        exclude: ^web/(\.next|next-env\.d\.ts|node_modules)/
+      - id: trailing-whitespace
+        exclude: ^web/(\.next|node_modules)/
+
+  # Secret detection
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # Frontend - ESLint and TypeScript
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd web && npx eslint src --max-warnings=5'
+        language: system
+        files: ^web/src/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: tsc
+        name: typescript
+        entry: bash -c 'cd web && npx tsc --noEmit --skipLibCheck'
+        language: system
+        files: ^web/src/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # Tests - run in Docker
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: docker compose exec -T api pytest --cov=src --cov-fail-under=60 --tb=short -q
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: jest
+        name: jest
+        entry: bash -c 'cd web && npm test -- --coverage --silent'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

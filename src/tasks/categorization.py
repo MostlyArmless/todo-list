@@ -84,7 +84,7 @@ def categorize_list_items(self, list_id: int, user_id: int, item_ids: list[int])
         db.rollback()
 
         if self.request.retries < self.max_retries:
-            raise self.retry(exc=e, countdown=30)
+            raise self.retry(exc=e, countdown=30) from e
 
         return {"error": str(e)}
 

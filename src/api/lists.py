@@ -72,7 +72,7 @@ async def get_lists(
             .group_by(Item.list_id)
             .all()
         )
-        unchecked_counts = {list_id: count for list_id, count in counts}
+        unchecked_counts = dict(counts)
 
     # Build response with unchecked counts
     result = []

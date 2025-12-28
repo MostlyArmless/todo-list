@@ -828,7 +828,10 @@ def test_add_multiple_recipes_batch_merging(client, auth_headers):
     items = client.get(f"/api/v1/lists/{grocery['id']}/items", headers=auth_headers).json()
 
     onion = next(i for i in items if "onion" in i["name"].lower())
-    assert "1" in onion["quantity"] and "2" in onion["quantity"] and "3" in onion["quantity"]
+    # All three quantities should be present in the merged quantity string
+    assert "1" in onion["quantity"]
+    assert "2" in onion["quantity"]
+    assert "3" in onion["quantity"]
 
     # Verify recipe sources
     assert len(onion["recipe_sources"]) == 3

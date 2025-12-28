@@ -1,16 +1,16 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Hook for ingredient keyboard shortcuts and OS detection.
  * Returns isMac for UI hints and sets up Alt/Option+A hotkey.
  */
 export function useIngredientKeyboard(onAddIngredient: () => void) {
-  const [isMac, setIsMac] = useState(false);
-
-  useEffect(() => {
-    // Detect macOS
-    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
-  }, []);
+  // Detect macOS synchronously on mount (avoids useEffect setState warning)
+  const [isMac] = useState(() =>
+    typeof navigator !== 'undefined'
+      ? navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      : false
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -98,4 +98,3 @@ export const ingredientStyles = {
     borderRadius: '3px',
   }) as const,
 };
-

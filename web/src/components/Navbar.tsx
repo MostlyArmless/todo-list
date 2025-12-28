@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { api, type User } from '@/lib/api';
@@ -8,11 +8,8 @@ import { api, type User } from '@/lib/api';
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    setUser(api.getCurrentUser());
-  }, []);
+  // Initialize with current user synchronously (avoids useEffect setState warning)
+  const [user] = useState<User | null>(() => api.getCurrentUser());
 
   const handleLogout = () => {
     api.logout();

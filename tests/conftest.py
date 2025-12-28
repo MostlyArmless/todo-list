@@ -46,11 +46,11 @@ def setup_test_database():
             create_database(SQLALCHEMY_DATABASE_URL)
 
     Base.metadata.create_all(bind=engine)
-    yield
+    return
     # Don't drop database - just leave it for next run (each test cleans up after itself)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def db():
     """Create a fresh database session for each test with cleanup."""
     # Clean up any leftover data BEFORE the test runs
@@ -69,7 +69,7 @@ def db():
     session.close()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def client(db):
     """Create a test client with database override."""
 

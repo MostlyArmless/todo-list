@@ -125,7 +125,7 @@ def process_voice_input(self, voice_input_id: int) -> dict:
 
         # Retry if not exhausted
         if self.request.retries < self.max_retries:
-            raise self.retry(exc=e, countdown=60)
+            raise self.retry(exc=e, countdown=60) from e
 
         return {"error": str(e)}
 

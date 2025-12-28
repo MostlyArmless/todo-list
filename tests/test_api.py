@@ -368,9 +368,9 @@ def test_item_creation_uses_history_for_category(client, auth_headers, db):
     item = item_response.json()
 
     # The item should have been assigned the category from history
-    assert item["category_id"] == category_id, (
-        f"Expected category_id {category_id} from history, got {item['category_id']}"
-    )
+    assert (
+        item["category_id"] == category_id
+    ), f"Expected category_id {category_id} from history, got {item['category_id']}"
 
 
 def test_item_creation_without_history_stays_uncategorized(client, auth_headers):

@@ -22,14 +22,14 @@ class Token(BaseModel):
     """JWT token response."""
 
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
 
 
 class AuthResponse(BaseModel):
     """Authentication response with token and user info."""
 
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     user: "UserResponse"
 
 
