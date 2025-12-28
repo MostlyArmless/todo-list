@@ -185,3 +185,20 @@ class IngredientStoreDefaultResponse(BaseModel):
     id: int
     normalized_name: str
     store_preference: str
+
+
+# --- Bulk Pantry Check ---
+
+
+class RecipePantryStatus(BaseModel):
+    """Pantry status for a single recipe."""
+
+    recipe_id: int
+    total_ingredients: int
+    ingredients_in_pantry: int  # Count of ingredients with "have" status
+
+
+class BulkPantryCheckResponse(BaseModel):
+    """Response from bulk pantry check endpoint."""
+
+    recipes: list[RecipePantryStatus]

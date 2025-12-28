@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, type RecipeListItem } from '@/lib/api';
+import { api, type RecipeListItem, type RecipePantryStatus } from '@/lib/api';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 
@@ -14,6 +14,7 @@ export default function RecipesPage() {
   const [loading, setLoading] = useState(true);
   const [availableColors, setAvailableColors] = useState<string[]>([]);
   const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
+  const [pantryStatus, setPantryStatus] = useState<Map<number, RecipePantryStatus>>(new Map());
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function RecipesPage() {
     }
     loadRecipes();
     loadColors();
+    loadPantryStatus();
   }, [router]);
 
   useEffect(() => {
@@ -53,6 +55,19 @@ export default function RecipesPage() {
       setAvailableColors(data.colors);
     } catch (error) {
       console.error('Failed to load colors:', error);
+    }
+  };
+
+  const loadPantryStatus = async () => {
+    try {
+      const data = await api.getRecipesPantryStatus();
+      const statusMap = new Map<number, RecipePantryStatus>();
+      for (const status of data.recipes) {
+        statusMap.set(status.recipe_id, status);
+      }
+      setPantryStatus(statusMap);
+    } catch (error) {
+      console.error('Failed to load pantry status:', error);
     }
   };
 
@@ -129,6 +144,41 @@ export default function RecipesPage() {
                   {recipe.description}
                 </p>
               )}
+              {/* Pantry progress indicator */}
+              {(() => {
+                const status = pantryStatus.get(recipe.id);
+                if (!status || status.total_ingredients === 0) return null;
+                const percent = Math.round((status.ingredients_in_pantry / status.total_ingredients) * 100);
+                return (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-secondary)',
+                    }}>
+                      <div style={{
+                        flex: 1,
+                        height: '4px',
+                        backgroundColor: 'var(--bg-tertiary)',
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                        maxWidth: '100px',
+                      }}>
+                        <div style={{
+                          width: `${percent}%`,
+                          height: '100%',
+                          backgroundColor: percent === 100 ? 'var(--success)' : 'var(--accent)',
+                          borderRadius: '2px',
+                          transition: 'width 0.3s ease',
+                        }} />
+                      </div>
+                      <span>{status.ingredients_in_pantry}/{status.total_ingredients} in pantry</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               {/* Color swatch - circle on RHS */}

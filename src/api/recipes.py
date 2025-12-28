@@ -18,6 +18,7 @@ from src.models.user import User
 from src.schemas.recipe import (
     AddToListRequest,
     AddToListResult,
+    BulkPantryCheckResponse,
     CheckPantryResponse,
     IngredientStoreDefaultCreate,
     IngredientStoreDefaultResponse,
@@ -27,6 +28,7 @@ from src.schemas.recipe import (
     RecipeIngredientResponse,
     RecipeIngredientUpdate,
     RecipeListResponse,
+    RecipePantryStatus,
     RecipeResponse,
     RecipeUpdate,
 )
@@ -291,6 +293,85 @@ async def set_store_default(
     db.commit()
     db.refresh(default)
     return default
+
+
+# --- Bulk Pantry Check ---
+
+
+@router.get("/pantry-status", response_model=BulkPantryCheckResponse)
+async def bulk_check_pantry(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Check all recipes against pantry to get ingredient counts.
+
+    Returns a lightweight summary of how many ingredients from each recipe
+    the user already has in their pantry (with "have" status).
+    Uses simple matching only (no LLM) for speed.
+    """
+    from src.models.pantry import PantryItem
+
+    # Get all user's recipes with ingredients
+    recipes = (
+        db.query(Recipe)
+        .filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+        .order_by(Recipe.name)
+        .all()
+    )
+
+    # Get user's pantry items with "have" status
+    pantry_items = (
+        db.query(PantryItem)
+        .filter(PantryItem.user_id == current_user.id, PantryItem.status == "have")
+        .all()
+    )
+
+    # Build pantry lookup by normalized name
+    pantry_names = {item.normalized_name for item in pantry_items}
+
+    results = []
+    for recipe in recipes:
+        total = len(recipe.ingredients)
+        in_pantry = 0
+
+        for ingredient in recipe.ingredients:
+            normalized = ingredient.name.lower().strip()
+
+            # Exact match
+            if normalized in pantry_names:
+                in_pantry += 1
+                continue
+
+            # Substring match (e.g., "garlic" matches "garlic cloves")
+            matched = False
+            for pantry_name in pantry_names:
+                if normalized in pantry_name or pantry_name in normalized:
+                    in_pantry += 1
+                    matched = True
+                    break
+
+            if matched:
+                continue
+
+            # Word-level match (e.g., "chicken breast" matches "chicken")
+            ingredient_words = set(normalized.split())
+            for pantry_name in pantry_names:
+                pantry_words = set(pantry_name.split())
+                common_words = ingredient_words & pantry_words
+                significant_common = {w for w in common_words if len(w) >= 3}
+                if significant_common:
+                    in_pantry += 1
+                    break
+
+        results.append(
+            RecipePantryStatus(
+                recipe_id=recipe.id,
+                total_ingredients=total,
+                ingredients_in_pantry=in_pantry,
+            )
+        )
+
+    return BulkPantryCheckResponse(recipes=results)
 
 
 # --- Recipe Import endpoints ---

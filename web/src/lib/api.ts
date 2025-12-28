@@ -362,6 +362,10 @@ class ApiClient {
     });
   }
 
+  async getRecipesPantryStatus() {
+    return this.request<BulkPantryCheckResponse>('/api/v1/recipes/pantry-status');
+  }
+
   async addRecipesToListWithOverrides(
     recipeIds: number[],
     ingredientOverrides?: { name: string; add_to_list: boolean }[]
@@ -554,6 +558,16 @@ export interface CheckPantryResponse {
   recipe_id: number;
   recipe_name: string;
   ingredients: CheckPantryIngredient[];
+}
+
+export interface RecipePantryStatus {
+  recipe_id: number;
+  total_ingredients: number;
+  ingredients_in_pantry: number;
+}
+
+export interface BulkPantryCheckResponse {
+  recipes: RecipePantryStatus[];
 }
 
 export interface RecipeImport {

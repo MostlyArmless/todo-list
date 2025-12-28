@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { api, type Recipe, type RecipeIngredient, type AddToListResult, type CheckPantryIngredient } from '@/lib/api';
+import { api, type Recipe, type RecipeIngredient, type AddToListResult, type CheckPantryIngredient, type PantryItem } from '@/lib/api';
 import {
   useIngredientKeyboard,
   ingredientStyles,
@@ -11,6 +11,15 @@ import PantryCheckModal from '@/components/PantryCheckModal';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import MarkdownInstructions from '@/components/MarkdownInstructions';
+
+// Ingredients that are auto-skipped (never shopped for) - matches backend SKIP_INGREDIENTS
+const SKIP_INGREDIENTS = new Set([
+  'water',
+  'tap water',
+  'cold water',
+  'hot water',
+  'warm water',
+]);
 
 interface Toast {
   message: string;
@@ -55,7 +64,12 @@ export default function RecipeDetailPage() {
   const [editingInstructions, setEditingInstructions] = useState(false);
   const [instructionsText, setInstructionsText] = useState('');
 
+  // Pantry state - maps normalized ingredient name to pantry item
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [pantryByName, setPantryByName] = useState<Map<string, PantryItem>>(new Map());
+
   const newNameRef = useRef<HTMLInputElement>(null);
+  const ingredientsContainerRef = useRef<HTMLDivElement>(null);
 
   const openNewRow = useCallback(() => {
     setShowNewRow(true);
@@ -93,6 +107,42 @@ export default function RecipeDetailPage() {
       });
     }
   }, [recipe?.id]);
+
+  // Fetch pantry items to display pantry status for ingredients
+  const loadPantryItems = useCallback(async () => {
+    try {
+      const items = await api.getPantryItems();
+      setPantryItems(items);
+      // Build lookup map by normalized name
+      const byName = new Map<string, PantryItem>();
+      for (const item of items) {
+        byName.set(item.normalized_name, item);
+      }
+      setPantryByName(byName);
+    } catch (e) {
+      console.error('Failed to load pantry items:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPantryItems();
+  }, [loadPantryItems]);
+
+  // Click-outside handler to cancel editing
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        editingId !== null &&
+        ingredientsContainerRef.current &&
+        !ingredientsContainerRef.current.contains(e.target as Node)
+      ) {
+        setEditingId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [editingId]);
 
   const handleToggleStep = async (stepIndex: number) => {
     if (!recipe) return;
@@ -222,6 +272,16 @@ export default function RecipeDetailPage() {
     }
   };
 
+  const handleEditRowKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingId(null);
+    }
+  };
+
   const handleNewRowKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -255,6 +315,55 @@ export default function RecipeDetailPage() {
       setTimeout(() => newNameRef.current?.focus(), 0);
     } catch (e) {
       console.error('Failed to add:', e);
+    }
+  };
+
+  // Find pantry item for an ingredient (by normalized name match)
+  const findPantryItem = (ingredientName: string): PantryItem | undefined => {
+    const normalized = ingredientName.toLowerCase().trim();
+    // Try exact match first
+    if (pantryByName.has(normalized)) {
+      return pantryByName.get(normalized);
+    }
+    // Try substring match (e.g., "garlic" matches "garlic cloves")
+    for (const [pantryName, item] of pantryByName.entries()) {
+      if (normalized.includes(pantryName) || pantryName.includes(normalized)) {
+        return item;
+      }
+    }
+    return undefined;
+  };
+
+  // Check if ingredient should be auto-skipped (like water)
+  const isSkipIngredient = (ingredientName: string): boolean => {
+    return SKIP_INGREDIENTS.has(ingredientName.toLowerCase().trim());
+  };
+
+  // Update pantry status for an ingredient
+  const handlePantryStatusChange = async (
+    ingredientName: string,
+    newStatus: 'have' | 'low' | 'out' | ''
+  ) => {
+    const normalized = ingredientName.toLowerCase().trim();
+    const existingItem = findPantryItem(ingredientName);
+
+    try {
+      if (newStatus === '') {
+        // Remove from pantry
+        if (existingItem) {
+          await api.deletePantryItem(existingItem.id);
+        }
+      } else if (existingItem) {
+        // Update existing item
+        await api.updatePantryItem(existingItem.id, { status: newStatus });
+      } else {
+        // Create new pantry item
+        await api.createPantryItem({ name: ingredientName, status: newStatus });
+      }
+      // Reload pantry items to reflect changes
+      await loadPantryItems();
+    } catch (e) {
+      console.error('Failed to update pantry status:', e);
     }
   };
 
@@ -366,7 +475,7 @@ export default function RecipeDetailPage() {
       </button>
 
       {/* Ingredients */}
-      <div className="card" style={{ padding: '0.75rem' }}>
+      <div className="card" ref={ingredientsContainerRef} style={{ padding: '0.75rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 500 }}>Ingredients ({recipe.ingredients.length})</h2>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{isMac ? '⌥A' : 'Alt+A'} to add</span>
@@ -376,6 +485,7 @@ export default function RecipeDetailPage() {
           <div style={ingredientStyles.header}>
             <span style={{ flex: 2 }}>Name</span>
             <span style={{ flex: 1 }}>Quantity</span>
+            <span style={{ width: '70px' }}>Pantry</span>
             <span style={{ flex: 1.5 }}>Notes</span>
             <span style={{ width: '70px' }}>Store</span>
             <span style={{ width: '48px' }}></span>
@@ -390,7 +500,7 @@ export default function RecipeDetailPage() {
                 className="input"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                onKeyDown={handleEditRowKeyDown}
                 style={ingredientStyles.nameInput}
                 autoFocus
               />
@@ -399,19 +509,50 @@ export default function RecipeDetailPage() {
                 className="input"
                 value={editQty}
                 onChange={(e) => setEditQty(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                onKeyDown={handleEditRowKeyDown}
                 style={ingredientStyles.qtyInput}
               />
+              {/* Pantry status - read-only display in edit mode, matching width */}
+              {(() => {
+                const isSkip = isSkipIngredient(ing.name);
+                const pantryItem = findPantryItem(ing.name);
+                return (
+                  <select
+                    className="input"
+                    value={isSkip ? 'skip' : (pantryItem?.status || '')}
+                    disabled={isSkip}
+                    onChange={(e) => handlePantryStatusChange(ing.name, e.target.value as 'have' | 'low' | 'out' | '')}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '70px',
+                      padding: '0.35rem 0.25rem',
+                      fontSize: '0.75rem',
+                      opacity: isSkip ? 0.5 : 1,
+                    }}
+                  >
+                    {isSkip ? (
+                      <option value="skip">N/A</option>
+                    ) : (
+                      <>
+                        <option value="">-</option>
+                        <option value="have">Have</option>
+                        <option value="low">Low</option>
+                        <option value="out">Out</option>
+                      </>
+                    )}
+                  </select>
+                );
+              })()}
               <input
                 type="text"
                 className="input"
                 value={editNotes}
                 onChange={(e) => setEditNotes(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                onKeyDown={handleEditRowKeyDown}
                 maxLength={200}
                 style={ingredientStyles.notesInput}
               />
-              <select className="input" value={editStore} onChange={(e) => setEditStore(e.target.value)} style={ingredientStyles.storeSelect}>
+              <select className="input" value={editStore} onChange={(e) => setEditStore(e.target.value)} onKeyDown={handleEditRowKeyDown} style={ingredientStyles.storeSelect}>
                 <option value="">Default</option>
                 <option value="Grocery">Grocery</option>
                 <option value="Costco">Costco</option>
@@ -441,6 +582,45 @@ export default function RecipeDetailPage() {
                 {ing.store_preference && <span style={ingredientStyles.storeBadge(ing.store_preference)}>{ing.store_preference}</span>}
               </span>
               <span style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{ing.quantity || '-'}</span>
+              {/* Pantry status cell - editable dropdown */}
+              {(() => {
+                const isSkip = isSkipIngredient(ing.name);
+                const pantryItem = findPantryItem(ing.name);
+                const status = pantryItem?.status;
+                const statusColors: Record<string, string> = {
+                  have: '#22c55e',
+                  low: '#f59e0b',
+                  out: '#ef4444',
+                };
+                return (
+                  <select
+                    className="input"
+                    value={isSkip ? 'skip' : (status || '')}
+                    disabled={isSkip}
+                    onChange={(e) => handlePantryStatusChange(ing.name, e.target.value as 'have' | 'low' | 'out' | '')}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '70px',
+                      padding: '0.35rem 0.25rem',
+                      fontSize: '0.75rem',
+                      opacity: isSkip ? 0.5 : 1,
+                      color: status && statusColors[status] ? statusColors[status] : 'inherit',
+                      fontWeight: status ? 500 : 'normal',
+                    }}
+                  >
+                    {isSkip ? (
+                      <option value="skip">N/A</option>
+                    ) : (
+                      <>
+                        <option value="">-</option>
+                        <option value="have" style={{ color: statusColors.have }}>Have</option>
+                        <option value="low" style={{ color: statusColors.low }}>Low</option>
+                        <option value="out" style={{ color: statusColors.out }}>Out</option>
+                      </>
+                    )}
+                  </select>
+                );
+              })()}
               <span style={{ flex: 1.5, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{ing.description || '-'}</span>
               <span style={{ width: '70px' }}></span>
               <div style={{ width: '48px', display: 'flex', gap: '0.125rem' }}>
@@ -491,6 +671,8 @@ export default function RecipeDetailPage() {
               placeholder="Qty"
               style={ingredientStyles.qtyInput}
             />
+            {/* Empty placeholder for pantry column in new row */}
+            <span style={{ width: '70px' }}></span>
             <input
               type="text"
               className="input"

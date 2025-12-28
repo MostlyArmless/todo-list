@@ -945,3 +945,186 @@ def test_update_store_default_replaces_existing(client, auth_headers):
     olive_oil_defaults = [d for d in defaults if "olive oil" in d["normalized_name"]]
     assert len(olive_oil_defaults) == 1
     assert olive_oil_defaults[0]["store_preference"] == "Grocery"
+
+
+# =============================================================================
+# Bulk Pantry Status Tests
+# =============================================================================
+
+
+def test_bulk_pantry_status_no_recipes(client, auth_headers):
+    """Test bulk pantry status with no recipes."""
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["recipes"] == []
+
+
+def test_bulk_pantry_status_no_pantry_items(client, auth_headers):
+    """Test bulk pantry status with recipes but no pantry items."""
+    # Create a recipe
+    client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Test Recipe",
+            "ingredients": [
+                {"name": "Flour"},
+                {"name": "Sugar"},
+            ],
+        },
+    )
+
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["recipes"]) == 1
+    assert data["recipes"][0]["total_ingredients"] == 2
+    assert data["recipes"][0]["ingredients_in_pantry"] == 0
+
+
+def test_bulk_pantry_status_exact_match(client, auth_headers):
+    """Test bulk pantry status with exact ingredient matches."""
+    # Create a recipe
+    recipe = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Test Recipe",
+            "ingredients": [
+                {"name": "Flour"},
+                {"name": "Sugar"},
+                {"name": "Butter"},
+            ],
+        },
+    ).json()
+
+    # Add pantry items (only flour and sugar with "have" status)
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Flour", "status": "have"},
+    )
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Sugar", "status": "have"},
+    )
+    # Add butter with "low" status - should not count
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Butter", "status": "low"},
+    )
+
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["recipes"]) == 1
+
+    status = next(r for r in data["recipes"] if r["recipe_id"] == recipe["id"])
+    assert status["total_ingredients"] == 3
+    assert status["ingredients_in_pantry"] == 2  # Only flour and sugar (have status)
+
+
+def test_bulk_pantry_status_substring_match(client, auth_headers):
+    """Test bulk pantry status with substring matching."""
+    # Create a recipe with "garlic cloves"
+    recipe = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Test Recipe",
+            "ingredients": [{"name": "Garlic cloves"}],
+        },
+    ).json()
+
+    # Add "garlic" to pantry (substring match)
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Garlic", "status": "have"},
+    )
+
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+
+    status = next(r for r in data["recipes"] if r["recipe_id"] == recipe["id"])
+    assert status["ingredients_in_pantry"] == 1  # Garlic matches garlic cloves
+
+
+def test_bulk_pantry_status_word_match(client, auth_headers):
+    """Test bulk pantry status with word-level matching."""
+    # Create a recipe with "chicken breast"
+    recipe = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Test Recipe",
+            "ingredients": [{"name": "Chicken breast"}],
+        },
+    ).json()
+
+    # Add "chicken" to pantry (word-level match)
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Chicken", "status": "have"},
+    )
+
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+
+    status = next(r for r in data["recipes"] if r["recipe_id"] == recipe["id"])
+    assert status["ingredients_in_pantry"] == 1  # Chicken matches chicken breast
+
+
+def test_bulk_pantry_status_multiple_recipes(client, auth_headers):
+    """Test bulk pantry status with multiple recipes."""
+    # Create recipes
+    recipe1 = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Pasta",
+            "ingredients": [
+                {"name": "Spaghetti"},
+                {"name": "Tomatoes"},
+            ],
+        },
+    ).json()
+
+    recipe2 = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Salad",
+            "ingredients": [
+                {"name": "Lettuce"},
+                {"name": "Tomatoes"},
+                {"name": "Cucumber"},
+            ],
+        },
+    ).json()
+
+    # Add tomatoes to pantry
+    client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "Tomatoes", "status": "have"},
+    )
+
+    response = client.get("/api/v1/recipes/pantry-status", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["recipes"]) == 2
+
+    pasta_status = next(r for r in data["recipes"] if r["recipe_id"] == recipe1["id"])
+    assert pasta_status["total_ingredients"] == 2
+    assert pasta_status["ingredients_in_pantry"] == 1  # Tomatoes
+
+    salad_status = next(r for r in data["recipes"] if r["recipe_id"] == recipe2["id"])
+    assert salad_status["total_ingredients"] == 3
+    assert salad_status["ingredients_in_pantry"] == 1  # Tomatoes
