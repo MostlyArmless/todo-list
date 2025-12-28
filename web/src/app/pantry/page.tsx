@@ -26,6 +26,7 @@ export default function PantryPage() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const currentUser = api.getCurrentUser();
@@ -130,8 +131,13 @@ export default function PantryPage() {
     }
   };
 
-  // Group items by category
-  const groupedItems = items.reduce(
+  // Filter items by search term
+  const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Group filtered items by category
+  const groupedItems = filteredItems.reduce(
     (acc, item) => {
       const category = item.category || 'Uncategorized';
       if (!acc[category]) acc[category] = [];
@@ -141,12 +147,19 @@ export default function PantryPage() {
     {} as Record<string, PantryItem[]>
   );
 
-  // Sort categories (Uncategorized last)
+  // Sort categories (Uncategorized last, case-insensitive)
   const sortedCategories = Object.keys(groupedItems).sort((a, b) => {
     if (a === 'Uncategorized') return 1;
     if (b === 'Uncategorized') return -1;
-    return a.localeCompare(b);
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
   });
+
+  // Sort items within each category alphabetically (case-insensitive)
+  for (const category of sortedCategories) {
+    groupedItems[category].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+  }
 
   // Get unique categories for autocomplete
   const existingCategories = [...new Set(items.map((i) => i.category).filter(Boolean))] as string[];
@@ -162,9 +175,60 @@ export default function PantryPage() {
   return (
     <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
       <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Pantry</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.875rem' }}>
+      <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.875rem' }}>
         Track what staples you have at home. Tap status to cycle: Have &rarr; Low &rarr; Out
       </p>
+
+      {/* Search input */}
+      <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search pantry..."
+          className="input"
+          style={{
+            paddingLeft: '2.5rem',
+            paddingRight: searchTerm ? '2.5rem' : '1rem',
+          }}
+        />
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--text-secondary)"
+          strokeWidth="2"
+          style={{
+            position: 'absolute',
+            left: '0.75rem',
+            top: '50%',
+            transform: 'translateY(-50%)',
+          }}
+        >
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            style={{
+              position: 'absolute',
+              right: '0.75rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-secondary)',
+              padding: '0.25rem',
+            }}
+            title="Clear search"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* Category sections */}
       {sortedCategories.map((category) => (
@@ -183,13 +247,7 @@ export default function PantryPage() {
               {category}
             </h2>
           )}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '0.5rem',
-            }}
-          >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {groupedItems[category].map((item) => (
               <div
                 key={item.id}
@@ -198,10 +256,10 @@ export default function PantryPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
+                  padding: '0.5rem 0.75rem',
                 }}
               >
-                <span style={{ flex: 1, marginRight: '0.5rem' }}>{item.name}</span>
+                <span style={{ flex: 1, marginRight: '0.5rem', fontSize: '0.9rem' }}>{item.name}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <button
                     onClick={() => handleStatusChange(item)}
@@ -215,20 +273,25 @@ export default function PantryPage() {
                       border: `1px solid ${STATUS_COLORS[item.status]}40`,
                       cursor: 'pointer',
                       transition: 'all 0.2s',
+                      minWidth: '50px',
+                      textAlign: 'center',
                     }}
                     title="Click to change status"
                   >
                     {STATUS_LABELS[item.status]}
                   </button>
-                  {item.status !== 'have' && (
+                  {/* Fixed width container for cart icon - prevents layout shift */}
+                  <div style={{ width: '24px', display: 'flex', justifyContent: 'center' }}>
                     <button
                       onClick={() => handleAddToShoppingList(item)}
                       style={{
                         color: 'var(--accent)',
                         padding: '0.25rem',
                         opacity: 0.8,
+                        visibility: item.status === 'have' ? 'hidden' : 'visible',
                       }}
                       title="Add to shopping list"
+                      disabled={item.status === 'have'}
                     >
                       <svg
                         width="16"
@@ -243,7 +306,7 @@ export default function PantryPage() {
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                       </svg>
                     </button>
-                  )}
+                  </div>
                   <button
                     onClick={() => handleDeleteItem(item)}
                     style={{
@@ -272,6 +335,7 @@ export default function PantryPage() {
         </div>
       ))}
 
+      {/* Empty states */}
       {items.length === 0 && (
         <div
           style={{
@@ -284,6 +348,28 @@ export default function PantryPage() {
           <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
             Add items you always have at home (spices, oils, staples).
           </p>
+        </div>
+      )}
+
+      {items.length > 0 && filteredItems.length === 0 && searchTerm && (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '3rem',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <p>No items match &quot;{searchTerm}&quot;</p>
+          <button
+            onClick={() => setSearchTerm('')}
+            style={{
+              marginTop: '0.5rem',
+              color: 'var(--accent)',
+              fontSize: '0.875rem',
+            }}
+          >
+            Clear search
+          </button>
         </div>
       )}
 

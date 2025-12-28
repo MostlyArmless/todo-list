@@ -30,16 +30,6 @@ This file tracks pending work items for coordination across agents and sessions.
 
 ---
 
-### [ ] Pantry Page UX Improvements
-**Context:** The current pantry page has several usability issues that make it harder to use effectively.
-
-**Required changes:**
-1. **List layout instead of grid** - Switch to an alphabetically sorted list for easier scanning and finding items
-2. **Search/filter** - Add a search input to quickly find whether items exist in the pantry
-3. **Stable icon positioning** - Reserve fixed space for the shopping cart icon so that clicking the status tag to cycle through statuses doesn't cause layout shift that places the cart icon under the cursor (leading to accidental "add to list" clicks)
-
----
-
 ### [ ] Auto-Generated Frontend API Client
 **Context:** Investigate whether to introduce a system for type-safe API clients auto-generated from FastAPI/Pydantic schemas.
 
