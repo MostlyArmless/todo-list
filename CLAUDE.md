@@ -63,6 +63,11 @@ docker compose exec -T db psql -U todo_user -d todo_list
 2. Fuzzy substring match weighted by `occurrence_count` → confidence ≥0.5
 3. LLM fallback with category context
 
+**After adding new Celery tasks**, restart the worker to register them:
+```bash
+docker compose restart celery-worker
+```
+
 ### Frontend (Next.js PWA)
 
 Located in `/web/` with App Router (`/web/src/app/`):
