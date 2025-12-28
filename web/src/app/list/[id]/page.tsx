@@ -23,6 +23,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import styles from './page.module.css';
 
 export default function ListDetailPage() {
   const router = useRouter();
@@ -511,31 +512,11 @@ export default function ListDetailPage() {
           </button>
         </div>
         {addedItemMessage && (
-          <span
-            style={{
-              position: 'absolute',
-              left: '0.75rem',
-              top: '100%',
-              marginTop: '0.5rem',
-              color: 'var(--success)',
-              fontSize: '0.75rem',
-              opacity: 1,
-              animation: 'fadeOut 3s ease-out forwards',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <span className={styles.addedMessage}>
             {addedItemMessage}
           </span>
         )}
       </form>
-
-      <style jsx>{`
-        @keyframes fadeOut {
-          0% { opacity: 1; }
-          70% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-      `}</style>
 
       {/* Bulk Actions */}
       {selectedItems.size > 0 && (
@@ -625,8 +606,6 @@ export default function ListDetailPage() {
                 onToggle={handleToggleCheck}
                 onDelete={handleDeleteItem}
                 onUpdate={handleUpdateItem}
-                selected={selectedItems.has(item.id)}
-                onSelect={() => toggleItemSelection(item.id)}
                 categories={categories}
               />
             ))}
@@ -732,8 +711,6 @@ export default function ListDetailPage() {
               onCancelEdit={handleCancelEditCategory}
               onStartEdit={() => handleStartEditCategory(category)}
               onDelete={() => handleDeleteCategory(category.id)}
-              selectedItems={selectedItems}
-              onToggleItemSelection={toggleItemSelection}
               onToggleItemCheck={handleToggleCheck}
               onDeleteItem={handleDeleteItem}
               onUpdateItem={handleUpdateItem}
@@ -914,8 +891,6 @@ function SortableCategory({
   onCancelEdit,
   onStartEdit,
   onDelete,
-  selectedItems,
-  onToggleItemSelection,
   onToggleItemCheck,
   onDeleteItem,
   onUpdateItem,
@@ -939,8 +914,6 @@ function SortableCategory({
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onDelete: () => void;
-  selectedItems: Set<number>;
-  onToggleItemSelection: (id: number) => void;
   onToggleItemCheck: (item: Item) => void;
   onDeleteItem: (id: number) => void;
   onUpdateItem: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
@@ -1120,8 +1093,6 @@ function SortableCategory({
             onToggle={onToggleItemCheck}
             onDelete={onDeleteItem}
             onUpdate={onUpdateItem}
-            selected={selectedItems.has(item.id)}
-            onSelect={() => onToggleItemSelection(item.id)}
             categories={allCategories}
           />
         ))}
@@ -1204,16 +1175,12 @@ function ItemRow({
   onToggle,
   onDelete,
   onUpdate,
-  selected,
-  onSelect,
   categories,
 }: {
   item: Item;
   onToggle: (item: Item) => void;
   onDelete: (id: number) => void;
   onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
-  selected: boolean;
-  onSelect: () => void;
   categories: Category[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -1347,18 +1314,8 @@ function ItemRow({
         gap: '0.5rem',
         padding: '0.4rem 0.6rem',
         opacity: item.checked ? 0.5 : 1,
-        background: selected ? 'var(--bg-hover, rgba(59, 130, 246, 0.1))' : undefined,
       }}
     >
-      {/* Selection checkbox */}
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={onSelect}
-        style={{ width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }}
-        title="Select item"
-      />
-
       {/* Check/uncheck circle button */}
       <button
         onClick={() => onToggle(item)}

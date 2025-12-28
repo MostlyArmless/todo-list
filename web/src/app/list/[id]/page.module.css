@@ -1,0 +1,571 @@
+/* List Detail Page Styles */
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 4rem 1rem;
+}
+
+/* Loading State */
+.loading {
+  padding-top: 2rem;
+  text-align: center;
+}
+
+.loadingText {
+  color: var(--text-secondary);
+}
+
+/* Header */
+.header {
+  margin-bottom: 0.75rem;
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.showCheckedLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+
+.showCheckedCheckbox {
+  width: 14px;
+  height: 14px;
+}
+
+.showCheckedText {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.titleIcon {
+  margin-right: 0.5rem;
+}
+
+.description {
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+}
+
+/* Add Item Form */
+.addItemCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  position: relative;
+}
+
+.addItemRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.addItemInput {
+  flex: 1 1 200px;
+  padding: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.addItemInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.addItemSelect {
+  flex: 1 1 150px;
+  padding: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.addItemBtn {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.addedMessage {
+  position: absolute;
+  left: 0.75rem;
+  top: 100%;
+  margin-top: 0.5rem;
+  color: var(--success);
+  font-size: 0.75rem;
+  opacity: 1;
+  animation: fadeOut 3s ease-out forwards;
+  white-space: nowrap;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Bulk Actions */
+.bulkActions {
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bulkDeleteBtn {
+  background: #ef4444;
+  color: white;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Category Section */
+.categorySection {
+  margin-bottom: 1rem;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.categoryCheckbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.categoryTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+  flex: 1;
+}
+
+.autoCategorizeBtn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+}
+
+.autoCategorizeBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Inline Add Button */
+.inlineAddBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.8rem;
+}
+
+.inlineAddBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.inlineAddForm {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inlineInput {
+  flex: 1;
+  padding: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.inlineInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Add Category Section */
+.addCategorySection {
+  margin-top: 1rem;
+}
+
+.addCategoryForm {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.addCategoryInput {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.addCategoryInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.addCategoryBtn {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Button Styles */
+.btnPrimary {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btnSecondary {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.875rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Sortable Category */
+.sortableCategory {
+  margin-bottom: 1rem;
+}
+
+.dragHandle {
+  cursor: grab;
+  color: var(--text-secondary);
+  padding: 0.15rem;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.editBtn,
+.deleteBtn {
+  color: var(--text-secondary);
+  padding: 0.25rem;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Item Card */
+.itemCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.itemCardChecked {
+  opacity: 0.5;
+}
+
+.itemCardSelected {
+  background: var(--bg-hover, rgba(59, 130, 246, 0.1));
+}
+
+.itemCheckbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkCircle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.checkCircleChecked {
+  background: var(--accent);
+}
+
+.itemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemName {
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.itemNameChecked {
+  text-decoration: line-through;
+}
+
+.itemMeta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.recipeBadge {
+  font-size: 0.6rem;
+  color: white;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Item Edit Mode */
+.itemEditCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.itemEditInput {
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.itemEditInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.itemEditRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.itemEditQty {
+  flex: 1 1 80px;
+}
+
+.itemEditDesc {
+  flex: 1 1 120px;
+}
+
+.itemEditCategory {
+  flex: 1 1 100px;
+}
+
+.itemEditActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.itemEditBtn {
+  flex: 1;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: none;
+}
+
+.itemEditBtnPrimary {
+  background: var(--accent);
+  color: white;
+}
+
+.itemEditBtnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.itemEditBtnSecondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Pantry Prompt */
+.pantryPrompt {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-width: 400px;
+  width: calc(100% - 2rem);
+}
+
+.pantryPromptHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.pantryPromptTitle {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.pantryPromptSubtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.pantryPromptItems {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.pantryPromptActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pantrySkipBtn {
+  flex: 1;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background-color: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pantryAddBtn {
+  flex: 1;
+  padding: 0.5rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.pantryAddBtn:disabled,
+.pantrySkipBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spin animation for auto-categorize */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
