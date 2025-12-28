@@ -30,22 +30,6 @@ This file tracks pending work items for coordination across agents and sessions.
 
 ---
 
-### [ ] Auto-Generated Frontend API Client
-**Context:** Investigate whether to introduce a system for type-safe API clients auto-generated from FastAPI/Pydantic schemas.
-
-**Potential approach:**
-- Ensure all FastAPI endpoints have full Pydantic request/response models
-- Generate OpenAPI spec from FastAPI
-- Use a code generator (e.g., [orval](https://orval.dev/), openapi-typescript-codegen) to create TypeScript client with React Query hooks
-- Benefits: FE/BE types stay in sync, less manual type duplication, deterministic client generation
-
-**Considerations:**
-- Evaluate tooling options (orval, openapi-generator, etc.)
-- Consider impact on current manual api.ts approach
-- May reduce token usage for AI agents working on frontend
-
----
-
 ### [ ] Recipe Macro and Calorie Estimation
 **Context:** Display estimated macros (protein, carbs, fat) and calories for each recipe on the recipes page, derived automatically from the ingredients list and quantities.
 
