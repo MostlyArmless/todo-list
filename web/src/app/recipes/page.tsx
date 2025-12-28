@@ -6,10 +6,15 @@ import Link from 'next/link';
 import { api, type RecipeListItem, type RecipePantryStatus, type RecipeSortBy } from '@/lib/api';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
+import styles from './page.module.css';
 
-const SORT_OPTIONS: { value: RecipeSortBy; label: string }[] = [
+// Extend backend sort options with client-side only options
+type SortOption = RecipeSortBy | 'pantry_coverage_desc';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'name_asc', label: 'Name (A-Z)' },
   { value: 'name_desc', label: 'Name (Z-A)' },
+  { value: 'pantry_coverage_desc', label: 'Ready to Cook' },
   { value: 'ingredients_asc', label: 'Fewest Ingredients' },
   { value: 'ingredients_desc', label: 'Most Ingredients' },
   { value: 'last_cooked_desc', label: 'Recently Cooked' },
@@ -30,7 +35,7 @@ export default function RecipesPage() {
   const [availableColors, setAvailableColors] = useState<string[]>([]);
   const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
   const [pantryStatus, setPantryStatus] = useState<Map<number, RecipePantryStatus>>(new Map());
-  const [sortBy, setSortBy] = useState<RecipeSortBy>('name_asc');
+  const [sortBy, setSortBy] = useState<SortOption>('name_asc');
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,9 +44,8 @@ export default function RecipesPage() {
       router.push('/login');
       return;
     }
-    // Load saved sort preference
-    const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as RecipeSortBy | null;
-    if (savedSort && SORT_OPTIONS.some(o => o.value === savedSort)) {
+    const savedSort = localStorage.getItem(SORT_STORAGE_KEY) as SortOption | null;
+    if (savedSort && SORT_OPTIONS.some((o) => o.value === savedSort)) {
       setSortBy(savedSort);
     }
     loadColors();
@@ -62,9 +66,11 @@ export default function RecipesPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadRecipes = async (sort: RecipeSortBy) => {
+  const loadRecipes = async (sort: SortOption) => {
     try {
-      const data = await api.getRecipes(sort);
+      // For client-side sorts, fetch with default backend sort
+      const backendSort: RecipeSortBy = sort === 'pantry_coverage_desc' ? 'name_asc' : sort;
+      const data = await api.getRecipes(backendSort);
       setRecipes(data);
     } catch (error) {
       console.error('Failed to load recipes:', error);
@@ -73,7 +79,33 @@ export default function RecipesPage() {
     }
   };
 
-  const handleSortChange = (newSort: RecipeSortBy) => {
+  // Apply client-side sorting when pantry data is available
+  const getSortedRecipes = (): RecipeListItem[] => {
+    if (sortBy !== 'pantry_coverage_desc' || pantryStatus.size === 0) {
+      return recipes;
+    }
+
+    return [...recipes].sort((a, b) => {
+      const statusA = pantryStatus.get(a.id);
+      const statusB = pantryStatus.get(b.id);
+
+      // Calculate coverage (have_count / total_ingredients)
+      const coverageA = statusA && statusA.total_ingredients > 0
+        ? statusA.have_count / statusA.total_ingredients
+        : 0;
+      const coverageB = statusB && statusB.total_ingredients > 0
+        ? statusB.have_count / statusB.total_ingredients
+        : 0;
+
+      // Sort descending by coverage, then by name for ties
+      if (coverageB !== coverageA) {
+        return coverageB - coverageA;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  const handleSortChange = (newSort: SortOption) => {
     setSortBy(newSort);
     localStorage.setItem(SORT_STORAGE_KEY, newSort);
   };
@@ -103,7 +135,7 @@ export default function RecipesPage() {
   const handleColorChange = async (recipeId: number, color: string) => {
     try {
       await api.updateRecipe(recipeId, { label_color: color });
-      setRecipes(recipes.map(r => r.id === recipeId ? { ...r, label_color: color } : r));
+      setRecipes(recipes.map((r) => (r.id === recipeId ? { ...r, label_color: color } : r)));
       setColorPickerOpen(null);
     } catch (error) {
       console.error('Failed to update color:', error);
@@ -129,28 +161,20 @@ export default function RecipesPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ paddingTop: '2rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      <div className={`${styles.container} ${styles.loading}`}>
+        <p className={styles.loadingText}>Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="container" style={{ paddingTop: '1rem', paddingBottom: '5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1 style={{ fontSize: '2rem', margin: 0 }}>Recipes</h1>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Recipes</h1>
         <select
           value={sortBy}
-          onChange={(e) => handleSortChange(e.target.value as RecipeSortBy)}
-          style={{
-            padding: '0.5rem 0.75rem',
-            backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
-            borderRadius: '6px',
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-          }}
+          onChange={(e) => handleSortChange(e.target.value as SortOption)}
+          className={styles.sortSelect}
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -160,107 +184,46 @@ export default function RecipesPage() {
         </select>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {recipes.map((recipe) => (
+      <div className={styles.recipeList}>
+        {getSortedRecipes().map((recipe) => (
           <div
             key={recipe.id}
-            className="card"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              transition: 'all 0.2s',
-              cursor: 'pointer',
-              border: '1px solid var(--border)',
-            }}
+            className={styles.recipeCard}
             onClick={() => router.push(`/recipes/${recipe.id}`)}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = 'var(--accent)';
-              e.currentTarget.style.transform = 'translateX(4px)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.transform = 'translateX(0)';
-            }}
           >
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>{recipe.name}</h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+            <div className={styles.recipeInfo}>
+              <h2 className={styles.recipeName}>{recipe.name}</h2>
+              <p className={styles.recipeDetails}>
                 {recipe.ingredient_count} ingredient{recipe.ingredient_count !== 1 ? 's' : ''}
                 {recipe.servings && ` | ${recipe.servings} servings`}
               </p>
               {recipe.description && (
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                  {recipe.description}
-                </p>
+                <p className={styles.recipeDescription}>{recipe.description}</p>
               )}
-              {/* Nutrition info */}
+
+              {/* Nutrition Info */}
               {recipe.calories_per_serving != null && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  marginTop: '0.5rem',
-                  flexWrap: 'wrap',
-                }}>
-                  <span style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '600',
-                    color: 'var(--text-primary)',
-                  }}>
-                    {recipe.calories_per_serving} cal
-                  </span>
+                <div className={styles.nutritionRow}>
+                  <span className={styles.caloriesText}>{recipe.calories_per_serving} cal</span>
                   {recipe.protein_grams != null && (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.125rem 0.5rem',
-                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                      color: '#3b82f6',
-                      borderRadius: '9999px',
-                      fontSize: '0.75rem',
-                      fontWeight: '500',
-                      border: '1px solid rgba(59, 130, 246, 0.2)',
-                    }}>
-                      <span style={{ fontWeight: '600' }}>{recipe.protein_grams}g</span> P
+                    <span className={`${styles.macroBadge} ${styles.macroBadgeProtein}`}>
+                      <span className={styles.macroValue}>{recipe.protein_grams}g</span> P
                     </span>
                   )}
                   {recipe.carbs_grams != null && (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.125rem 0.5rem',
-                      backgroundColor: 'rgba(168, 85, 247, 0.1)',
-                      color: '#a855f7',
-                      borderRadius: '9999px',
-                      fontSize: '0.75rem',
-                      fontWeight: '500',
-                      border: '1px solid rgba(168, 85, 247, 0.2)',
-                    }}>
-                      <span style={{ fontWeight: '600' }}>{recipe.carbs_grams}g</span> C
+                    <span className={`${styles.macroBadge} ${styles.macroBadgeCarbs}`}>
+                      <span className={styles.macroValue}>{recipe.carbs_grams}g</span> C
                     </span>
                   )}
                   {recipe.fat_grams != null && (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.125rem 0.5rem',
-                      backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                      color: '#f59e0b',
-                      borderRadius: '9999px',
-                      fontSize: '0.75rem',
-                      fontWeight: '500',
-                      border: '1px solid rgba(245, 158, 11, 0.2)',
-                    }}>
-                      <span style={{ fontWeight: '600' }}>{recipe.fat_grams}g</span> F
+                    <span className={`${styles.macroBadge} ${styles.macroBadgeFat}`}>
+                      <span className={styles.macroValue}>{recipe.fat_grams}g</span> F
                     </span>
                   )}
                 </div>
               )}
-              {/* Pantry progress indicator */}
+
+              {/* Pantry Progress */}
               {(() => {
                 const status = pantryStatus.get(recipe.id);
                 if (!status || status.total_ingredients === 0) return null;
@@ -271,121 +234,62 @@ export default function RecipesPage() {
                 const unmatchedPercent = (status.unmatched_count / total) * 100;
                 const matchedCount = status.have_count + status.low_count + status.out_count;
                 return (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      fontSize: '0.75rem',
-                      color: 'var(--text-secondary)',
-                    }}>
-                      <div style={{
-                        flex: 1,
-                        height: '4px',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        borderRadius: '2px',
-                        overflow: 'hidden',
-                        maxWidth: '100px',
-                        display: 'flex',
-                      }}>
-                        {/* Green: Have */}
+                  <div className={styles.pantryProgress}>
+                    <div className={styles.pantryProgressRow}>
+                      <div className={styles.progressBar}>
                         {havePercent > 0 && (
-                          <div style={{
-                            width: `${havePercent}%`,
-                            height: '100%',
-                            backgroundColor: '#22c55e',
-                            transition: 'width 0.3s ease',
-                          }} />
+                          <div className={styles.progressHave} style={{ width: `${havePercent}%` }} />
                         )}
-                        {/* Orange: Low */}
                         {lowPercent > 0 && (
-                          <div style={{
-                            width: `${lowPercent}%`,
-                            height: '100%',
-                            backgroundColor: '#f97316',
-                            transition: 'width 0.3s ease',
-                          }} />
+                          <div className={styles.progressLow} style={{ width: `${lowPercent}%` }} />
                         )}
-                        {/* Red: Out */}
                         {outPercent > 0 && (
-                          <div style={{
-                            width: `${outPercent}%`,
-                            height: '100%',
-                            backgroundColor: '#ef4444',
-                            transition: 'width 0.3s ease',
-                          }} />
+                          <div className={styles.progressOut} style={{ width: `${outPercent}%` }} />
                         )}
-                        {/* Grey: Unmatched/N/A */}
                         {unmatchedPercent > 0 && (
-                          <div style={{
-                            width: `${unmatchedPercent}%`,
-                            height: '100%',
-                            backgroundColor: '#6b7280',
-                            transition: 'width 0.3s ease',
-                          }} />
+                          <div className={styles.progressUnmatched} style={{ width: `${unmatchedPercent}%` }} />
                         )}
                       </div>
-                      <span>{matchedCount}/{total} in pantry</span>
+                      <span>
+                        {matchedCount}/{total} in pantry
+                      </span>
                     </div>
                   </div>
                 );
               })()}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              {/* Color swatch - circle on RHS */}
-              <div style={{ position: 'relative' }} ref={colorPickerOpen === recipe.id ? colorPickerRef : null}>
+
+            <div className={styles.recipeActions}>
+              {/* Color Picker */}
+              <div
+                className={styles.colorPickerWrapper}
+                ref={colorPickerOpen === recipe.id ? colorPickerRef : null}
+              >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setColorPickerOpen(colorPickerOpen === recipe.id ? null : recipe.id);
                   }}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    backgroundColor: recipe.label_color || '#e6194b',
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
+                  className={styles.colorSwatch}
+                  style={{ backgroundColor: recipe.label_color || '#e6194b' }}
                   title="Change label color"
                 />
                 {colorPickerOpen === recipe.id && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '100%',
-                      right: 0,
-                      marginBottom: '0.5rem',
-                      padding: '0.5rem',
-                      backgroundColor: 'var(--bg-secondary)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(5, 1fr)',
-                      gap: '0.5rem',
-                      zIndex: 100,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <div className={styles.colorPicker} onClick={(e) => e.stopPropagation()}>
                     {availableColors.map((color) => (
                       <button
                         key={color}
                         onClick={() => handleColorChange(recipe.id, color)}
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          backgroundColor: color,
-                          border: recipe.label_color === color ? '2px solid white' : '2px solid transparent',
-                          cursor: 'pointer',
-                        }}
+                        className={`${styles.colorOption} ${
+                          recipe.label_color === color ? styles.colorOptionSelected : ''
+                        }`}
+                        style={{ backgroundColor: color }}
                       />
                     ))}
                   </div>
                 )}
               </div>
+
               <IconButton
                 onClick={(e) => {
                   e.stopPropagation();
@@ -408,6 +312,7 @@ export default function RecipesPage() {
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
               </IconButton>
+
               <svg
                 width="24"
                 height="24"
@@ -424,21 +329,8 @@ export default function RecipesPage() {
           </div>
         ))}
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={() => router.push('/recipes/new')}
-            className="card"
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              border: '2px dashed var(--border)',
-            }}
-          >
+        <div className={styles.addButtonRow}>
+          <button onClick={() => router.push('/recipes/new')} className={styles.addButton}>
             <svg
               width="24"
               height="24"
@@ -454,21 +346,7 @@ export default function RecipesPage() {
             </svg>
             <span>New Recipe</span>
           </button>
-          <Link
-            href="/recipes/import"
-            className="card"
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              border: '1px solid var(--accent)',
-              textDecoration: 'none',
-            }}
-          >
+          <Link href="/recipes/import" className={styles.importButton}>
             <svg
               width="24"
               height="24"
