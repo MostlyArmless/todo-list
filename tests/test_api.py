@@ -484,3 +484,794 @@ def test_list_unchecked_count(client, auth_headers):
     # Verify unchecked_count is now 1
     get_response = client.get(f"/api/v1/lists/{list_id}", headers=auth_headers)
     assert get_response.json()["unchecked_count"] == 1
+
+
+# =============================================================================
+# Cross-User Data Isolation Tests (IDOR Prevention)
+# =============================================================================
+
+
+def test_user_cannot_access_other_users_list(client, auth_headers):
+    """Test that User A cannot access User B's list (IDOR prevention)."""
+    import uuid
+
+    # User A creates a list
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "User A List"})
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"userb-{unique_id}@example.com",
+            "password": "password123",
+            "name": "User B",
+        },
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User B tries to GET User A's list
+    response = client.get(f"/api/v1/lists/{list_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+    # User B tries to UPDATE User A's list
+    response = client.put(
+        f"/api/v1/lists/{list_id}",
+        headers=user_b_headers,
+        json={"name": "Hacked Name"},
+    )
+    assert response.status_code == 404
+
+    # User B tries to DELETE User A's list
+    response = client.delete(f"/api/v1/lists/{list_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+
+def test_user_cannot_access_other_users_items(client, auth_headers):
+    """Test that User A cannot access/modify User B's items."""
+    import uuid
+
+    # User A creates list and item
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "User A List"})
+    list_id = list_response.json()["id"]
+    item_response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "User A Item"},
+    )
+    item_id = item_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"userb-{unique_id}@example.com",
+            "password": "password123",
+            "name": "User B",
+        },
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User B tries to check User A's item
+    response = client.post(f"/api/v1/items/{item_id}/check", headers=user_b_headers)
+    assert response.status_code == 404
+
+    # User B tries to uncheck User A's item
+    response = client.post(f"/api/v1/items/{item_id}/uncheck", headers=user_b_headers)
+    assert response.status_code == 404
+
+    # User B tries to update User A's item
+    response = client.put(
+        f"/api/v1/items/{item_id}",
+        headers=user_b_headers,
+        json={"name": "Hacked Item"},
+    )
+    assert response.status_code == 404
+
+    # User B tries to delete User A's item
+    response = client.delete(f"/api/v1/items/{item_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+
+def test_user_cannot_access_other_users_categories(client, auth_headers):
+    """Test that User A cannot access/modify User B's categories."""
+    import uuid
+
+    # User A creates list and category
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "User A List"})
+    list_id = list_response.json()["id"]
+    category_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "User A Category", "sort_order": 0},
+    )
+    category_id = category_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"userb-{unique_id}@example.com",
+            "password": "password123",
+            "name": "User B",
+        },
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User B tries to update User A's category
+    response = client.put(
+        f"/api/v1/categories/{category_id}",
+        headers=user_b_headers,
+        json={"name": "Hacked Category"},
+    )
+    assert response.status_code == 404
+
+    # User B tries to delete User A's category
+    response = client.delete(f"/api/v1/categories/{category_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+
+def test_user_cannot_access_other_users_recipes(client, auth_headers):
+    """Test that User A cannot access/modify User B's recipes."""
+    import uuid
+
+    # User A creates a recipe
+    recipe_response = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={"name": "User A Recipe", "ingredients": [{"name": "Salt"}]},
+    )
+    recipe_id = recipe_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"userb-{unique_id}@example.com",
+            "password": "password123",
+            "name": "User B",
+        },
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User B tries to GET User A's recipe
+    response = client.get(f"/api/v1/recipes/{recipe_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+    # User B tries to UPDATE User A's recipe
+    response = client.put(
+        f"/api/v1/recipes/{recipe_id}",
+        headers=user_b_headers,
+        json={"name": "Hacked Recipe"},
+    )
+    assert response.status_code == 404
+
+    # User B tries to DELETE User A's recipe
+    response = client.delete(f"/api/v1/recipes/{recipe_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+
+def test_user_cannot_access_other_users_pantry(client, auth_headers):
+    """Test that User A cannot access/modify User B's pantry items."""
+    import uuid
+
+    # User A creates a pantry item
+    pantry_response = client.post(
+        "/api/v1/pantry",
+        headers=auth_headers,
+        json={"name": "User A Pantry Item"},
+    )
+    pantry_id = pantry_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"userb-{unique_id}@example.com",
+            "password": "password123",
+            "name": "User B",
+        },
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User B tries to GET User A's pantry item
+    response = client.get(f"/api/v1/pantry/{pantry_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+    # User B tries to UPDATE User A's pantry item
+    response = client.put(
+        f"/api/v1/pantry/{pantry_id}",
+        headers=user_b_headers,
+        json={"status": "out"},
+    )
+    assert response.status_code == 404
+
+    # User B tries to DELETE User A's pantry item
+    response = client.delete(f"/api/v1/pantry/{pantry_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+
+def test_user_lists_only_show_own_data(client, auth_headers):
+    """Test that listing endpoints only return the user's own data."""
+    import uuid
+
+    # User A creates some data
+    client.post("/api/v1/lists", headers=auth_headers, json={"name": "User A List"})
+    client.post("/api/v1/recipes", headers=auth_headers, json={"name": "User A Recipe"})
+    client.post("/api/v1/pantry", headers=auth_headers, json={"name": "User A Pantry"})
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": f"userb-{unique_id}@example.com",
+            "password": "password123",
+            "name": "User B",
+        },
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User B's lists should be empty
+    lists = client.get("/api/v1/lists", headers=user_b_headers).json()
+    assert len(lists) == 0
+
+    recipes = client.get("/api/v1/recipes", headers=user_b_headers).json()
+    assert len(recipes) == 0
+
+    pantry = client.get("/api/v1/pantry", headers=user_b_headers).json()
+    assert len(pantry) == 0
+
+
+# =============================================================================
+# JWT Token Edge Case Tests
+# =============================================================================
+
+
+def test_expired_token_returns_401(client):
+    """Test that an expired JWT token returns 401."""
+    from datetime import UTC, datetime, timedelta
+
+    from jose import jwt
+
+    from src.config import get_settings
+
+    settings = get_settings()
+
+    # Create an expired token
+    expire = datetime.now(UTC) - timedelta(hours=1)  # Expired 1 hour ago
+    to_encode = {
+        "sub": "1",
+        "email": "test@example.com",
+        "exp": expire,
+    }
+    expired_token = jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+    headers = {"Authorization": f"Bearer {expired_token}"}
+    response = client.get("/api/v1/lists", headers=headers)
+    assert response.status_code == 401
+
+
+def test_malformed_token_returns_401(client):
+    """Test that a malformed JWT token returns 401."""
+    # Completely invalid token
+    headers = {"Authorization": "Bearer not-a-valid-jwt-token"}
+    response = client.get("/api/v1/lists", headers=headers)
+    assert response.status_code == 401
+
+    # Valid JWT structure but wrong secret
+    from datetime import UTC, datetime, timedelta
+
+    from jose import jwt
+
+    expire = datetime.now(UTC) + timedelta(hours=1)
+    to_encode = {"sub": "1", "email": "test@example.com", "exp": expire}
+    wrong_secret_token = jwt.encode(to_encode, "wrong-secret-key", algorithm="HS256")
+
+    headers = {"Authorization": f"Bearer {wrong_secret_token}"}
+    response = client.get("/api/v1/lists", headers=headers)
+    assert response.status_code == 401
+
+
+def test_token_with_nonexistent_user_returns_401(client, db):
+    """Test that a valid token for a deleted/nonexistent user returns 401."""
+    from datetime import UTC, datetime, timedelta
+
+    from jose import jwt
+
+    from src.config import get_settings
+
+    settings = get_settings()
+
+    # Create a token for user ID 99999 which doesn't exist
+    expire = datetime.now(UTC) + timedelta(hours=1)
+    to_encode = {
+        "sub": "99999",
+        "email": "nonexistent@example.com",
+        "exp": expire,
+    }
+    token = jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/api/v1/lists", headers=headers)
+    assert response.status_code == 401
+    assert "User not found" in response.json()["detail"]
+
+
+def test_missing_auth_header_returns_401(client):
+    """Test that missing Authorization header returns 401."""
+    response = client.get("/api/v1/lists")
+    assert response.status_code == 401
+
+
+def test_empty_bearer_token_returns_401(client):
+    """Test that empty Bearer token returns 401."""
+    headers = {"Authorization": "Bearer "}
+    response = client.get("/api/v1/lists", headers=headers)
+    assert response.status_code in [401, 403]  # FastAPI may return 403 for empty token
+
+
+# =============================================================================
+# List Sharing Authorization Tests
+# =============================================================================
+
+
+def test_share_list_success(client, auth_headers):
+    """Test successfully sharing a list with another user."""
+    import uuid
+
+    # User A creates a list
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Shared List"})
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_email = f"shareduser-{unique_id}@example.com"
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": user_b_email, "password": "password123", "name": "User B"},
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User A shares the list with User B
+    share_response = client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "edit"},
+    )
+    assert share_response.status_code == 201
+
+    # User B should now be able to see the list
+    lists = client.get("/api/v1/lists", headers=user_b_headers).json()
+    assert any(lst["id"] == list_id for lst in lists)
+
+    # User B should be able to get the list
+    response = client.get(f"/api/v1/lists/{list_id}", headers=user_b_headers)
+    assert response.status_code == 200
+
+
+def test_shared_user_view_only_cannot_edit(client, auth_headers):
+    """Test that user with 'view' permission cannot edit the list."""
+    import uuid
+
+    # User A creates a list
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "View Only List"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_email = f"viewonly-{unique_id}@example.com"
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": user_b_email, "password": "password123", "name": "User B"},
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User A shares the list with User B (view only)
+    client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "view"},
+    )
+
+    # User B tries to update the list - should fail
+    response = client.put(
+        f"/api/v1/lists/{list_id}",
+        headers=user_b_headers,
+        json={"name": "Hacked Name"},
+    )
+    assert response.status_code == 403
+    assert "permission" in response.json()["detail"].lower()
+
+
+def test_shared_user_edit_cannot_delete(client, auth_headers):
+    """Test that user with 'edit' permission cannot delete the list."""
+    import uuid
+
+    # User A creates a list
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Edit But No Delete"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_email = f"editnodelete-{unique_id}@example.com"
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": user_b_email, "password": "password123", "name": "User B"},
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # User A shares the list with User B (edit permission)
+    client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "edit"},
+    )
+
+    # User B can edit the list
+    response = client.put(
+        f"/api/v1/lists/{list_id}",
+        headers=user_b_headers,
+        json={"name": "Updated by B"},
+    )
+    assert response.status_code == 200
+
+    # User B tries to delete the list - should fail
+    response = client.delete(f"/api/v1/lists/{list_id}", headers=user_b_headers)
+    assert response.status_code == 403
+
+
+def test_share_list_nonexistent_email(client, auth_headers):
+    """Test sharing with a non-existent email returns 404."""
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Test List"})
+    list_id = list_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": "nonexistent@example.com", "permission": "edit"},
+    )
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+def test_share_list_already_shared(client, auth_headers):
+    """Test that sharing with the same user twice fails."""
+    import uuid
+
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Test List"})
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_email = f"alreadyshared-{unique_id}@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": user_b_email, "password": "password123", "name": "User B"},
+    )
+
+    # Share once - success
+    response = client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "edit"},
+    )
+    assert response.status_code == 201
+
+    # Share again - should fail
+    response = client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "view"},
+    )
+    assert response.status_code == 400
+    assert "already shared" in response.json()["detail"].lower()
+
+
+def test_non_owner_cannot_share_list(client, auth_headers):
+    """Test that only the owner can share a list."""
+    import uuid
+
+    # User A creates and shares a list with User B
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Owner Only Share"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_email = f"notowner-{unique_id}@example.com"
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": user_b_email, "password": "password123", "name": "User B"},
+    )
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # Share with User B
+    client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "edit"},
+    )
+
+    # Create User C with unique email
+    user_c_email = f"userc-{unique_id}@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": user_c_email, "password": "password123", "name": "User C"},
+    )
+
+    # User B (not owner) tries to share with User C - should fail
+    response = client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=user_b_headers,
+        json={"user_email": user_c_email, "permission": "edit"},
+    )
+    assert response.status_code == 403
+
+
+def test_unshare_list(client, auth_headers):
+    """Test unsharing a list removes access."""
+    import uuid
+
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Unshare Test"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create User B with unique email
+    unique_id = uuid.uuid4().hex[:8]
+    user_b_email = f"unsharetest-{unique_id}@example.com"
+    user_b_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": user_b_email, "password": "password123", "name": "User B"},
+    )
+    user_b_id = user_b_response.json()["user"]["id"]
+    user_b_headers = {"Authorization": f"Bearer {user_b_response.json()['access_token']}"}
+
+    # Share with User B
+    client.post(
+        f"/api/v1/lists/{list_id}/share",
+        headers=auth_headers,
+        json={"user_email": user_b_email, "permission": "edit"},
+    )
+
+    # User B can access
+    response = client.get(f"/api/v1/lists/{list_id}", headers=user_b_headers)
+    assert response.status_code == 200
+
+    # Unshare
+    response = client.delete(f"/api/v1/lists/{list_id}/share/{user_b_id}", headers=auth_headers)
+    assert response.status_code == 204
+
+    # User B can no longer access
+    response = client.get(f"/api/v1/lists/{list_id}", headers=user_b_headers)
+    assert response.status_code == 404
+
+
+# =============================================================================
+# Item Merge Logic Tests
+# =============================================================================
+
+
+def test_item_merge_case_insensitive(client, auth_headers):
+    """Test that item merging is case-insensitive."""
+    list_response = client.post("/api/v1/lists", headers=auth_headers, json={"name": "Merge Test"})
+    list_id = list_response.json()["id"]
+
+    # Create "milk"
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "milk", "quantity": "1 gallon"},
+    )
+
+    # Create "MILK" - should merge
+    response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "MILK", "quantity": "2 cups"},
+    )
+    assert response.status_code == 201
+
+    # Should only have 1 item with merged quantity
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(items) == 1
+    assert "1 gallon" in items[0]["quantity"]
+    assert "2 cups" in items[0]["quantity"]
+
+
+def test_item_merge_preserves_category(client, auth_headers):
+    """Test that merging preserves the existing item's category."""
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Category Merge"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create category
+    category_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Dairy", "sort_order": 0},
+    )
+    category_id = category_response.json()["id"]
+
+    # Create item with category
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Cheese", "category_id": category_id},
+    )
+
+    # Merge item without category specified
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "cheese", "quantity": "1 block"},
+    )
+
+    # Item should still have the category
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(items) == 1
+    assert items[0]["category_id"] == category_id
+
+
+def test_item_merge_without_quantity(client, auth_headers):
+    """Test merging items when one or both have no quantity."""
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "No Quantity Merge"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create item without quantity
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Bread"},
+    )
+
+    # Merge with quantity
+    response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "bread", "quantity": "2 loaves"},
+    )
+    assert response.status_code == 201
+
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(items) == 1
+    assert items[0]["quantity"] == "2 loaves"
+
+
+def test_item_merge_both_have_quantities(client, auth_headers):
+    """Test merging when both items have quantities."""
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Both Quantities"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create item with quantity
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Eggs", "quantity": "1 dozen"},
+    )
+
+    # Merge with different quantity
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "eggs", "quantity": "6"},
+    )
+
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(items) == 1
+    assert items[0]["quantity"] == "1 dozen + 6"
+
+
+def test_item_merge_does_not_merge_with_checked_items(client, auth_headers):
+    """Test that new items don't merge with checked items."""
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Checked Merge"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create and check an item
+    item_response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Butter", "quantity": "1 stick"},
+    )
+    item_id = item_response.json()["id"]
+    client.post(f"/api/v1/items/{item_id}/check", headers=auth_headers)
+
+    # Add same item again
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "butter", "quantity": "2 sticks"},
+    )
+
+    # Should have 2 items (one checked, one unchecked)
+    all_items = client.get(
+        f"/api/v1/lists/{list_id}/items?include_checked=true", headers=auth_headers
+    ).json()
+    assert len(all_items) == 2
+
+    # Unchecked items should have the new butter
+    unchecked_items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(unchecked_items) == 1
+    assert unchecked_items[0]["quantity"] == "2 sticks"
+
+
+def test_item_merge_adds_adhoc_source(client, auth_headers):
+    """Test that merging adds ad-hoc source marker."""
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Adhoc Source"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create initial item
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Sugar"},
+    )
+
+    # Merge
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "sugar", "quantity": "2 cups"},
+    )
+
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(items) == 1
+    # Should have ad-hoc source
+    assert items[0]["recipe_sources"] is not None
+    assert any(s.get("recipe_id") is None for s in items[0]["recipe_sources"])
+
+
+# =============================================================================
+# Category Cascade Tests
+# =============================================================================
+
+
+def test_delete_category_uncategorizes_items(client, auth_headers):
+    """Test that deleting a category sets items to uncategorized."""
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Category Delete"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create category
+    category_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Produce", "sort_order": 0},
+    )
+    category_id = category_response.json()["id"]
+
+    # Create item in category
+    client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Apples", "category_id": category_id},
+    )
+
+    # Delete category
+    client.delete(f"/api/v1/categories/{category_id}", headers=auth_headers)
+
+    # Item should now have no category
+    items = client.get(f"/api/v1/lists/{list_id}/items", headers=auth_headers).json()
+    assert len(items) == 1
+    assert items[0]["category_id"] is None

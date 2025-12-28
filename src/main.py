@@ -1,5 +1,7 @@
 """FastAPI application entry point."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,10 +10,20 @@ from src.config import get_settings
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown events."""
+    # Startup: Initialize application resources here
+    yield
+    # Shutdown: Clean up resources here
+
+
 app = FastAPI(
     title="Todo List API",
     description="Self-hosted todo list with voice input and LLM categorization",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware for development
@@ -43,15 +55,3 @@ app.include_router(pantry.router)
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "environment": settings.environment}
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup."""
-    pass
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up on shutdown."""
-    pass

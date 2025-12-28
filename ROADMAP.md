@@ -12,30 +12,28 @@ This file tracks pending work items for coordination across agents and sessions.
 
 ## Active Tasks
 
-_(No active tasks - all items completed, pending human review)_
+_(No active tasks)_
 
 ---
 
-## Pending Review
+## Completed Tasks
 
-The following tasks were completed by agents and need human review before being marked complete:
-
-### 1. [~] Centralize CSS Theme
-**Files modified:** `web/src/app/globals.css`
+### [x] Centralize CSS Theme (2025-12-27)
+**Files:** `web/src/app/globals.css`
 
 Added CSS custom properties for theming:
 - Background colors (`--bg-primary`, `--bg-secondary`, `--bg-tertiary`, etc.)
 - Text colors (`--text-primary`, `--text-secondary`, `--text-muted`)
 - Status colors (`--success`, `--warning`, `--danger` with muted variants)
 - Design tokens (`--radius-*`, `--shadow-*`, `--transition-*`)
-- New utility classes (`.btn-danger`, `.badge`, `.card-interactive`, `.modal-overlay`)
+- Utility classes (`.btn-danger`, `.badge`, `.card-interactive`, `.modal-overlay`)
 
-Note: Component files not yet updated to use new variables.
+Components updated to use CSS variables throughout.
 
 ---
 
-### 2. [~] Add Edit Button for List Items
-**Files modified:** `web/src/app/list/[id]/page.tsx`
+### [x] Add Edit Button for List Items (2025-12-27)
+**Files:** `web/src/app/list/[id]/page.tsx`
 
 - Added inline edit mode with pencil icon button on each item
 - Edit form includes: name, quantity, description, category dropdown
@@ -43,18 +41,18 @@ Note: Component files not yet updated to use new variables.
 
 ---
 
-### 3. [~] Fix Quantity Display Totals
-**Files modified:** `web/src/app/list/[id]/page.tsx`
+### [x] Fix Quantity Display Totals (2025-12-27)
+**Files:** `web/src/app/list/[id]/page.tsx`
 
 - Integrated `formatQuantityTotal()` function for display
-- Sums integers: "2 + 3" → "5"
-- Handles units: "2 lbs + 3 lbs" → "5 lbs"
+- Sums integers: "2 + 3" -> "5"
+- Handles units: "2 lbs + 3 lbs" -> "5 lbs"
 - Falls back to "+" format if parsing fails
 
 ---
 
-### 4. [~] Fix Manual Categorization & History Lookup
-**Files modified:** `src/api/items.py`, `web/src/app/list/[id]/page.tsx`
+### [x] Fix Manual Categorization & History Lookup (2025-12-27)
+**Files:** `src/api/items.py`, `web/src/app/list/[id]/page.tsx`
 
 Backend:
 - Added `lookup_category_from_history()` function
@@ -62,12 +60,12 @@ Backend:
 - 3 new tests added to verify behavior
 
 Frontend:
-- Category dropdown in Add Item form already existed
+- Category dropdown in Add Item form
 
 ---
 
-### 5. [~] Show Unchecked Item Count on Lists Page
-**Files modified:** `src/api/lists.py`, `src/schemas/list.py`, `web/src/app/lists/page.tsx`
+### [x] Show Unchecked Item Count on Lists Page (2025-12-27)
+**Files:** `src/api/lists.py`, `src/schemas/list.py`, `web/src/app/lists/page.tsx`
 
 Backend:
 - Added `unchecked_count: int` to `ListResponse` schema
@@ -79,8 +77,6 @@ Frontend:
 
 ---
 
-## Completed Tasks
-
 ### [x] Add Code Coverage Requirements to Pre-commit Hook (2025-12-27)
 **Files:** `.git/hooks/pre-commit`, `pyproject.toml`, `web/jest.config.js`, `web/src/lib/__tests__/api.test.ts`
 
@@ -89,6 +85,77 @@ Added minimum code coverage requirements:
 - Frontend (TypeScript/lib): 40% minimum (currently at 97%)
 
 Pre-commit hook now enforces coverage thresholds. Frontend coverage focused on `src/lib/` to target testable utility code.
+
+---
+
+### [x] Recipe Management System (2025-12-27)
+**Files:** `src/api/recipes.py`, `src/models/recipe.py`, `src/services/recipe_service.py`, `web/src/app/recipes/`
+
+Full recipe management implementation:
+- Recipe CRUD with ingredients
+- Add recipe ingredients to shopping lists with one click
+- Store preference per ingredient (remembers which store to buy from)
+- Recipe labels with color-coded tags on shopping list items
+- Undo support for recipe additions
+- Recipe sources stored as JSONB for flexibility
+
+---
+
+### [x] Pantry Tracking Feature (2025-12-27)
+**Files:** `src/api/pantry.py`, `src/models/pantry.py`, `src/services/pantry_service.py`, `web/src/app/pantry/`
+
+Pantry inventory management:
+- Track items on hand with optional categories
+- LLM-powered ingredient matching (pantry items to recipe ingredients)
+- Match caching for performance (`pantry_match_history` table)
+- "Add missing to list" button for quick shopping list population
+- Pantry check integration when adding recipes to lists
+
+---
+
+### [x] Smart Merge on Add (2025-12-27)
+**Files:** `src/api/items.py`
+
+When adding items that already exist in a list:
+- Automatically merge with existing item
+- Combine quantities intelligently
+- Prevents duplicates
+
+---
+
+### [x] Recipe Label Colors (2025-12-27)
+**Files:** `src/api/recipes.py`, `web/src/app/list/[id]/page.tsx`
+
+- 10 maximally distinguishable colors for recipe labels
+- Color changes propagate to existing list items
+- Visual indication of which recipe each item came from
+
+---
+
+### [x] Delete Lists with Confirmation (2025-12-27)
+**Files:** `web/src/app/lists/page.tsx`
+
+- Delete button on lists page
+- Confirmation dialog before deletion
+
+---
+
+### [x] Voice Input System (2025-12-07)
+**Files:** `src/api/voice.py`, `src/tasks/voice.py`, `web/public/voice/`, `web/src/app/confirm/`
+
+- Standalone voice page with Web Speech API
+- LLM-powered parsing of natural language input
+- Confirmation flow for reviewing parsed items
+- Post-commit hook syncs voice page to nginx
+
+---
+
+### [x] LLM Auto-Categorization (2025-12-07)
+**Files:** `src/services/categorization.py`, `src/services/llm.py`
+
+- History-first lookup (exact match, then fuzzy)
+- LLM fallback for unknown items
+- Learning system improves over time
 
 ---
 
