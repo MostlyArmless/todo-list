@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     edamam_app_id: str | None = Field(default=None)
     edamam_app_key: str | None = Field(default=None)
 
+    # Anthropic API (for receipt scanning with Claude Vision)
+    anthropic_api_key: str | None = Field(default=None)
+
     # API
     environment: str = Field(default="development")
 

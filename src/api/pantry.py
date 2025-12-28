@@ -1,13 +1,15 @@
 """Pantry API endpoints."""
 
+import base64
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.database import get_db
 from src.models.pantry import PantryItem
+from src.models.receipt_scan import ReceiptScan
 from src.models.user import User
 from src.schemas.pantry import (
     PantryBulkAddRequest,
@@ -16,6 +18,7 @@ from src.schemas.pantry import (
     PantryItemResponse,
     PantryItemUpdate,
 )
+from src.schemas.receipt_scan import ReceiptScanCreateResponse, ReceiptScanResponse
 
 router = APIRouter(prefix="/api/v1/pantry", tags=["pantry"])
 
@@ -181,3 +184,101 @@ async def bulk_add_pantry_items(
         db.refresh(item)
 
     return PantryBulkAddResponse(added=added, updated=updated, items=result_items)
+
+
+# --- Receipt Scanning ---
+
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+
+@router.post("/scan-receipt", response_model=ReceiptScanCreateResponse)
+async def scan_receipt(
+    file: Annotated[UploadFile, File(description="Receipt image (JPEG, PNG, GIF, or WebP)")],
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Upload a receipt image for scanning.
+
+    The receipt will be processed asynchronously using Claude Vision.
+    Poll the status endpoint to check when processing is complete.
+    """
+    from src.tasks.receipt_scan import process_receipt_scan
+
+    # Validate file type
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_IMAGE_TYPES)}",
+        )
+
+    # Read file content
+    image_data = await file.read()
+
+    # Limit file size (10MB)
+    if len(image_data) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 10MB.",
+        )
+
+    # Create scan record
+    scan = ReceiptScan(
+        user_id=current_user.id,
+        status="pending",
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
+
+    # Queue async processing
+    image_data_b64 = base64.b64encode(image_data).decode("utf-8")
+    process_receipt_scan.delay(scan.id, image_data_b64, file.content_type)
+
+    return ReceiptScanCreateResponse(
+        id=scan.id,
+        status="pending",
+        message="Receipt uploaded successfully. Processing in background.",
+    )
+
+
+@router.get("/scan-receipt/{scan_id}", response_model=ReceiptScanResponse)
+async def get_receipt_scan(
+    scan_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Get the status and results of a receipt scan."""
+    scan = (
+        db.query(ReceiptScan)
+        .filter(
+            ReceiptScan.id == scan_id,
+            ReceiptScan.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receipt scan not found",
+        )
+
+    return scan
+
+
+@router.get("/scan-receipts", response_model=list[ReceiptScanResponse])
+async def list_receipt_scans(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = 10,
+):
+    """List recent receipt scans for the user."""
+    scans = (
+        db.query(ReceiptScan)
+        .filter(ReceiptScan.user_id == current_user.id)
+        .order_by(ReceiptScan.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return scans

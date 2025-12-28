@@ -8,6 +8,7 @@ from src.models.list import List, ListShare
 from src.models.pantry import PantryItem
 from src.models.pantry_match_history import PantryMatchHistory
 from src.models.pending_confirmation import PendingConfirmation
+from src.models.receipt_scan import ReceiptScan
 from src.models.recipe import Recipe, RecipeIngredient
 from src.models.recipe_add_event import RecipeAddEvent, RecipeAddEventItem
 from src.models.recipe_import import RecipeImport
@@ -33,4 +34,5 @@ __all__ = [
     "PantryMatchHistory",
     "RecipeImport",
     "RecipeStepCompletion",
+    "ReceiptScan",
 ]

@@ -363,6 +363,41 @@ class ApiClient {
     });
   }
 
+  // Receipt Scanning
+  async scanReceipt(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: HeadersInit = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    const response = await fetch(`${this.getBaseUrl()}/api/v1/pantry/scan-receipt`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json() as Promise<ReceiptScanCreateResponse>;
+  }
+
+  async getReceiptScan(scanId: number) {
+    return this.request<ReceiptScanResponse>(`/api/v1/pantry/scan-receipt/${scanId}`);
+  }
+
+  async getReceiptScans(limit = 10) {
+    return this.request<ReceiptScanResponse[]>(`/api/v1/pantry/scan-receipts?limit=${limit}`);
+  }
+
   // Recipe Pantry Check
   async checkRecipePantry(recipeId: number) {
     return this.request<CheckPantryResponse>(`/api/v1/recipes/${recipeId}/check-pantry`, {
@@ -571,6 +606,31 @@ export interface PantryBulkAddResult {
   added: number;
   updated: number;
   items: PantryItem[];
+}
+
+export interface ParsedReceiptItem {
+  name: string;
+  quantity: string | null;
+  matched_pantry_id: number | null;
+  action: 'added' | 'updated' | null;
+}
+
+export interface ReceiptScanCreateResponse {
+  id: number;
+  status: string;
+  message: string;
+}
+
+export interface ReceiptScanResponse {
+  id: number;
+  user_id: number;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  error_message: string | null;
+  parsed_items: ParsedReceiptItem[] | null;
+  items_added: number | null;
+  items_updated: number | null;
+  processed_at: string | null;
+  created_at: string;
 }
 
 export interface PantryMatch {

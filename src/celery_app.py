@@ -15,6 +15,7 @@ app = Celery(
         "src.tasks.categorization",
         "src.tasks.recipe_import",
         "src.tasks.nutrition",
+        "src.tasks.receipt_scan",
     ],
 )
 

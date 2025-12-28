@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type PantryItem, type List } from '@/lib/api';
+import { api, type PantryItem, type List, type ReceiptScanResponse } from '@/lib/api';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 
 const STATUS_ORDER = ['have', 'low', 'out'] as const;
@@ -27,6 +27,9 @@ export default function PantryPage() {
   const [newItemCategory, setNewItemCategory] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingScan, setPendingScan] = useState<ReceiptScanResponse | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const currentUser = api.getCurrentUser();
@@ -131,6 +134,52 @@ export default function PantryPage() {
     }
   };
 
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    setScanError(null);
+    try {
+      const result = await api.scanReceipt(file);
+      // Start polling for result
+      pollScanStatus(result.id);
+    } catch (error) {
+      console.error('Failed to upload receipt:', error);
+      setScanError(error instanceof Error ? error.message : 'Failed to upload receipt');
+    }
+  };
+
+  const pollScanStatus = async (scanId: number) => {
+    try {
+      const scan = await api.getReceiptScan(scanId);
+      setPendingScan(scan);
+
+      if (scan.status === 'pending' || scan.status === 'processing') {
+        // Continue polling
+        setTimeout(() => pollScanStatus(scanId), 2000);
+      } else if (scan.status === 'completed') {
+        // Reload pantry items
+        loadPantry();
+        await alert({
+          title: 'Receipt Scanned',
+          message: `Added ${scan.items_added || 0} new items, updated ${scan.items_updated || 0} existing items.`,
+        });
+        setPendingScan(null);
+      } else if (scan.status === 'failed') {
+        setScanError(scan.error_message || 'Failed to process receipt');
+        setPendingScan(null);
+      }
+    } catch (error) {
+      console.error('Failed to poll scan status:', error);
+      setPendingScan(null);
+    }
+  };
+
   // Filter items by search term
   const filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -227,6 +276,60 @@ export default function PantryPage() {
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
+        )}
+      </div>
+
+      {/* Receipt Scan Section */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleReceiptUpload}
+          style={{ display: 'none' }}
+          id="receipt-upload"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={pendingScan !== null}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            width: '100%',
+            padding: '0.75rem',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px dashed var(--border)',
+            borderRadius: '8px',
+            color: pendingScan ? 'var(--text-secondary)' : 'var(--accent)',
+            cursor: pendingScan ? 'default' : 'pointer',
+            fontSize: '0.875rem',
+          }}
+        >
+          {pendingScan ? (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+                <circle cx="12" cy="12" r="10" strokeDasharray="30 60" />
+              </svg>
+              <span>Scanning receipt...</span>
+            </>
+          ) : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="3" y1="15" x2="21" y2="15" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+              <span>Scan Receipt</span>
+            </>
+          )}
+        </button>
+        {scanError && (
+          <p style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+            {scanError}
+          </p>
         )}
       </div>
 
