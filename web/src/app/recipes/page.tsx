@@ -196,12 +196,69 @@ export default function RecipesPage() {
               )}
               {/* Nutrition info */}
               {recipe.calories_per_serving != null && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                  {recipe.calories_per_serving} cal
-                  {recipe.protein_grams != null && ` | ${recipe.protein_grams}g P`}
-                  {recipe.carbs_grams != null && ` | ${recipe.carbs_grams}g C`}
-                  {recipe.fat_grams != null && ` | ${recipe.fat_grams}g F`}
-                </p>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  marginTop: '0.5rem',
+                  flexWrap: 'wrap',
+                }}>
+                  <span style={{
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: 'var(--text-primary)',
+                  }}>
+                    {recipe.calories_per_serving} cal
+                  </span>
+                  {recipe.protein_grams != null && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: '0.125rem 0.5rem',
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: '#3b82f6',
+                      borderRadius: '9999px',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                    }}>
+                      <span style={{ fontWeight: '600' }}>{recipe.protein_grams}g</span> P
+                    </span>
+                  )}
+                  {recipe.carbs_grams != null && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: '0.125rem 0.5rem',
+                      backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                      color: '#a855f7',
+                      borderRadius: '9999px',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      border: '1px solid rgba(168, 85, 247, 0.2)',
+                    }}>
+                      <span style={{ fontWeight: '600' }}>{recipe.carbs_grams}g</span> C
+                    </span>
+                  )}
+                  {recipe.fat_grams != null && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: '0.125rem 0.5rem',
+                      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                      color: '#f59e0b',
+                      borderRadius: '9999px',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      border: '1px solid rgba(245, 158, 11, 0.2)',
+                    }}>
+                      <span style={{ fontWeight: '600' }}>{recipe.fat_grams}g</span> F
+                    </span>
+                  )}
+                </div>
               )}
               {/* Pantry progress indicator */}
               {(() => {
