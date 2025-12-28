@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type PantryItem } from '@/lib/api';
+import { api, type PantryItem, type List } from '@/lib/api';
 
 const STATUS_ORDER = ['have', 'low', 'out'] as const;
 const STATUS_LABELS: Record<string, string> = {
@@ -19,6 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function PantryPage() {
   const router = useRouter();
   const [items, setItems] = useState<PantryItem[]>([]);
+  const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
@@ -30,8 +31,23 @@ export default function PantryPage() {
       router.push('/login');
       return;
     }
-    loadPantry();
+    loadData();
   }, [router]);
+
+  const loadData = async () => {
+    try {
+      const [pantryData, listsData] = await Promise.all([
+        api.getPantryItems(),
+        api.getLists(),
+      ]);
+      setItems(pantryData);
+      setLists(listsData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadPantry = async () => {
     try {
@@ -86,6 +102,23 @@ export default function PantryPage() {
     }
   };
 
+  const handleAddToShoppingList = async (item: PantryItem) => {
+    // Find the Grocery list
+    const groceryList = lists.find(l => l.name.toLowerCase() === 'grocery');
+    if (!groceryList) {
+      alert('No "Grocery" list found. Please create one first.');
+      return;
+    }
+
+    try {
+      await api.createItem(groceryList.id, { name: item.name });
+      alert(`Added "${item.name}" to shopping list`);
+    } catch (error) {
+      console.error('Failed to add to shopping list:', error);
+      alert('Failed to add to shopping list');
+    }
+  };
+
   // Group items by category
   const groupedItems = items.reduce(
     (acc, item) => {
@@ -125,18 +158,20 @@ export default function PantryPage() {
       {/* Category sections */}
       {sortedCategories.map((category) => (
         <div key={category} style={{ marginBottom: '1.5rem' }}>
-          <h2
-            style={{
-              fontSize: '1rem',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              marginBottom: '0.5rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            {category}
-          </h2>
+          {category !== 'Uncategorized' && (
+            <h2
+              style={{
+                fontSize: '1rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                marginBottom: '0.5rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {category}
+            </h2>
+          )}
           <div
             style={{
               display: 'grid',
@@ -174,6 +209,30 @@ export default function PantryPage() {
                   >
                     {STATUS_LABELS[item.status]}
                   </button>
+                  {item.status !== 'have' && (
+                    <button
+                      onClick={() => handleAddToShoppingList(item)}
+                      style={{
+                        color: 'var(--accent)',
+                        padding: '0.25rem',
+                        opacity: 0.8,
+                      }}
+                      title="Add to shopping list"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                      </svg>
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDeleteItem(item)}
                     style={{

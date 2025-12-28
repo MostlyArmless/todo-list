@@ -78,29 +78,70 @@ async def create_item(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Create a new item in a list."""
+    """Create a new item in a list, merging with existing if same name exists."""
     # Verify user has access to the list
     get_user_list(db, list_id, current_user)
 
-    # Determine category_id: use provided value, or look up from history
-    category_id = item_data.category_id
-    if category_id is None:
-        # Check item history for an exact match (no LLM call needed)
-        category_id = lookup_category_from_history(db, item_data.name, list_id)
+    normalized_name = item_data.name.lower().strip()
 
-    item = Item(
-        list_id=list_id,
-        name=item_data.name,
-        description=item_data.description,
-        quantity=item_data.quantity,
-        category_id=category_id,
-        sort_order=item_data.sort_order,
-        created_by=current_user.id,
+    # Check for existing unchecked item with same name
+    existing_item = (
+        db.query(Item)
+        .filter(
+            Item.list_id == list_id,
+            Item.deleted_at.is_(None),
+            Item.checked.is_(False),
+        )
+        .all()
     )
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
+    matching_item = None
+    for item in existing_item:
+        if item.name.lower().strip() == normalized_name:
+            matching_item = item
+            break
+
+    # Ad-hoc source marker
+    adhoc_source = {"recipe_id": None, "recipe_name": "Ad-hoc"}
+
+    if matching_item:
+        # Merge with existing item
+        if item_data.quantity:
+            if matching_item.quantity:
+                matching_item.quantity = f"{matching_item.quantity} + {item_data.quantity}"
+            else:
+                matching_item.quantity = item_data.quantity
+
+        # Add ad-hoc to recipe_sources
+        existing_sources = matching_item.recipe_sources or []
+        # Check if ad-hoc already exists, if not add it
+        if not any(s.get("recipe_id") is None for s in existing_sources):
+            existing_sources.append(adhoc_source)
+        matching_item.recipe_sources = existing_sources
+
+        db.commit()
+        db.refresh(matching_item)
+        return matching_item
+    else:
+        # Create new item
+        # Determine category_id: use provided value, or look up from history
+        category_id = item_data.category_id
+        if category_id is None:
+            # Check item history for an exact match (no LLM call needed)
+            category_id = lookup_category_from_history(db, item_data.name, list_id)
+
+        item = Item(
+            list_id=list_id,
+            name=item_data.name,
+            description=item_data.description,
+            quantity=item_data.quantity,
+            category_id=category_id,
+            sort_order=item_data.sort_order,
+            created_by=current_user.id,
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
 
 
 @router.put("/items/{item_id}", response_model=ItemResponse)

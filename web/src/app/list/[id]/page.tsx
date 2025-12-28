@@ -138,6 +138,11 @@ export default function ListDetailPage() {
     if (!newItemName.trim()) return;
 
     try {
+      // Check if item with same name already exists (for merge detection)
+      const existingItem = items.find(
+        i => i.name.toLowerCase().trim() === newItemName.toLowerCase().trim() && !i.checked
+      );
+
       const createdItem = await api.createItem(listId, {
         name: newItemName,
         category_id: newItemCategory || undefined,
@@ -145,17 +150,18 @@ export default function ListDetailPage() {
       setNewItemName('');
       setNewItemCategory(null);
 
-      // Show ghost message indicating which category the item was added to
-      if (createdItem.category_id) {
-        const category = categories.find(c => c.id === createdItem.category_id);
-        if (category) {
-          setAddedItemMessage(`Added to ${category.name}`);
-          setTimeout(() => setAddedItemMessage(null), 3000);
-        }
+      // Show ghost message indicating what happened
+      const wasMerged = existingItem && existingItem.id === createdItem.id;
+      const categoryName = createdItem.category_id
+        ? categories.find(c => c.id === createdItem.category_id)?.name || 'Unknown'
+        : 'Uncategorized';
+
+      if (wasMerged) {
+        setAddedItemMessage(`Merged with existing in ${categoryName}`);
       } else {
-        setAddedItemMessage('Added to Uncategorized');
-        setTimeout(() => setAddedItemMessage(null), 3000);
+        setAddedItemMessage(`Added to ${categoryName}`);
       }
+      setTimeout(() => setAddedItemMessage(null), 3000);
 
       loadData();
     } catch (error) {
@@ -1239,18 +1245,18 @@ function ItemRow({
           {/* Recipe source badges */}
           {item.recipe_sources && item.recipe_sources.length > 0 && (
             <span style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-              {item.recipe_sources.map((source) => (
+              {item.recipe_sources.map((source, idx) => (
                 <span
-                  key={source.recipe_id}
+                  key={source.recipe_id ?? `adhoc-${idx}`}
                   style={{
                     fontSize: '0.65rem',
-                    backgroundColor: 'var(--accent)',
+                    backgroundColor: source.recipe_id ? 'var(--accent)' : 'var(--text-secondary)',
                     color: 'white',
                     padding: '0.1rem 0.4rem',
                     borderRadius: '3px',
                     whiteSpace: 'nowrap',
                   }}
-                  title={`From recipe: ${source.recipe_name}`}
+                  title={source.recipe_id ? `From recipe: ${source.recipe_name}` : 'Manually added'}
                 >
                   {source.recipe_name}
                 </span>

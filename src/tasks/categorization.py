@@ -58,7 +58,9 @@ def categorize_list_items(self, list_id: int, user_id: int, item_ids: list[int])
                         item.name, result["category_id"], list_id, user_id
                     )
                     categorized += 1
-                    logger.info(f"Categorized item '{item.name}' -> category {result['category_id']}")
+                    logger.info(
+                        f"Categorized item '{item.name}' -> category {result['category_id']}"
+                    )
                 else:
                     failed += 1
                     logger.info(f"Could not categorize item '{item.name}'")

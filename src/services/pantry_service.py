@@ -64,9 +64,7 @@ class PantryService:
             return {"error": "Recipe not found"}
 
         # Get user's pantry items
-        pantry_items = (
-            self.db.query(PantryItem).filter(PantryItem.user_id == user_id).all()
-        )
+        pantry_items = self.db.query(PantryItem).filter(PantryItem.user_id == user_id).all()
 
         # Build pantry lookup by normalized name
         pantry_by_name = {item.normalized_name: item for item in pantry_items}
@@ -153,15 +151,11 @@ class PantryService:
                 logger.error(f"LLM matching failed: {e}")
                 # Fall back to no matches for remaining
                 for ingredient in unmatched_ingredients:
-                    results.append(
-                        self._build_ingredient_result(ingredient, None, confidence=0.0)
-                    )
+                    results.append(self._build_ingredient_result(ingredient, None, confidence=0.0))
         else:
             # No pantry items or no unmatched ingredients
             for ingredient in unmatched_ingredients:
-                results.append(
-                    self._build_ingredient_result(ingredient, None, confidence=0.0)
-                )
+                results.append(self._build_ingredient_result(ingredient, None, confidence=0.0))
 
         return {
             "recipe_id": recipe.id,

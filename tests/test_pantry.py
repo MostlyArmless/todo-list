@@ -49,8 +49,12 @@ def test_create_duplicate_pantry_item(client, auth_headers):
 def test_list_pantry_items(client, auth_headers):
     """Test listing pantry items."""
     # Create some items
-    client.post("/api/v1/pantry", headers=auth_headers, json={"name": "Sugar", "category": "Baking"})
-    client.post("/api/v1/pantry", headers=auth_headers, json={"name": "Flour", "category": "Baking"})
+    client.post(
+        "/api/v1/pantry", headers=auth_headers, json={"name": "Sugar", "category": "Baking"}
+    )
+    client.post(
+        "/api/v1/pantry", headers=auth_headers, json={"name": "Flour", "category": "Baking"}
+    )
     client.post("/api/v1/pantry", headers=auth_headers, json={"name": "Salt"})
 
     response = client.get("/api/v1/pantry", headers=auth_headers)
@@ -202,5 +206,7 @@ def test_status_cycle(client, auth_headers):
     assert response.json()["status"] == "out"
 
     # Update back to have
-    response = client.put(f"/api/v1/pantry/{item_id}", headers=auth_headers, json={"status": "have"})
+    response = client.put(
+        f"/api/v1/pantry/{item_id}", headers=auth_headers, json={"status": "have"}
+    )
     assert response.json()["status"] == "have"
