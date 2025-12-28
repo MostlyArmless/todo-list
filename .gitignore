@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -60,6 +60,15 @@ out/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage/
 
 # Cloudflare
 .cloudflared/
+*.deb
+
+# Claude Code
+.claude/
+
+# TypeScript
+tsconfig.tsbuildinfo
+*.tsbuildinfo
