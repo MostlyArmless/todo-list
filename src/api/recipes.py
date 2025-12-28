@@ -3,7 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
@@ -373,6 +373,27 @@ async def update_recipe(
         recipe.servings = recipe_data.servings
     if recipe_data.label_color is not None:
         recipe.label_color = recipe_data.label_color
+        # Update label_color in all items that reference this recipe
+        db.execute(
+            text("""
+                UPDATE items
+                SET recipe_sources = (
+                    SELECT jsonb_agg(
+                        CASE WHEN (elem->>'recipe_id')::int = :recipe_id
+                        THEN elem || jsonb_build_object('label_color', :color)
+                        ELSE elem END
+                    )
+                    FROM jsonb_array_elements(recipe_sources::jsonb) elem
+                )
+                WHERE recipe_sources::jsonb @> cast(:match_pattern as jsonb)
+                AND deleted_at IS NULL
+            """),
+            {
+                "recipe_id": recipe_id,
+                "color": recipe_data.label_color,
+                "match_pattern": f'[{{"recipe_id": {recipe_id}}}]',
+            },
+        )
 
     db.commit()
     db.refresh(recipe)

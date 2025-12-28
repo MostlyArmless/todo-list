@@ -551,3 +551,45 @@ def test_skip_ingredients_like_water(client, auth_headers):
     assert "salt" in item_names
     assert "water" not in item_names
     assert "ice cubes" not in item_names
+
+
+def test_update_recipe_color_propagates_to_items(client, auth_headers):
+    """Test that updating a recipe's color updates items that reference it."""
+    # Create recipe with initial color
+    recipe = client.post(
+        "/api/v1/recipes",
+        headers=auth_headers,
+        json={
+            "name": "Pasta",
+            "ingredients": [{"name": "Tomatoes", "quantity": "4"}],
+        },
+    ).json()
+    recipe_id = recipe["id"]
+    original_color = recipe["label_color"]
+
+    # Add to list
+    client.post(
+        "/api/v1/recipes/add-to-list",
+        headers=auth_headers,
+        json={"recipe_ids": [recipe_id]},
+    )
+
+    # Verify item has original color
+    lists = client.get("/api/v1/lists", headers=auth_headers).json()
+    grocery = next(lst for lst in lists if lst["name"] == "Grocery")
+    items = client.get(f"/api/v1/lists/{grocery['id']}/items", headers=auth_headers).json()
+    tomatoes = next(i for i in items if "tomato" in i["name"].lower())
+    assert tomatoes["recipe_sources"][0]["label_color"] == original_color
+
+    # Update recipe color
+    new_color = "#911eb4"  # Purple
+    client.put(
+        f"/api/v1/recipes/{recipe_id}",
+        headers=auth_headers,
+        json={"label_color": new_color},
+    )
+
+    # Verify item now has updated color
+    items = client.get(f"/api/v1/lists/{grocery['id']}/items", headers=auth_headers).json()
+    tomatoes = next(i for i in items if "tomato" in i["name"].lower())
+    assert tomatoes["recipe_sources"][0]["label_color"] == new_color
