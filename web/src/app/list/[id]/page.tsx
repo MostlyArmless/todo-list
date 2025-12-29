@@ -52,15 +52,7 @@ export default function ListDetailPage() {
   const [inlineAddCategory, setInlineAddCategory] = useState<number | null | 'uncategorized'>(null);
   const [inlineItemName, setInlineItemName] = useState('');
 
-  useEffect(() => {
-    if (!api.getCurrentUser()) {
-      router.push('/login');
-      return;
-    }
-    loadData();
-  }, [router, listId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [listData, categoriesData, itemsData] = await Promise.all([
         api.getList(listId),
@@ -75,7 +67,15 @@ export default function ListDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [listId, showChecked]);
+
+  useEffect(() => {
+    if (!api.getCurrentUser()) {
+      router.push('/login');
+      return;
+    }
+    loadData();
+  }, [router, loadData]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();

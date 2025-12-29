@@ -81,15 +81,7 @@ export default function RecipeDetailPage() {
 
   const { isMac } = useIngredientKeyboard(openNewRow);
 
-  useEffect(() => {
-    if (!api.getCurrentUser()) {
-      router.push('/login');
-      return;
-    }
-    loadRecipe();
-  }, [router, recipeId]);
-
-  const loadRecipe = async () => {
+  const loadRecipe = useCallback(async () => {
     try {
       setRecipe(await api.getRecipe(recipeId));
     } catch {
@@ -97,7 +89,15 @@ export default function RecipeDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [recipeId, router]);
+
+  useEffect(() => {
+    if (!api.getCurrentUser()) {
+      router.push('/login');
+      return;
+    }
+    loadRecipe();
+  }, [router, loadRecipe]);
 
   // Fetch step completions when recipe loads
   useEffect(() => {

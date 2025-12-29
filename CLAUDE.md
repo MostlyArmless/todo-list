@@ -132,6 +132,30 @@ Uses [pre-commit](https://pre-commit.com/) framework. Config in `.pre-commit-con
 
 Post-commit hook syncs voice page to `/var/www/todolist/voice.html` (nginx can't access files in user home directories).
 
+## Code Quality Expectations
+
+### Testing Requirements
+- New endpoints require corresponding tests in `tests/`
+- New React components should have basic Jest tests
+- Bug fixes should include a regression test when practical
+
+### Patterns to Follow
+- Use Pydantic models for all request/response schemas
+- Services go in `src/services/`, CRUD logic stays in routers
+- Frontend uses CSS Modules (`.module.css`), not inline styles or global CSS
+- Use the existing `api.ts` client for all API calls, don't use fetch directly
+
+### Anti-patterns to Avoid
+- Don't add `print()` or `console.log()` except during active debugging (ruff T20 catches this)
+- Don't bypass type checking with `# type: ignore` or `as any` without a comment explaining why
+- Don't add dependencies without discussing tradeoffs (bundle size, maintenance burden)
+
+### Avoiding Cruft
+- Delete code rather than commenting it out (git history exists)
+- Remove unused imports, variables, and functions immediately
+- Don't create abstractions for single-use cases
+- Prefer deleting features over adding backwards-compatibility shims
+
 ## Commit Hygiene
 
 **Before each commit**, read `ROADMAP.md` and remove any completed tasks (`[x]`) from the file. This prevents unbounded context window growth for future agents. Include the ROADMAP cleanup in the same commit as the feature work.

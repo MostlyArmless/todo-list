@@ -12,8 +12,7 @@ This file tracks pending work items for coordination across agents and sessions.
 
 ## Active Tasks
 
-### Recipe Detail Page
-- [ ] Add UI to create/add instructions for recipes that don't have any (recipes created before instructions feature was implemented have no way to add them)
+*No active tasks*
 
 ---
 
