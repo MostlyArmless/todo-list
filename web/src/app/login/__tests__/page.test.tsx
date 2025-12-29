@@ -38,11 +38,11 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       expect(screen.getByText('Family Todo List')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Email')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Email address')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
 
       const submitButton = getSubmitButton();
-      expect(submitButton).toHaveTextContent('Login');
+      expect(submitButton).toHaveTextContent('Sign In');
     });
 
     it('should not show name field in login mode', () => {
@@ -56,10 +56,10 @@ describe('LoginPage', () => {
     it('should switch to register mode when Register button is clicked', () => {
       render(<LoginPage />);
 
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
-      expect(screen.getByPlaceholderText('Name')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Your name')).toBeInTheDocument();
 
       const submitButton = getSubmitButton();
       expect(submitButton).toHaveTextContent('Create Account');
@@ -69,13 +69,13 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       // Switch to register
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
-      expect(screen.getByPlaceholderText('Name')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Your name')).toBeInTheDocument();
 
       // Switch back to login
-      const loginTab = screen.getAllByRole('button', { name: /login/i })[0];
+      const loginTab = screen.getAllByRole('button', { name: /sign in/i })[0];
       fireEvent.click(loginTab);
 
       expect(screen.queryByPlaceholderText('Name')).not.toBeInTheDocument();
@@ -85,10 +85,10 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       // Login mode
-      expect(getSubmitButton()).toHaveTextContent('Login');
+      expect(getSubmitButton()).toHaveTextContent('Sign In');
 
       // Switch to register
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
       expect(getSubmitButton()).toHaveTextContent('Create Account');
@@ -99,7 +99,7 @@ describe('LoginPage', () => {
     it('should have required attributes on email input', () => {
       render(<LoginPage />);
 
-      const emailInput = screen.getByPlaceholderText('Email');
+      const emailInput = screen.getByPlaceholderText('Email address');
       expect(emailInput).toHaveAttribute('required');
       expect(emailInput).toHaveAttribute('type', 'email');
     });
@@ -116,10 +116,10 @@ describe('LoginPage', () => {
     it('should have required attributes on name input in register mode', () => {
       render(<LoginPage />);
 
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
-      const nameInput = screen.getByPlaceholderText('Name');
+      const nameInput = screen.getByPlaceholderText('Your name');
       expect(nameInput).toHaveAttribute('required');
     });
   });
@@ -130,7 +130,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -149,7 +149,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -168,7 +168,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -187,7 +187,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -209,13 +209,13 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       // Switch to register mode
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
-      fireEvent.change(screen.getByPlaceholderText('Name'), {
+      fireEvent.change(screen.getByPlaceholderText('Your name'), {
         target: { value: 'Test User' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -235,13 +235,13 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       // Switch to register mode
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
-      fireEvent.change(screen.getByPlaceholderText('Name'), {
+      fireEvent.change(screen.getByPlaceholderText('Your name'), {
         target: { value: 'Test User' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -261,13 +261,13 @@ describe('LoginPage', () => {
       render(<LoginPage />);
 
       // Switch to register mode
-      const registerTab = screen.getAllByRole('button', { name: /register/i })[0];
+      const registerTab = screen.getAllByRole('button', { name: /create account/i })[0];
       fireEvent.click(registerTab);
 
-      fireEvent.change(screen.getByPlaceholderText('Name'), {
+      fireEvent.change(screen.getByPlaceholderText('Your name'), {
         target: { value: 'Test User' },
       });
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -293,7 +293,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -320,7 +320,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -341,7 +341,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {
@@ -356,7 +356,7 @@ describe('LoginPage', () => {
 
       // Button should be re-enabled
       expect(getSubmitButton()).not.toBeDisabled();
-      expect(getSubmitButton()).toHaveTextContent('Login');
+      expect(getSubmitButton()).toHaveTextContent('Sign In');
     });
   });
 
@@ -368,7 +368,7 @@ describe('LoginPage', () => {
 
       render(<LoginPage />);
 
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
+      fireEvent.change(screen.getByPlaceholderText('Email address'), {
         target: { value: 'test@example.com' },
       });
       fireEvent.change(screen.getByPlaceholderText('Password'), {

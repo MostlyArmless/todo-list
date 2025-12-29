@@ -1,102 +1,93 @@
-/* ConfirmDialog Component Styles */
+/* =============================================================================
+   ConfirmDialog Component Styles
+   ============================================================================= */
 
 .overlay {
   position: fixed;
   inset: 0;
   background-color: var(--overlay-bg);
+  backdrop-filter: var(--backdrop-blur);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-  animation: fadeIn 0.15s ease;
+  z-index: var(--z-modal-backdrop);
+  padding: var(--space-4);
+  animation: fadeIn var(--transition-fast);
 }
 
 .dialog {
-  background: var(--bg-secondary);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 1rem;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
   width: 100%;
   max-width: 400px;
-  animation: slideUp 0.15s ease;
+  box-shadow: var(--shadow-xl);
+  animation: scaleIn var(--transition-base);
 }
 
 .header {
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-3);
 }
 
 .title {
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
 }
 
 .message {
   color: var(--text-secondary);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  margin-bottom: 1.5rem;
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-6);
 }
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
   justify-content: flex-end;
 }
 
 .btn {
-  min-width: 80px;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
+  min-width: 90px;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
   transition: all var(--transition-base);
   border: none;
   cursor: pointer;
 }
 
 .btnSecondary {
-  background: var(--bg-tertiary);
+  background: var(--surface-2);
   color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 .btnSecondary:hover {
-  background: var(--bg-tertiary-hover);
+  background: var(--surface-3);
+  border-color: var(--accent);
 }
 
 .btnPrimary {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .btnPrimary:hover {
-  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), var(--glow-accent);
 }
 
 .btnDanger {
-  background: var(--danger);
+  background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .btnDanger:hover {
-  background: var(--danger-hover);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), var(--glow-danger);
 }

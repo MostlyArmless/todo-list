@@ -62,6 +62,11 @@ out/
 htmlcov/
 coverage/
 
+# Playwright
+web/screenshots/
+web/e2e/test-results/
+web/playwright-report/
+
 # Cloudflare
 .cloudflared/
 *.deb

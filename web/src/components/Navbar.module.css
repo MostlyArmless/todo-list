@@ -1,29 +1,56 @@
-/* Navbar Component Styles */
+/* =============================================================================
+   Navbar Component Styles - Clean, modern navigation
+   ============================================================================= */
 
 .navbar {
-  background-color: var(--bg-secondary);
+  background: var(--surface-1);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: var(--z-sticky);
+  backdrop-filter: var(--backdrop-blur);
 }
 
 .container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4);
 }
 
+/* Brand/Logo */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
+.brandIcon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+/* Navigation Links */
 .navLinks {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: var(--space-1);
   overflow-x: auto;
-  flex-shrink: 1;
-  min-width: 0;
+  flex: 1;
+  justify-content: center;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -33,44 +60,117 @@
 }
 
 .navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-secondary);
-  font-weight: 400;
-  transition: color 0.2s;
-  padding: 0.25rem 0;
-  border-bottom: 2px solid transparent;
+  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
   text-decoration: none;
 }
 
-.navLinkActive {
-  color: var(--accent);
-  font-weight: 600;
-  border-bottom-color: var(--accent);
+.navLink:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
+.navLinkActive {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.navLinkActive:hover {
+  background: var(--accent-muted);
+}
+
+.navIcon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.8;
+}
+
+.navLinkActive .navIcon {
+  opacity: 1;
+}
+
+/* User Section */
 .userSection {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-3);
   flex-shrink: 0;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
 }
 
 .userName {
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .userName {
+    display: block;
+  }
 }
 
 .logoutBtn {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  padding: 0.25rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  padding: var(--space-2);
   background: none;
   border: none;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .logoutBtn:hover {
-  color: var(--text-primary);
+  color: var(--danger);
+  background: var(--danger-muted);
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .container {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .navLink {
+    padding: var(--space-2);
+  }
+
+  .navLinkText {
+    display: none;
+  }
+
+  .navIcon {
+    width: 20px;
+    height: 20px;
+  }
 }

@@ -2,6 +2,15 @@
 
 Self-hosted shopping and meal planning application with voice input, recipe management, pantry tracking, and LLM-powered auto-categorization.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/login-mobile.png" alt="Mobile Login" width="280" />
+  <img src="docs/images/login-desktop.png" alt="Desktop Login" width="500" />
+</p>
+
+*Modern dark theme with teal accents, designed for mobile-first use*
+
 ## Features
 
 ### Shopping Lists

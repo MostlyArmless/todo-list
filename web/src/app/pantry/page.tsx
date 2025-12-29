@@ -20,25 +20,6 @@ const STATUS_COLORS: Record<string, string> = {
   out: '#ef4444', // red
 };
 
-// Color palette for stores (cycles through these)
-const STORE_COLOR_PALETTE = [
-  '#3b82f6', // blue
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#f97316', // orange
-  '#06b6d4', // cyan
-  '#84cc16', // lime
-];
-
-// Get a consistent color for a store name based on its hash
-const getStoreColor = (storeName: string): string => {
-  let hash = 0;
-  for (let i = 0; i < storeName.length; i++) {
-    hash = storeName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return STORE_COLOR_PALETTE[Math.abs(hash) % STORE_COLOR_PALETTE.length];
-};
-
 const SORT_OPTIONS = [
   { value: 'category', label: 'Category' },
   { value: 'alphabetical', label: 'Alphabetical' },
@@ -585,7 +566,6 @@ export default function PantryPage() {
                       value={editStore}
                       onChange={(e) => setEditStore(e.target.value)}
                       className={styles.editSelect}
-                      style={{ color: editStore ? getStoreColor(editStore) : undefined }}
                     >
                       <option value="">No Store</option>
                       {lists.map((list) => (
@@ -661,11 +641,6 @@ export default function PantryPage() {
                         }
                       }}
                       className={`${styles.storeSelect} ${!item.preferred_store ? styles.storeSelectEmpty : ''}`}
-                      style={item.preferred_store ? {
-                        backgroundColor: getStoreColor(item.preferred_store) + '20',
-                        color: getStoreColor(item.preferred_store),
-                        borderColor: getStoreColor(item.preferred_store) + '40',
-                      } : undefined}
                       title="Select preferred store"
                     >
                       <option value="">Store</option>
@@ -797,11 +772,10 @@ export default function PantryPage() {
             value={newItemStore}
             onChange={(e) => setNewItemStore(e.target.value)}
             className={styles.formInput}
-            style={{ color: newItemStore ? getStoreColor(newItemStore) : undefined }}
           >
             <option value="">Preferred Store (optional)</option>
             {lists.map((list) => (
-              <option key={list.id} value={list.name} style={{ color: getStoreColor(list.name) }}>
+              <option key={list.id} value={list.name}>
                 {list.name}
               </option>
             ))}

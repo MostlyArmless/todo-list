@@ -1,5 +1,11 @@
 /* =============================================================================
-   Global Styles - CSS Custom Properties and Base Resets
+   Global Styles - Design System Foundation
+
+   Design Philosophy: Warm, inviting dark theme with depth and personality.
+   - Rich, layered backgrounds create visual hierarchy
+   - Teal accent brings energy without harshness
+   - Subtle gradients and shadows add dimension
+   - Generous spacing for breathing room
    ============================================================================= */
 
 * {
@@ -9,93 +15,218 @@
 }
 
 /* =============================================================================
-   CSS Custom Properties (Theme Variables)
+   CSS Custom Properties (Design Tokens)
    ============================================================================= */
 
 :root {
-  /* Background Colors - Dark Theme */
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --bg-tertiary-hover: #1a4a7a;
-  --bg-hover: rgba(59, 130, 246, 0.1);
+  /* ==========================================================================
+     Color Palette - Warm Dark Theme
+     ========================================================================== */
 
-  /* Text Colors */
-  --text-primary: #ffffff;
-  --text-secondary: #adb5bd;
+  /* Backgrounds - Rich, layered darks with subtle warmth */
+  --bg-base: #0c0c0f;
+  --bg-primary: #121218;
+  --bg-secondary: #1a1a23;
+  --bg-tertiary: #242432;
+  --bg-elevated: #2a2a3a;
+  --bg-hover: rgba(99, 179, 171, 0.08);
+  --bg-active: rgba(99, 179, 171, 0.12);
 
-  /* Accent/Brand Colors */
-  --accent: #e94560;
-  --accent-hover: #d63651;
-  --accent-muted: rgba(233, 69, 96, 0.1);
+  /* Surface colors for cards and containers */
+  --surface-1: #16161d;
+  --surface-2: #1e1e28;
+  --surface-3: #262633;
 
-  /* Status Colors */
-  --success: #4ecca3;
-  --success-muted: rgba(78, 204, 163, 0.2);
-  --warning: #eab308;
-  --warning-muted: rgba(234, 179, 8, 0.2);
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --danger-muted: rgba(239, 68, 68, 0.2);
+  /* Text Colors - High contrast with subtle hierarchy */
+  --text-primary: #f4f4f6;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #6b7280;
+  --text-muted: #4b5563;
 
-  /* Border Colors */
-  --border: #2d3748;
+  /* Accent - Sophisticated teal/cyan */
+  --accent: #63b3ab;
+  --accent-hover: #7cc4bd;
+  --accent-muted: rgba(99, 179, 171, 0.15);
+  --accent-subtle: rgba(99, 179, 171, 0.08);
 
-  /* Border Radius */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
+  /* Secondary accent - Warm amber for highlights */
+  --accent-warm: #f59e0b;
+  --accent-warm-muted: rgba(245, 158, 11, 0.15);
+
+  /* Status Colors - Refined and balanced */
+  --success: #34d399;
+  --success-muted: rgba(52, 211, 153, 0.15);
+  --success-text: #6ee7b7;
+
+  --warning: #fbbf24;
+  --warning-muted: rgba(251, 191, 36, 0.15);
+  --warning-text: #fcd34d;
+
+  --danger: #f87171;
+  --danger-hover: #ef4444;
+  --danger-muted: rgba(248, 113, 113, 0.15);
+  --danger-text: #fca5a5;
+
+  /* Borders - Subtle definition */
+  --border: rgba(255, 255, 255, 0.06);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-focus: var(--accent);
+
+  /* ==========================================================================
+     Typography Scale
+     ========================================================================== */
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Type Scale (1.25 ratio) */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Letter Spacing */
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+
+  /* ==========================================================================
+     Spacing Scale
+     ========================================================================== */
+
+  --space-0: 0;
+  --space-1: 0.25rem;    /* 4px */
+  --space-2: 0.5rem;     /* 8px */
+  --space-3: 0.75rem;    /* 12px */
+  --space-4: 1rem;       /* 16px */
+  --space-5: 1.25rem;    /* 20px */
+  --space-6: 1.5rem;     /* 24px */
+  --space-8: 2rem;       /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+
+  /* ==========================================================================
+     Border Radius
+     ========================================================================== */
+
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.75rem;    /* 12px */
+  --radius-xl: 1rem;       /* 16px */
+  --radius-2xl: 1.5rem;    /* 24px */
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.2);
+  /* ==========================================================================
+     Shadows - Layered for depth
+     ========================================================================== */
 
-  /* Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-base: 0.2s ease;
-  --transition-slow: 0.3s ease;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
 
-  /* Opacity */
+  /* Glow effects */
+  --glow-accent: 0 0 20px rgba(99, 179, 171, 0.3);
+  --glow-success: 0 0 20px rgba(52, 211, 153, 0.3);
+  --glow-danger: 0 0 20px rgba(248, 113, 113, 0.3);
+
+  /* ==========================================================================
+     Transitions
+     ========================================================================== */
+
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ==========================================================================
+     Z-Index Scale
+     ========================================================================== */
+
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-toast: 700;
+
+  /* ==========================================================================
+     Misc
+     ========================================================================== */
+
   --opacity-disabled: 0.5;
   --opacity-muted: 0.6;
-
-  /* Overlay */
-  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  --backdrop-blur: blur(8px);
 }
 
 /* =============================================================================
    Base Element Styles
    ============================================================================= */
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background: var(--bg-primary);
+  background: var(--bg-base);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Subtle noise texture for depth */
+  background-image:
+    radial-gradient(ellipse at top, var(--bg-primary) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, var(--surface-1) 0%, transparent 50%);
 }
 
-/* Form control defaults - ensures proper colors even with inline styles */
+/* Smooth focus outlines */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   Form Controls
+   ============================================================================= */
+
 input,
 select,
 textarea {
   font-family: inherit;
   font-size: inherit;
   color: var(--text-primary);
-  background-color: var(--bg-secondary);
+  background-color: var(--surface-1);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
-/* Fix native select/option rendering */
 select option {
-  background-color: var(--bg-secondary);
+  background-color: var(--surface-2);
   color: var(--text-primary);
 }
 
@@ -111,6 +242,42 @@ button {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* =============================================================================
+   Selection Styling
+   ============================================================================= */
+
+::selection {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+/* =============================================================================
+   Scrollbar Styling
+   ============================================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-elevated);
+}
+
+/* Hide scrollbar for navbar links */
+.navbar-links::-webkit-scrollbar {
+  display: none;
 }
 
 /* =============================================================================
@@ -135,11 +302,33 @@ a {
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -149,10 +338,30 @@ a {
   }
 }
 
-/* =============================================================================
-   Navbar Scrollbar Hide (used by Navbar component)
-   ============================================================================= */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
 
-.navbar-links::-webkit-scrollbar {
-  display: none;
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Subtle float animation for empty states */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }

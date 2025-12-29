@@ -1,24 +1,27 @@
-/* List Detail Page Styles */
+/* =============================================================================
+   List Detail Page Styles - Shopping list items and categories
+   ============================================================================= */
 
 .container {
   max-width: 800px;
   margin: 0 auto;
-  padding: 0.5rem 1rem 4rem 1rem;
+  padding: var(--space-2) var(--space-4) var(--space-16);
 }
 
 /* Loading State */
 .loading {
-  padding-top: 2rem;
+  padding: var(--space-8);
   text-align: center;
 }
 
 .loadingText {
   color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 /* Header */
 .header {
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-4);
 }
 
 .headerTop {
@@ -30,183 +33,260 @@
 .backBtn {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
   color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
   background: none;
   border: none;
   cursor: pointer;
+  padding: var(--space-1) 0;
+  transition: color var(--transition-fast);
+}
+
+.backBtn:hover {
+  color: var(--accent);
 }
 
 .showCheckedLabel {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
   cursor: pointer;
+  padding: var(--space-1);
 }
 
 .showCheckedCheckbox {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .showCheckedText {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 
 .title {
-  font-size: 1.5rem;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .titleIcon {
-  margin-right: 0.5rem;
+  color: var(--accent);
 }
 
 .description {
   color: var(--text-secondary);
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
 }
 
 /* Add Item Form */
 .addItemCard {
-  background: var(--bg-secondary);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   position: relative;
 }
 
 .addItemRow {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .addItemInput {
   flex: 1 1 200px;
-  padding: 0.5rem;
-  background: var(--bg-secondary);
+  padding: var(--space-3);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
 }
 
 .addItemInput:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
 .addItemSelect {
   flex: 1 1 150px;
-  padding: 0.5rem;
-  background: var(--bg-secondary);
+  padding: var(--space-3);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
+  font-size: var(--text-sm);
 }
 
 .addItemBtn {
   flex: 0 0 auto;
-  padding: 0.5rem 1rem;
-  background: var(--accent);
+  padding: var(--space-3) var(--space-4);
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
   color: white;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   cursor: pointer;
+  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
+  transition: all var(--transition-base);
+}
+
+.addItemBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .addedMessage {
   position: absolute;
-  left: 0.75rem;
+  left: var(--space-4);
   top: 100%;
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
   color: var(--success);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   opacity: 1;
   animation: fadeOut 3s ease-out forwards;
   white-space: nowrap;
 }
 
-@keyframes fadeOut {
-  0% { opacity: 1; }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
 /* Bulk Actions */
 .bulkActions {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-3);
   display: flex;
   justify-content: flex-end;
 }
 
 .bulkDeleteBtn {
-  background: #ef4444;
+  background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
   color: white;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.8rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   cursor: pointer;
+  font-weight: var(--font-medium);
+  box-shadow: var(--shadow-sm);
+}
+
+.bulkDeleteBtn:hover {
+  box-shadow: var(--shadow-md), var(--glow-danger);
 }
 
 /* Category Section */
 .categorySection {
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
+}
+
+.sortableCategory {
+  margin-bottom: var(--space-4);
 }
 
 .categoryHeader {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding: var(--space-1) 0;
 }
 
 .categoryCheckbox {
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .categoryTitle {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
   color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   margin: 0;
   flex: 1;
 }
 
-.autoCategorizeBtn {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.7rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-radius: var(--radius-sm);
+.dragHandle {
+  cursor: grab;
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  flex-shrink: 0;
+  touch-action: none;
+  transition: color var(--transition-fast);
+}
+
+.dragHandle:hover {
+  color: var(--text-secondary);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.editBtn,
+.deleteBtn {
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  flex-shrink: 0;
+  background: none;
   border: none;
   cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.editBtn:hover {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.deleteBtn:hover {
+  color: var(--danger);
+  background: var(--danger-muted);
+}
+
+.autoCategorizeBtn {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.autoCategorizeBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .autoCategorizeBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .itemList {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-2);
 }
 
 /* Inline Add Button */
@@ -214,35 +294,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  padding: 0.4rem;
-  border-radius: 6px;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
   border: 1px dashed var(--border);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   background: transparent;
   cursor: pointer;
-  transition: all 0.15s ease;
-  font-size: 0.8rem;
+  transition: all var(--transition-fast);
+  font-size: var(--text-sm);
 }
 
 .inlineAddBtn:hover {
   border-color: var(--accent);
   color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .inlineAddForm {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   align-items: center;
 }
 
 .inlineInput {
   flex: 1;
-  padding: 0.5rem;
-  background: var(--bg-secondary);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
+  font-size: var(--text-sm);
 }
 
 .inlineInput:focus {
@@ -253,29 +335,30 @@
 /* Empty State */
 .emptyState {
   text-align: center;
-  padding: 1.5rem 1rem;
+  padding: var(--space-8) var(--space-4);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
 }
 
 /* Add Category Section */
 .addCategorySection {
-  margin-top: 1rem;
+  margin-top: var(--space-4);
 }
 
 .addCategoryForm {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   align-items: center;
 }
 
 .addCategoryInput {
   flex: 1;
-  padding: 0.4rem 0.5rem;
-  background: var(--bg-secondary);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
+  font-size: var(--text-sm);
 }
 
 .addCategoryInput:focus {
@@ -285,72 +368,56 @@
 
 .addCategoryBtn {
   color: var(--text-secondary);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
   background: none;
   border: none;
   cursor: pointer;
+  padding: var(--space-2);
+  transition: color var(--transition-fast);
+}
+
+.addCategoryBtn:hover {
+  color: var(--accent);
 }
 
 /* Button Styles */
 .btnPrimary {
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
   background: var(--accent);
   color: white;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
 .btnSecondary {
-  padding: 0.4rem 0.75rem;
-  font-size: 0.875rem;
-  background: var(--bg-tertiary);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  background: var(--surface-2);
   color: var(--text-primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-/* Sortable Category */
-.sortableCategory {
-  margin-bottom: 1rem;
-}
-
-.dragHandle {
-  cursor: grab;
-  color: var(--text-secondary);
-  padding: 0.15rem;
-  flex-shrink: 0;
-  touch-action: none;
-}
-
-.dragHandle:active {
-  cursor: grabbing;
-}
-
-.editBtn,
-.deleteBtn {
-  color: var(--text-secondary);
-  padding: 0.25rem;
-  flex-shrink: 0;
-  background: none;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
 /* Item Card */
 .itemCard {
-  background: var(--bg-secondary);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  transition: all var(--transition-fast);
+}
+
+.itemCard:hover {
+  border-color: var(--border-light);
 }
 
 .itemCardChecked {
@@ -358,31 +425,39 @@
 }
 
 .itemCardSelected {
-  background: var(--bg-hover, rgba(59, 130, 246, 0.1));
+  background: var(--accent-subtle);
+  border-color: var(--accent);
 }
 
 .itemCheckbox {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   cursor: pointer;
   flex-shrink: 0;
+  accent-color: var(--accent);
 }
 
 .checkCircle {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--border-light);
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.checkCircle:hover {
+  border-color: var(--accent);
 }
 
 .checkCircleChecked {
   background: var(--accent);
+  border-color: var(--accent);
 }
 
 .itemContent {
@@ -391,53 +466,57 @@
 }
 
 .itemName {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .itemNameChecked {
   text-decoration: line-through;
+  color: var(--text-tertiary);
 }
 
 .itemMeta {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
+  margin-top: var(--space-1);
 }
 
 .recipeBadges {
   display: flex;
-  gap: 0.2rem;
+  gap: var(--space-1);
   flex-wrap: wrap;
 }
 
 .recipeBadge {
-  font-size: 0.6rem;
+  font-size: var(--text-xs);
   color: white;
-  padding: 0.05rem 0.3rem;
-  border-radius: 3px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
   white-space: nowrap;
 }
 
 /* Item Edit Mode */
 .itemEditCard {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
 .itemEditInput {
-  padding: 0.4rem 0.5rem;
-  background: var(--bg-secondary);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
+  font-size: var(--text-sm);
 }
 
 .itemEditInput:focus {
@@ -447,7 +526,7 @@
 
 .itemEditRow {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -465,16 +544,17 @@
 
 .itemEditActions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .itemEditBtn {
   flex: 1;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.875rem;
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   border: none;
+  font-weight: var(--font-medium);
 }
 
 .itemEditBtnPrimary {
@@ -483,94 +563,98 @@
 }
 
 .itemEditBtnPrimary:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .itemEditBtnSecondary {
-  background: var(--bg-tertiary);
+  background: var(--surface-2);
   color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 /* Pantry Prompt */
 .pantryPrompt {
   position: fixed;
-  bottom: 1rem;
+  bottom: var(--space-4);
   left: 50%;
   transform: translateX(-50%);
-  background-color: var(--bg-secondary);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-xl);
+  z-index: var(--z-modal);
   max-width: 400px;
-  width: calc(100% - 2rem);
+  width: calc(100% - var(--space-8));
+  animation: slideUp var(--transition-base);
 }
 
 .pantryPromptHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-3);
 }
 
 .pantryPromptTitle {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--space-1);
 }
 
 .pantryPromptSubtitle {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
 .pantryPromptItems {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-4);
   max-height: 100px;
   overflow-y: auto;
+  line-height: var(--leading-relaxed);
 }
 
 .pantryPromptActions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-3);
 }
 
 .pantrySkipBtn {
   flex: 1;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background-color: transparent;
   color: var(--text-primary);
   cursor: pointer;
+  font-weight: var(--font-medium);
+  transition: all var(--transition-fast);
+}
+
+.pantrySkipBtn:hover {
+  background: var(--surface-2);
 }
 
 .pantryAddBtn {
   flex: 1;
-  padding: 0.5rem;
-  background: var(--accent);
+  padding: var(--space-3);
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
   color: white;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   cursor: pointer;
+  font-weight: var(--font-medium);
 }
 
 .pantryAddBtn:disabled,
 .pantrySkipBtn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Spin animation for auto-categorize */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
+/* Spin animation */
 .spinIcon {
   animation: spin 1s linear infinite;
   display: inline-block;
