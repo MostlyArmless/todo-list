@@ -4,7 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Input - Todo List</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
+      /* Design tokens matching globals.css */
+      :root {
+        --bg-base: #0c0c0f;
+        --bg-primary: #121218;
+        --surface-1: #16161d;
+        --surface-2: #1e1e28;
+        --text-primary: #f4f4f6;
+        --text-secondary: #9ca3af;
+        --text-tertiary: #6b7280;
+        --accent: #63b3ab;
+        --accent-hover: #7cc4bd;
+        --accent-muted: rgba(99, 179, 171, 0.15);
+        --success: #34d399;
+        --success-muted: rgba(52, 211, 153, 0.15);
+        --danger: #f87171;
+        --danger-muted: rgba(248, 113, 113, 0.15);
+        --border: rgba(255, 255, 255, 0.06);
+        --radius-lg: 0.75rem;
+        --radius-xl: 1rem;
+        --radius-full: 9999px;
+        --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+        --glow-accent: 0 0 20px rgba(99, 179, 171, 0.3);
+        --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
       * {
         margin: 0;
         padding: 0;
@@ -12,122 +41,194 @@
       }
 
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
-          Cantarell, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        height: 100vh;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg-base);
+        min-height: 100vh;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        color: white;
+        color: var(--text-primary);
+        padding: 1rem;
       }
 
       .container {
         text-align: center;
-        max-width: 90%;
+        max-width: 400px;
+        width: 100%;
+      }
+
+      .card {
+        background: var(--surface-1);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        margin-bottom: 1rem;
       }
 
       h1 {
-        font-size: 2rem;
-        margin-bottom: 1rem;
-        font-weight: 600;
+        font-size: 1.875rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.025em;
+        background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .subtitle {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-bottom: 2rem;
+        line-height: 1.5;
       }
 
       .status {
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-        opacity: 0.9;
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+        color: var(--text-secondary);
         min-height: 1.5rem;
       }
 
       .mic-button {
         width: 120px;
         height: 120px;
-        border-radius: 50%;
-        border: none;
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
+        border-radius: var(--radius-full);
+        border: 2px solid var(--border);
+        background: var(--surface-2);
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all var(--transition-base);
         display: flex;
         align-items: center;
         justify-content: center;
-        margin: 0 auto 2rem;
+        margin: 0 auto 1.5rem;
+        position: relative;
       }
 
       .mic-button:hover {
-        background: rgba(255, 255, 255, 0.3);
-        transform: scale(1.05);
+        border-color: var(--accent);
+        background: var(--accent-muted);
+        transform: scale(1.02);
       }
 
       .mic-button.listening {
-        background: rgba(255, 59, 48, 0.4);
+        border-color: var(--accent);
+        background: var(--accent-muted);
         animation: pulse 1.5s ease-in-out infinite;
       }
 
       .mic-button.processing {
-        background: rgba(255, 204, 0, 0.4);
+        border-color: var(--text-tertiary);
+        background: var(--surface-2);
         cursor: not-allowed;
+        opacity: 0.7;
       }
 
       @keyframes pulse {
-        0%,
-        100% {
-          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+        0%, 100% {
+          box-shadow: 0 0 0 0 rgba(99, 179, 171, 0.4);
         }
         50% {
-          box-shadow: 0 0 0 20px rgba(255, 255, 255, 0);
+          box-shadow: 0 0 0 20px rgba(99, 179, 171, 0);
         }
       }
 
       .mic-icon {
-        font-size: 3rem;
+        width: 48px;
+        height: 48px;
+        color: var(--text-secondary);
+        transition: color var(--transition-fast);
+      }
+
+      .mic-button:hover .mic-icon,
+      .mic-button.listening .mic-icon {
+        color: var(--accent);
       }
 
       .transcript {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        padding: 1.5rem;
-        border-radius: 12px;
-        min-height: 100px;
-        font-size: 1.1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        padding: 1rem;
+        border-radius: var(--radius-lg);
+        font-size: 1rem;
         line-height: 1.6;
         margin-bottom: 1rem;
+        color: var(--text-primary);
+        text-align: left;
+      }
+
+      .message {
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-lg);
+        font-size: 0.875rem;
+        margin-top: 1rem;
       }
 
       .error {
-        color: #ff3b30;
-        background: rgba(255, 255, 255, 0.2);
-        padding: 1rem;
-        border-radius: 8px;
-        margin-top: 1rem;
+        color: var(--danger);
+        background: var(--danger-muted);
+        border: 1px solid var(--danger);
       }
 
       .success {
-        color: #34c759;
-        background: rgba(255, 255, 255, 0.2);
-        padding: 1rem;
-        border-radius: 8px;
-        margin-top: 1rem;
+        color: var(--success);
+        background: var(--success-muted);
+        border: 1px solid var(--success);
       }
 
       .hidden {
         display: none;
       }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color var(--transition-fast);
+        margin-top: 1rem;
+      }
+
+      .back-link:hover {
+        color: var(--accent);
+      }
+
+      .back-link svg {
+        width: 16px;
+        height: 16px;
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Voice Input</h1>
-      <div class="status" id="status">Tap microphone to start</div>
+      <div class="card">
+        <h1>Voice Input</h1>
+        <p class="subtitle">Tap the microphone and speak to add items to your lists</p>
 
-      <button class="mic-button" id="micButton" aria-label="Record voice input">
-        <span class="mic-icon">🎤</span>
-      </button>
+        <div class="status" id="status">Tap microphone to start</div>
 
-      <div class="transcript hidden" id="transcript"></div>
-      <div class="error hidden" id="error"></div>
-      <div class="success hidden" id="success"></div>
+        <button class="mic-button" id="micButton" aria-label="Record voice input">
+          <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+          </svg>
+        </button>
+
+        <div class="transcript hidden" id="transcript"></div>
+        <div class="message error hidden" id="error"></div>
+        <div class="message success hidden" id="success"></div>
+      </div>
+
+      <a href="/lists" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        Back to Lists
+      </a>
     </div>
 
     <script>
@@ -185,7 +286,7 @@
 
           // Provide helpful messages for common errors
           if (event.error === 'network') {
-            errorMessage = 'Network error: Unable to connect to speech service. This may be due to the self-signed SSL certificate. Try using Chrome and ensuring you have a stable internet connection.';
+            errorMessage = 'Network error: Unable to connect to speech service. Please check your internet connection.';
           } else if (event.error === 'not-allowed') {
             errorMessage = 'Microphone access denied. Please grant microphone permissions and try again.';
           } else if (event.error === 'service-not-allowed') {
