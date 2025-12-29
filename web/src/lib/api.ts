@@ -462,6 +462,28 @@ class ApiClient {
   async resetStepCompletions(recipeId: number): Promise<void> {
     return this.request(`/api/v1/recipes/${recipeId}/step-completions`, { method: 'DELETE' });
   }
+
+  // Voice Input Confirmations
+  async getPendingConfirmations(): Promise<PendingConfirmation[]> {
+    return this.request('/api/v1/voice/pending/list');
+  }
+
+  async confirmPendingConfirmation(
+    id: number,
+    edits?: { list_id?: number; items?: { name: string; category_id?: number | null }[] }
+  ): Promise<PendingConfirmation> {
+    return this.request(`/api/v1/voice/pending/${id}/action`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'confirm', edits }),
+    });
+  }
+
+  async rejectPendingConfirmation(id: number): Promise<PendingConfirmation> {
+    return this.request(`/api/v1/voice/pending/${id}/action`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'reject' }),
+    });
+  }
 }
 
 // Types
@@ -692,6 +714,29 @@ export interface StepCompletionsResponse {
 
 export interface StepToggleResponse {
   completed: boolean;
+}
+
+export interface ProposedItem {
+  name: string;
+  category_id: number | null;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface ProposedChanges {
+  action: string;
+  list_id: number;
+  list_name: string;
+  items: ProposedItem[];
+}
+
+export interface PendingConfirmation {
+  id: number;
+  user_id: number;
+  voice_input_id: number;
+  proposed_changes: ProposedChanges;
+  status: string;
+  created_at: string;
 }
 
 export const api = new ApiClient();

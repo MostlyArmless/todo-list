@@ -35,6 +35,7 @@ if settings.is_development:
             "http://localhost:3001",
             "http://localhost:3002",
             "https://todolist.lan",
+            "https://thiemnet.ca",
         ],
         allow_credentials=True,
         allow_methods=["*"],

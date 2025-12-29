@@ -39,7 +39,22 @@ class PendingConfirmationResponse(BaseModel):
     created_at: datetime
 
 
+class ItemEdit(BaseModel):
+    """Edited item data."""
+
+    name: str = Field(..., max_length=500)
+    category_id: int | None = None
+
+
+class ConfirmationEdits(BaseModel):
+    """Optional edits to apply when confirming."""
+
+    list_id: int | None = None
+    items: list[ItemEdit] | None = None
+
+
 class ConfirmationAction(BaseModel):
     """Action to take on a pending confirmation."""
 
     action: str = Field(..., max_length=50)  # "confirm" or "reject"
+    edits: ConfirmationEdits | None = None

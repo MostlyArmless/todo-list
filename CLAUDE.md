@@ -114,6 +114,46 @@ docker compose up -d pwa
 - The pwa container uses an anonymous volume for `node_modules` (isolated from host)
 - Hard refresh (Ctrl+Shift+R) to bypass browser cache
 
+### Public Internet Deployment (Cloudflare Tunnel)
+
+The app is also accessible at `https://thiemnet.ca` via Cloudflare Tunnel, allowing access without VPN.
+
+**Tunnel configuration** (`/etc/cloudflared/config.yml`):
+```yaml
+tunnel: <tunnel-id>
+credentials-file: /home/mike/.cloudflared/<tunnel-id>.json
+
+ingress:
+    - hostname: thiemnet.ca
+      path: /api/*
+      service: http://192.168.0.150:8000
+
+    - hostname: thiemnet.ca
+      path: /voice
+      service: https://192.168.0.150:443
+      originRequest:
+        httpHostHeader: todolist.lan
+        noTLSVerify: true
+
+    - hostname: thiemnet.ca
+      service: http://192.168.0.150:3002
+
+    - service: http_status:404
+```
+
+**Key points:**
+- The tunnel is locally configured (not dashboard-managed), config lives at `/etc/cloudflared/config.yml`
+- `/api/*` routes directly to FastAPI (port 8000)
+- `/voice` routes to nginx (port 443) which serves the static voice.html; requires `httpHostHeader: todolist.lan` for nginx server_name matching and `noTLSVerify: true` for self-signed cert
+- Everything else routes to Next.js (port 3002)
+- The systemd service is `cloudflared` - restart with `sudo systemctl restart cloudflared`
+
+**CORS:** The backend allows `https://thiemnet.ca` in CORS origins (see `src/main.py`)
+
+**Important:** The `/voice` navbar link uses a regular `<a>` tag (not Next.js `<Link>`) because the voice page is a static HTML file served by nginx, not a Next.js route. See `web/src/components/Navbar.tsx`.
+
+**Auth tokens:** localStorage is domain-specific, so `todolist.lan` and `thiemnet.ca` have separate auth sessions.
+
 ### Test Infrastructure
 
 Tests use a separate PostgreSQL database (`todo_list_test`) in Docker. Each test gets a clean session with automatic cleanup via `conftest.py`. **Always use the `db` fixture from conftest.py—never import `SessionLocal` directly in tests.**

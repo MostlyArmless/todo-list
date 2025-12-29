@@ -136,7 +136,7 @@ def _parse_voice_input(
     """Parse voice input text into structured data."""
     try:
         # Get user's available lists
-        lists = db.query(List).filter(List.user_id == voice_input.user_id).all()
+        lists = db.query(List).filter(List.owner_id == voice_input.user_id).all()
         list_names = [lst.name for lst in lists]
 
         prompt = get_voice_parsing_prompt(voice_input.raw_text, list_names)
@@ -157,12 +157,14 @@ def _parse_voice_input(
 def _find_target_list(db: Session, user_id: int, list_name: str) -> List | None:
     """Find target list by name (fuzzy matching)."""
     # Try exact match first
-    target_list = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
+    target_list = db.query(List).filter(List.owner_id == user_id, List.name == list_name).first()
 
     if target_list:
         return target_list
 
     # Try case-insensitive match
-    target_list = db.query(List).filter(List.user_id == user_id, List.name.ilike(list_name)).first()
+    target_list = (
+        db.query(List).filter(List.owner_id == user_id, List.name.ilike(list_name)).first()
+    )
 
     return target_list

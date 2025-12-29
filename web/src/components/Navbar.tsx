@@ -76,7 +76,7 @@ export default function Navbar() {
     { href: '/lists', label: 'Lists', icon: ListIcon },
     { href: '/recipes', label: 'Recipes', icon: RecipeIcon },
     { href: '/pantry', label: 'Pantry', icon: PantryIcon },
-    { href: '/voice', label: 'Voice', icon: VoiceIcon },
+    { href: '/voice', label: 'Voice', icon: VoiceIcon, isStatic: true },
   ];
 
   // Get user initials for avatar
@@ -91,12 +91,20 @@ export default function Navbar() {
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
+            const className = `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`;
+
+            // Use regular anchor for static pages (served by nginx, not Next.js)
+            if ('isStatic' in item && item.isStatic) {
+              return (
+                <a key={item.href} href={item.href} className={className}>
+                  <Icon />
+                  <span className={styles.navLinkText}>{item.label}</span>
+                </a>
+              );
+            }
+
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-              >
+              <Link key={item.href} href={item.href} className={className}>
                 <Icon />
                 <span className={styles.navLinkText}>{item.label}</span>
               </Link>

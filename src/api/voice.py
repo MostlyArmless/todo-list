@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.database import get_db
+from src.models.list import List
 from src.models.pending_confirmation import PendingConfirmation
 from src.models.user import User
 from src.models.voice_input import VoiceInput
@@ -130,26 +131,48 @@ def action_pending_confirmation(
         raise HTTPException(status_code=400, detail="Confirmation already processed")
 
     if action_data.action == "confirm":
-        # Apply the proposed changes
+        # Apply the proposed changes, with optional edits
         proposed = confirmation.proposed_changes
-        list_id = proposed["list_id"]
         action = proposed["action"]
+
+        # Use edited list_id if provided, otherwise use proposed
+        list_id = (
+            action_data.edits.list_id
+            if action_data.edits and action_data.edits.list_id
+            else proposed["list_id"]
+        )
+
+        # Verify the list belongs to the user
+        target_list = db.query(List).filter(List.id == list_id).first()
+        if not target_list or target_list.owner_id != current_user.id:
+            raise HTTPException(status_code=400, detail="Invalid target list")
 
         if action == "add":
             categorization_service = CategorizationService(db)
 
-            for item_data in proposed["items"]:
+            # Use edited items if provided, otherwise use proposed
+            items_to_add = proposed["items"]
+            if action_data.edits and action_data.edits.items:
+                items_to_add = [
+                    {
+                        "name": edit.name,
+                        "category_id": edit.category_id,
+                    }
+                    for edit in action_data.edits.items
+                ]
+
+            for item_data in items_to_add:
                 # Create the item
                 item = Item(
                     list_id=list_id,
-                    category_id=item_data["category_id"],
+                    category_id=item_data.get("category_id"),
                     name=item_data["name"],
                     checked=False,
                 )
                 db.add(item)
 
                 # Record categorization to history if category was assigned
-                if item_data["category_id"]:
+                if item_data.get("category_id"):
                     categorization_service.record_categorization(
                         item_name=item_data["name"],
                         category_id=item_data["category_id"],
