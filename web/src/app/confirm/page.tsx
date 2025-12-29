@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { api, PendingConfirmation, List } from '@/lib/api';
 import styles from './page.module.css';
 
@@ -23,10 +23,54 @@ export default function ConfirmPage() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState<number | null>(null);
   const [editStates, setEditStates] = useState<Record<number, EditState>>({});
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Poll for new confirmations without disrupting existing edit states
+  const pollForUpdates = useCallback(async () => {
+    try {
+      const newConfirmations = await api.getPendingConfirmations();
+
+      setConfirmations(prev => {
+        // Find truly new confirmations (IDs not in current list)
+        const existingIds = new Set(prev.map(c => c.id));
+        const newItems = newConfirmations.filter(c => !existingIds.has(c.id));
+
+        if (newItems.length > 0) {
+          // Add edit states for new items
+          setEditStates(prevStates => {
+            const newStates = { ...prevStates };
+            for (const conf of newItems) {
+              newStates[conf.id] = {
+                listId: conf.proposed_changes.list_id,
+                items: conf.proposed_changes.items.map(item => ({
+                  name: item.name,
+                  category_id: item.category_id,
+                })),
+              };
+            }
+            return newStates;
+          });
+          return [...prev, ...newItems];
+        }
+        return prev;
+      });
+    } catch {
+      // Silently ignore polling errors to avoid spamming the user
+    }
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+
+    // Start polling every 1 second
+    pollIntervalRef.current = setInterval(pollForUpdates, 1000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [pollForUpdates]);
 
   async function loadData() {
     try {

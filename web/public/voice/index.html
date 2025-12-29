@@ -302,14 +302,12 @@
           const data = await response.json();
           console.log('API success response:', data);
           statusEl.textContent = 'Processing complete!';
-          showSuccess(
-            `Voice input received and is being processed. Check your lists for updates.`,
-          );
+          showSuccess('Redirecting to confirmation page...');
 
-          // Redirect to confirmation page after 2 seconds
+          // Redirect to confirmation page after 1.5 seconds
           setTimeout(() => {
             window.location.href = '/confirm';
-          }, 2000);
+          }, 1500);
         } catch (error) {
           console.error('API error:', error);
           showError(error.message);
