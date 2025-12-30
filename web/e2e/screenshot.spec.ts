@@ -211,6 +211,70 @@ test('capture pantry with data', async ({ page, request }, testInfo) => {
   });
 });
 
+// Capture recipes list page with sample data
+test('capture recipes list', async ({ page, request }, testInfo) => {
+  // Ensure user exists
+  await request.post(`${API_URL}/api/v1/auth/register`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const loginResponse = await request.post(`${API_URL}/api/v1/auth/login`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const { access_token } = await loginResponse.json();
+  const headers = { Authorization: `Bearer ${access_token}` };
+
+  // Clear existing recipes first
+  const existingRecipesRes = await request.get(`${API_URL}/api/v1/recipes`, { headers });
+  const existingRecipes = await existingRecipesRes.json();
+  for (const recipe of existingRecipes) {
+    await request.delete(`${API_URL}/api/v1/recipes/${recipe.id}`, { headers });
+  }
+
+  // Create sample recipes and then update with nutrition data
+  const recipesData = [
+    {
+      name: 'Chicken Stir Fry',
+      description: 'Quick and easy weeknight dinner',
+      servings: 4,
+      nutrition: { calories_per_serving: 385, protein_grams: 32, carbs_grams: 28, fat_grams: 16 },
+    },
+    {
+      name: 'Spaghetti Carbonara',
+      description: 'Classic Italian pasta with pancetta',
+      servings: 2,
+      nutrition: { calories_per_serving: 520, protein_grams: 24, carbs_grams: 58, fat_grams: 22 },
+    },
+    {
+      name: 'Greek Salad',
+      servings: 4,
+      nutrition: { calories_per_serving: 180, protein_grams: 6, carbs_grams: 12, fat_grams: 14 },
+    },
+  ];
+
+  for (const { nutrition, ...recipeData } of recipesData) {
+    const res = await request.post(`${API_URL}/api/v1/recipes`, { headers, data: recipeData });
+    const recipe = await res.json();
+    // Update with nutrition data
+    await request.put(`${API_URL}/api/v1/recipes/${recipe.id}`, {
+      headers,
+      data: nutrition,
+    });
+  }
+
+  // Login via API and set localStorage
+  await loginViaAPI(page, request);
+
+  await page.goto('/recipes');
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500);
+
+  const project = testInfo.project.name;
+  await page.screenshot({
+    path: `screenshots/recipes-list-${project}.png`,
+    fullPage: true,
+  });
+});
+
 // Capture recipe detail page with sample data
 test('capture recipe detail', async ({ page, request }, testInfo) => {
   // Ensure user exists and login

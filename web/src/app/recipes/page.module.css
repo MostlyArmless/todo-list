@@ -366,3 +366,97 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
+
+/* =============================================================================
+   Mobile Responsive Styles
+   ============================================================================= */
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--space-3);
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .title {
+    font-size: var(--text-2xl);
+  }
+
+  .sortSelect {
+    width: 100%;
+  }
+
+  /* Recipe card - more compact layout */
+  .recipeCard {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .recipeName {
+    font-size: var(--text-base);
+  }
+
+  .recipeDetails {
+    font-size: var(--text-xs);
+  }
+
+  .recipeDescription {
+    font-size: var(--text-xs);
+  }
+
+  /* Nutrition row - stack calories above macros */
+  .nutritionRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+  }
+
+  .caloriesText {
+    font-size: var(--text-xs);
+  }
+
+  /* Macro badges in a tight row */
+  .macroBadge {
+    padding: 1px var(--space-1);
+    font-size: 10px;
+  }
+
+  /* Pantry progress - more compact */
+  .pantryProgressRow {
+    font-size: 10px;
+  }
+
+  .progressBar {
+    max-width: 80px;
+    height: 4px;
+  }
+
+  /* Actions - smaller and tighter */
+  .recipeActions {
+    gap: var(--space-1);
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .colorSwatch {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Add buttons - stack on mobile */
+  .addButtonRow {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .addButton,
+  .importButton {
+    padding: var(--space-3);
+  }
+}
