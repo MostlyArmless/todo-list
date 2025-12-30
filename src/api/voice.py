@@ -1,7 +1,7 @@
 """Voice input API endpoints."""
 
 import logging
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -113,8 +113,6 @@ def action_pending_confirmation(
     db: Annotated[Session, Depends(get_db)],
 ):
     """Confirm or reject a pending confirmation."""
-    from datetime import datetime
-
     from src.models.item import Item
     from src.services.categorization import CategorizationService
 

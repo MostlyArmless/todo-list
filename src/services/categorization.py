@@ -2,7 +2,7 @@
 
 import logging
 from collections import defaultdict
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -182,8 +182,6 @@ class CategorizationService:
         user_id: int,
     ) -> None:
         """Record an item→category mapping to history for learning."""
-        from datetime import datetime
-
         normalized = item_name.lower().strip()
 
         # Check if this exact combination exists
