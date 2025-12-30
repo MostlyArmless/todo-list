@@ -403,6 +403,10 @@ class ApiClient {
     return this.request<PantryItem[]>('/api/v1/pantry');
   }
 
+  async getPantryItemsWithRecipes() {
+    return this.request<PantryItemWithRecipes[]>('/api/v1/pantry/with-recipes');
+  }
+
   async createPantryItem(data: { name: string; status?: string; category?: string; preferred_store?: string }) {
     return this.mutate<PantryItem>('/api/v1/pantry', {
       method: 'POST',
@@ -690,6 +694,17 @@ export interface PantryItem {
   preferred_store: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface RecipeRef {
+  id: number;
+  name: string;
+  label_color: string | null;
+}
+
+export interface PantryItemWithRecipes extends PantryItem {
+  recipe_count: number;
+  recipes: RecipeRef[];
 }
 
 export interface PantryBulkAddResult {

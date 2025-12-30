@@ -52,3 +52,29 @@ class PantryBulkAddResponse(BaseModel):
     added: int
     updated: int
     items: list[PantryItemResponse]
+
+
+class RecipeRef(BaseModel):
+    """Reference to a recipe for pantry item display."""
+
+    id: int
+    name: str
+    label_color: str | None
+
+
+class PantryItemWithRecipesResponse(BaseModel):
+    """Pantry item with recipe participation data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    name: str
+    normalized_name: str
+    status: str
+    category: str | None
+    preferred_store: str | None
+    created_at: datetime
+    updated_at: datetime
+    recipe_count: int
+    recipes: list[RecipeRef]

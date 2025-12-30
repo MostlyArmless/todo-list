@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type PantryItem, type List, type ReceiptScanResponse } from '@/lib/api';
+import { api, type PantryItemWithRecipes, type List, type ReceiptScanResponse } from '@/lib/api';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
@@ -25,6 +25,7 @@ const SORT_OPTIONS = [
   { value: 'alphabetical', label: 'Alphabetical' },
   { value: 'status', label: 'Status' },
   { value: 'store', label: 'Store' },
+  { value: 'recipes', label: 'Most Used in Recipes' },
   { value: 'created', label: 'Newest' },
   { value: 'updated', label: 'Recently Updated' },
 ] as const;
@@ -33,7 +34,8 @@ type SortOption = (typeof SORT_OPTIONS)[number]['value'];
 export default function PantryPage() {
   const router = useRouter();
   const { confirm, alert } = useConfirmDialog();
-  const [items, setItems] = useState<PantryItem[]>([]);
+  const [items, setItems] = useState<PantryItemWithRecipes[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItemName, setNewItemName] = useState('');
@@ -65,7 +67,7 @@ export default function PantryPage() {
   const loadData = async () => {
     try {
       const [pantryData, listsData] = await Promise.all([
-        api.getPantryItems(),
+        api.getPantryItemsWithRecipes(),
         api.getLists(),
       ]);
       setItems(pantryData);
@@ -79,13 +81,25 @@ export default function PantryPage() {
 
   const loadPantry = async () => {
     try {
-      const data = await api.getPantryItems();
+      const data = await api.getPantryItemsWithRecipes();
       setItems(data);
     } catch (error) {
       console.error('Failed to load pantry:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleExpanded = (itemId: number) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -110,7 +124,7 @@ export default function PantryPage() {
     }
   };
 
-  const handleStatusChange = async (item: PantryItem) => {
+  const handleStatusChange = async (item: PantryItemWithRecipes) => {
     const currentIndex = STATUS_ORDER.indexOf(item.status);
     const nextStatus = STATUS_ORDER[(currentIndex + 1) % STATUS_ORDER.length];
 
@@ -122,7 +136,7 @@ export default function PantryPage() {
     }
   };
 
-  const handleDeleteItem = async (item: PantryItem) => {
+  const handleDeleteItem = async (item: PantryItemWithRecipes) => {
     const confirmed = await confirm({
       title: 'Remove from Pantry',
       message: `Remove "${item.name}" from pantry?`,
@@ -138,7 +152,7 @@ export default function PantryPage() {
     }
   };
 
-  const handleAddToShoppingList = async (item: PantryItem) => {
+  const handleAddToShoppingList = async (item: PantryItemWithRecipes) => {
     // Find the Grocery list
     const groceryList = lists.find(l => l.name.toLowerCase() === 'grocery');
     if (!groceryList) {
@@ -215,7 +229,7 @@ export default function PantryPage() {
     }
   };
 
-  const handleStartEdit = (item: PantryItem) => {
+  const handleStartEdit = (item: PantryItemWithRecipes) => {
     setEditingItemId(item.id);
     setEditName(item.name);
     setEditStatus(item.status);
@@ -337,7 +351,7 @@ export default function PantryPage() {
   const someFilteredSelected = filteredItems.some((item) => selectedItems.has(item.id));
 
   // Sort items based on selected sort option
-  const sortItems = (items: PantryItem[]): PantryItem[] => {
+  const sortItems = (items: PantryItemWithRecipes[]): PantryItemWithRecipes[] => {
     const sorted = [...items];
     switch (sortBy) {
       case 'alphabetical':
@@ -361,6 +375,13 @@ export default function PantryPage() {
           // Sort by store name, then by item name
           const storeCompare = (a.preferred_store || '').localeCompare(b.preferred_store || '', undefined, { sensitivity: 'base' });
           if (storeCompare !== 0) return storeCompare;
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        });
+      case 'recipes':
+        // Most used in recipes first (highest recipe_count first)
+        return sorted.sort((a, b) => {
+          const countDiff = b.recipe_count - a.recipe_count;
+          if (countDiff !== 0) return countDiff;
           return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         });
       case 'created':
@@ -391,7 +412,7 @@ export default function PantryPage() {
           acc[category].push(item);
           return acc;
         },
-        {} as Record<string, PantryItem[]>
+        {} as Record<string, PantryItemWithRecipes[]>
       )
     : { 'All Items': sortedFilteredItems };
 
@@ -684,59 +705,121 @@ export default function PantryPage() {
                 </div>
               ) : (
                 /* Display mode */
-                <div key={item.id} className={styles.itemCard}>
-                  <div className={styles.itemLeft}>
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.has(item.id)}
-                      onChange={() => toggleItemSelection(item.id)}
-                      className={styles.itemCheckbox}
-                      title={selectedItems.has(item.id) ? 'Deselect item' : 'Select item'}
-                    />
-                    <span
-                      onClick={() => handleStartEdit(item)}
-                      className={styles.itemName}
-                      title="Click to edit"
-                    >
-                      {item.name}
-                    </span>
-                  </div>
-                  <div className={styles.itemActions}>
-                    <select
-                      value={item.preferred_store || ''}
-                      onChange={async (e) => {
-                        const newStore = e.target.value;
-                        try {
-                          await api.updatePantryItem(item.id, { preferred_store: newStore || undefined });
-                          loadPantry();
-                        } catch (error) {
-                          console.error('Failed to update store:', error);
-                        }
-                      }}
-                      className={`${styles.storeSelect} ${!item.preferred_store ? styles.storeSelectEmpty : ''}`}
-                      title="Select preferred store"
-                    >
-                      <option value="">Store</option>
-                      {lists.map((list) => (
-                        <option key={list.id} value={list.name}>
-                          {list.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => handleStatusChange(item)}
-                      className={`${styles.statusBtn} ${styles[`statusBtn${item.status.charAt(0).toUpperCase() + item.status.slice(1)}` as keyof typeof styles]}`}
-                      title="Click to change status"
-                    >
-                      {STATUS_LABELS[item.status]}
-                    </button>
-                    {/* Fixed width container for cart icon - prevents layout shift */}
-                    <div className={styles.cartBtnWrapper}>
+                <div key={item.id} className={styles.itemCardWrapper}>
+                  <div className={styles.itemCard}>
+                    <div className={styles.itemLeft}>
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(item.id)}
+                        onChange={() => toggleItemSelection(item.id)}
+                        className={styles.itemCheckbox}
+                        title={selectedItems.has(item.id) ? 'Deselect item' : 'Select item'}
+                      />
+                      <span
+                        onClick={() => handleStartEdit(item)}
+                        className={styles.itemName}
+                        title="Click to edit"
+                      >
+                        {item.name}
+                      </span>
+                      {/* Recipe count badge */}
+                      {item.recipe_count > 0 && (
+                        <button
+                          onClick={() => toggleExpanded(item.id)}
+                          className={`${styles.recipeCountBadge} ${expandedItems.has(item.id) ? styles.recipeCountBadgeActive : ''}`}
+                          title={`Used in ${item.recipe_count} recipe${item.recipe_count !== 1 ? 's' : ''}. Click to ${expandedItems.has(item.id) ? 'hide' : 'show'}.`}
+                        >
+                          {item.recipe_count}
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            className={expandedItems.has(item.id) ? styles.chevronUp : ''}
+                          >
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    <div className={styles.itemActions}>
+                      <select
+                        value={item.preferred_store || ''}
+                        onChange={async (e) => {
+                          const newStore = e.target.value;
+                          try {
+                            await api.updatePantryItem(item.id, { preferred_store: newStore || undefined });
+                            loadPantry();
+                          } catch (error) {
+                            console.error('Failed to update store:', error);
+                          }
+                        }}
+                        className={`${styles.storeSelect} ${!item.preferred_store ? styles.storeSelectEmpty : ''}`}
+                        title="Select preferred store"
+                      >
+                        <option value="">Store</option>
+                        {lists.map((list) => (
+                          <option key={list.id} value={list.name}>
+                            {list.name}
+                          </option>
+                        ))}
+                      </select>
                       <button
-                        onClick={() => handleAddToShoppingList(item)}
-                        className={`${styles.cartBtn} ${item.status === 'have' ? styles.cartBtnHidden : ''}`}
-                        title="Add to shopping list"
-                        disabled={item.status === 'have'}
+                        onClick={() => handleStatusChange(item)}
+                        className={`${styles.statusBtn} ${styles[`statusBtn${item.status.charAt(0).toUpperCase() + item.status.slice(1)}` as keyof typeof styles]}`}
+                        title="Click to change status"
+                      >
+                        {STATUS_LABELS[item.status]}
+                      </button>
+                      {/* Fixed width container for cart icon - prevents layout shift */}
+                      <div className={styles.cartBtnWrapper}>
+                        <button
+                          onClick={() => handleAddToShoppingList(item)}
+                          className={`${styles.cartBtn} ${item.status === 'have' ? styles.cartBtnHidden : ''}`}
+                          title="Add to shopping list"
+                          disabled={item.status === 'have'}
+                        >
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                          </svg>
+                        </button>
+                      </div>
+                      {/* Edit button */}
+                      <button
+                        onClick={() => handleStartEdit(item)}
+                        className={styles.iconBtn}
+                        title="Edit item"
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      </button>
+                      {/* Delete button */}
+                      <button
+                        onClick={() => handleDeleteItem(item)}
+                        className={styles.iconBtn}
+                        title="Remove from pantry"
                       >
                         <svg
                           width="16"
@@ -746,51 +829,27 @@ export default function PantryPage() {
                           stroke="currentColor"
                           strokeWidth="2"
                         >
-                          <circle cx="9" cy="21" r="1"></circle>
-                          <circle cx="20" cy="21" r="1"></circle>
-                          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
                       </button>
                     </div>
-                    {/* Edit button */}
-                    <button
-                      onClick={() => handleStartEdit(item)}
-                      className={styles.iconBtn}
-                      title="Edit item"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                    </button>
-                    {/* Delete button */}
-                    <button
-                      onClick={() => handleDeleteItem(item)}
-                      className={styles.iconBtn}
-                      title="Remove from pantry"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
                   </div>
+                  {/* Expandable recipe list */}
+                  {expandedItems.has(item.id) && item.recipes.length > 0 && (
+                    <div className={styles.recipeList}>
+                      {item.recipes.map((recipe) => (
+                        <a
+                          key={recipe.id}
+                          href={`/recipes/${recipe.id}`}
+                          className={styles.recipeChip}
+                          style={{ backgroundColor: recipe.label_color || '#6b7280' }}
+                        >
+                          {recipe.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             ))}

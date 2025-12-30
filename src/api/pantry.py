@@ -18,6 +18,8 @@ from src.schemas.pantry import (
     PantryItemCreate,
     PantryItemResponse,
     PantryItemUpdate,
+    PantryItemWithRecipesResponse,
+    RecipeRef,
 )
 from src.schemas.receipt_scan import ReceiptScanCreateResponse, ReceiptScanResponse
 
@@ -54,6 +56,72 @@ def list_pantry_items(
         .all()
     )
     return items
+
+
+@router.get("/with-recipes", response_model=list[PantryItemWithRecipesResponse])
+def list_pantry_items_with_recipes(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """List pantry items with recipe participation data.
+
+    Returns each pantry item along with which recipes use that ingredient.
+    Matching is done by normalized ingredient name (case-insensitive, trimmed).
+    """
+    from src.models.recipe import Recipe
+
+    household_ids = get_household_user_ids(db, current_user)
+
+    # Get all pantry items
+    pantry_items = (
+        db.query(PantryItem)
+        .filter(PantryItem.user_id.in_(household_ids))
+        .order_by(PantryItem.category.nullslast(), PantryItem.name)
+        .all()
+    )
+
+    # Get all recipes with ingredients for the household
+    recipes = (
+        db.query(Recipe)
+        .filter(Recipe.user_id.in_(household_ids), Recipe.deleted_at.is_(None))
+        .all()
+    )
+
+    # Build a map of normalized ingredient name -> list of recipes
+    ingredient_to_recipes: dict[str, list[Recipe]] = {}
+    for recipe in recipes:
+        for ing in recipe.ingredients:
+            normalized = ing.name.lower().strip()
+            if normalized not in ingredient_to_recipes:
+                ingredient_to_recipes[normalized] = []
+            # Avoid duplicates (same recipe multiple times)
+            if recipe not in ingredient_to_recipes[normalized]:
+                ingredient_to_recipes[normalized].append(recipe)
+
+    # Build response with recipe data
+    result = []
+    for item in pantry_items:
+        matching_recipes = ingredient_to_recipes.get(item.normalized_name, [])
+        result.append(
+            PantryItemWithRecipesResponse(
+                id=item.id,
+                user_id=item.user_id,
+                name=item.name,
+                normalized_name=item.normalized_name,
+                status=item.status,
+                category=item.category,
+                preferred_store=item.preferred_store,
+                created_at=item.created_at,
+                updated_at=item.updated_at,
+                recipe_count=len(matching_recipes),
+                recipes=[
+                    RecipeRef(id=r.id, name=r.name, label_color=r.label_color)
+                    for r in sorted(matching_recipes, key=lambda r: r.name.lower())
+                ],
+            )
+        )
+
+    return result
 
 
 @router.post("", response_model=PantryItemResponse, status_code=status.HTTP_201_CREATED)

@@ -282,6 +282,13 @@
   gap: var(--space-2);
 }
 
+/* Item Card Wrapper */
+.itemCardWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 /* Item Card */
 .itemCard {
   background: var(--surface-1);
@@ -292,6 +299,12 @@
   align-items: center;
   justify-content: space-between;
   transition: all var(--transition-fast);
+}
+
+.itemCardWrapper:has(.recipeList) .itemCard {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
 }
 
 .itemCard:hover {
@@ -327,6 +340,69 @@
 
 .itemName:hover {
   border-bottom-color: var(--text-secondary);
+}
+
+/* Recipe count badge */
+.recipeCountBadge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  background: var(--accent-muted);
+  color: var(--accent);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: var(--space-2);
+  flex-shrink: 0;
+}
+
+.recipeCountBadge:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+}
+
+.recipeCountBadgeActive {
+  background: var(--accent);
+  color: white;
+}
+
+.chevronUp {
+  transform: rotate(180deg);
+}
+
+/* Recipe list (expandable) */
+.recipeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}
+
+.recipeChip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  color: white;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.recipeChip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+  filter: brightness(1.1);
 }
 
 .itemActions {
