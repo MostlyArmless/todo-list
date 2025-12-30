@@ -68,6 +68,13 @@ docker compose exec -T db psql -U todo_user -d todo_list
 docker compose restart celery-worker
 ```
 
+**Household Sharing** (`src/api/dependencies.py`):
+Users who share lists form a "household" and automatically share recipes and pantry items. Use `get_household_user_ids(db, user)` to get all user IDs in a household, then filter queries with `.filter(Model.user_id.in_(household_ids))`. This pattern is used in:
+- `recipes.py` - All recipe queries
+- `pantry.py` - All pantry queries
+
+Lists use explicit sharing via `ListShare` table with permission levels (view/edit/admin).
+
 ### Frontend (Next.js PWA)
 
 Located in `/web/` with App Router (`/web/src/app/`):
@@ -75,10 +82,11 @@ Located in `/web/` with App Router (`/web/src/app/`):
 - `/list/[id]` - List detail with items and categories
 - `/recipes` - Recipe management
 - `/recipes/[id]` - Recipe detail with "Add to Shopping List" button
+- `/pantry` - Pantry inventory with recipe participation display
 - `/voice` - Standalone voice input page (also at `/web/public/voice/index.html`)
 - `/confirm` - Pending confirmation review
 
-API client in `/web/src/lib/api.ts` handles auth token management.
+API client in `/web/src/lib/api.ts` handles auth token management and includes a 30-second in-memory cache for GET requests. Mutations automatically invalidate related cache entries.
 
 ### Local Network Deployment
 
