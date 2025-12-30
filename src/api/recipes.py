@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session, selectinload
 
-from src.api.dependencies import get_current_user
+from src.api.dependencies import get_current_user, get_household_user_ids
 from src.database import get_db
 from src.models.ingredient_store_default import IngredientStoreDefault
 from src.models.recipe import Recipe, RecipeIngredient
@@ -61,12 +61,13 @@ router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
 
 
 def get_user_recipe(db: Session, recipe_id: int, user: User) -> Recipe:
-    """Get a recipe that belongs to the user."""
+    """Get a recipe that belongs to the user or their household."""
+    household_ids = get_household_user_ids(db, user)
     recipe = (
         db.query(Recipe)
         .filter(
             Recipe.id == recipe_id,
-            Recipe.user_id == user.id,
+            Recipe.user_id.in_(household_ids),
             Recipe.deleted_at.is_(None),
         )
         .first()
@@ -77,13 +78,14 @@ def get_user_recipe(db: Session, recipe_id: int, user: User) -> Recipe:
 
 
 def get_user_ingredient(db: Session, ingredient_id: int, user: User) -> RecipeIngredient:
-    """Get an ingredient that belongs to one of the user's recipes."""
+    """Get an ingredient that belongs to a recipe in the user's household."""
+    household_ids = get_household_user_ids(db, user)
     ingredient = (
         db.query(RecipeIngredient)
         .join(Recipe)
         .filter(
             RecipeIngredient.id == ingredient_id,
-            Recipe.user_id == user.id,
+            Recipe.user_id.in_(household_ids),
             Recipe.deleted_at.is_(None),
         )
         .first()
@@ -148,11 +150,12 @@ def list_recipes(
     db: Annotated[Session, Depends(get_db)],
     sort_by: RecipeSortBy = RecipeSortBy.name_asc,
 ):
-    """List all recipes for the current user."""
+    """List all recipes for the current user's household."""
+    household_ids = get_household_user_ids(db, current_user)
     query = (
         db.query(Recipe)
         .options(selectinload(Recipe.ingredients))
-        .filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+        .filter(Recipe.user_id.in_(household_ids), Recipe.deleted_at.is_(None))
     )
 
     # Apply sorting
@@ -389,16 +392,17 @@ def bulk_check_pantry(
     """
     from src.models.pantry import PantryItem
 
-    # Get all user's recipes with ingredients
+    # Get all household's recipes with ingredients
+    household_ids = get_household_user_ids(db, current_user)
     recipes = (
         db.query(Recipe)
-        .filter(Recipe.user_id == current_user.id, Recipe.deleted_at.is_(None))
+        .filter(Recipe.user_id.in_(household_ids), Recipe.deleted_at.is_(None))
         .order_by(Recipe.name)
         .all()
     )
 
-    # Get all user's pantry items (all statuses)
-    pantry_items = db.query(PantryItem).filter(PantryItem.user_id == current_user.id).all()
+    # Get all household's pantry items (all statuses)
+    pantry_items = db.query(PantryItem).filter(PantryItem.user_id.in_(household_ids)).all()
 
     # Build pantry lookup by normalized name -> status
     pantry_by_name: dict[str, str] = {item.normalized_name: item.status for item in pantry_items}
@@ -793,12 +797,13 @@ def toggle_step_completion(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Toggle a step's completion state."""
-    # Verify recipe exists and user owns it
+    # Verify recipe exists and user has household access
+    household_ids = get_household_user_ids(db, current_user)
     recipe = (
         db.query(Recipe)
         .filter(
             Recipe.id == recipe_id,
-            Recipe.user_id == current_user.id,
+            Recipe.user_id.in_(household_ids),
             Recipe.deleted_at.is_(None),
         )
         .first()

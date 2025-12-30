@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.database import get_db
+from src.models.list import List, ListShare
 from src.models.user import User
 from src.services.auth import decode_access_token
 from src.services.categorization import CategorizationService
@@ -15,6 +16,37 @@ from src.services.pantry_service import PantryService
 from src.services.recipe_service import RecipeService
 
 security = HTTPBearer()
+
+
+def get_household_user_ids(db: Session, user: User) -> list[int]:
+    """Get IDs of all users in the same household.
+
+    A household is defined as users who share lists with each other.
+    Returns a list including the current user's ID.
+    """
+    user_ids = {user.id}
+
+    # Get users who own lists shared with current user
+    owners = (
+        db.query(List.owner_id)
+        .join(ListShare, List.id == ListShare.list_id)
+        .filter(ListShare.user_id == user.id)
+        .distinct()
+        .all()
+    )
+    user_ids.update(owner_id for (owner_id,) in owners)
+
+    # Get users who have access to lists owned by current user
+    shared_users = (
+        db.query(ListShare.user_id)
+        .join(List, ListShare.list_id == List.id)
+        .filter(List.owner_id == user.id)
+        .distinct()
+        .all()
+    )
+    user_ids.update(uid for (uid,) in shared_users)
+
+    return list(user_ids)
 
 
 def get_current_user(

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_current_user
+from src.api.dependencies import get_current_user, get_household_user_ids
 from src.database import get_db
 from src.models.pantry import PantryItem
 from src.models.receipt_scan import ReceiptScan
@@ -25,12 +25,13 @@ router = APIRouter(prefix="/api/v1/pantry", tags=["pantry"])
 
 
 def get_user_pantry_item(db: Session, item_id: int, user: User) -> PantryItem:
-    """Get a pantry item that belongs to the user."""
+    """Get a pantry item that belongs to the user's household."""
+    household_ids = get_household_user_ids(db, user)
     item = (
         db.query(PantryItem)
         .filter(
             PantryItem.id == item_id,
-            PantryItem.user_id == user.id,
+            PantryItem.user_id.in_(household_ids),
         )
         .first()
     )
@@ -44,10 +45,11 @@ def list_pantry_items(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """List all pantry items for the current user."""
+    """List all pantry items for the current user's household."""
+    household_ids = get_household_user_ids(db, current_user)
     items = (
         db.query(PantryItem)
-        .filter(PantryItem.user_id == current_user.id)
+        .filter(PantryItem.user_id.in_(household_ids))
         .order_by(PantryItem.category.nullslast(), PantryItem.name)
         .all()
     )
@@ -60,14 +62,15 @@ def create_pantry_item(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Add an item to the pantry."""
+    """Add an item to the household pantry."""
     normalized = item_data.name.lower().strip()
+    household_ids = get_household_user_ids(db, current_user)
 
-    # Check for duplicate
+    # Check for duplicate in household
     existing = (
         db.query(PantryItem)
         .filter(
-            PantryItem.user_id == current_user.id,
+            PantryItem.user_id.in_(household_ids),
             PantryItem.normalized_name == normalized,
         )
         .first()
@@ -152,19 +155,20 @@ def bulk_add_pantry_items(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """Bulk add items to pantry (for post-shopping flow)."""
+    """Bulk add items to household pantry (for post-shopping flow)."""
     added = 0
     updated = 0
     result_items = []
+    household_ids = get_household_user_ids(db, current_user)
 
     for item_data in request.items:
         normalized = item_data.name.lower().strip()
 
-        # Check for existing
+        # Check for existing in household
         existing = (
             db.query(PantryItem)
             .filter(
-                PantryItem.user_id == current_user.id,
+                PantryItem.user_id.in_(household_ids),
                 PantryItem.normalized_name == normalized,
             )
             .first()
