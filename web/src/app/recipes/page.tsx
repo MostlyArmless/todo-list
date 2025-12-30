@@ -5,24 +5,25 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, type RecipeListItem, type RecipePantryStatus, type RecipeSortBy } from '@/lib/api';
 import IconButton from '@/components/IconButton';
+import Dropdown from '@/components/Dropdown';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
 // Extend backend sort options with client-side only options
 type SortOption = RecipeSortBy | 'pantry_coverage_desc';
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'name_asc', label: 'Name (A-Z)' },
-  { value: 'name_desc', label: 'Name (Z-A)' },
-  { value: 'pantry_coverage_desc', label: 'Ready to Cook' },
-  { value: 'ingredients_asc', label: 'Fewest Ingredients' },
-  { value: 'ingredients_desc', label: 'Most Ingredients' },
-  { value: 'last_cooked_desc', label: 'Recently Cooked' },
-  { value: 'last_cooked_asc', label: 'Not Cooked Recently' },
-  { value: 'calories_asc', label: 'Lowest Calories' },
-  { value: 'calories_desc', label: 'Highest Calories' },
-  { value: 'protein_desc', label: 'Highest Protein' },
-  { value: 'created_at_desc', label: 'Recently Added' },
+const SORT_OPTIONS: { value: SortOption; label: string; emoji: string }[] = [
+  { value: 'name_asc', label: 'Name (A-Z)', emoji: '🔤' },
+  { value: 'name_desc', label: 'Name (Z-A)', emoji: '🔤' },
+  { value: 'pantry_coverage_desc', label: 'Ready to Cook', emoji: '✅' },
+  { value: 'ingredients_asc', label: 'Fewest Ingredients', emoji: '📉' },
+  { value: 'ingredients_desc', label: 'Most Ingredients', emoji: '📈' },
+  { value: 'last_cooked_desc', label: 'Recently Cooked', emoji: '🍳' },
+  { value: 'last_cooked_asc', label: 'Not Cooked Recently', emoji: '⏰' },
+  { value: 'calories_asc', label: 'Lowest Calories', emoji: '🥗' },
+  { value: 'calories_desc', label: 'Highest Calories', emoji: '🍔' },
+  { value: 'protein_desc', label: 'Highest Protein', emoji: '💪' },
+  { value: 'created_at_desc', label: 'Recently Added', emoji: '🆕' },
 ];
 
 const SORT_STORAGE_KEY = 'recipeSortBy';
@@ -171,17 +172,12 @@ export default function RecipesPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1 className={styles.title}>Recipes</h1>
-        <select
+        <Dropdown
+          options={SORT_OPTIONS}
           value={sortBy}
-          onChange={(e) => handleSortChange(e.target.value as SortOption)}
-          className={styles.sortSelect}
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => handleSortChange(value as SortOption)}
+          className={styles.sortDropdown}
+        />
       </div>
 
       <div className={styles.recipeList}>
