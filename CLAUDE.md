@@ -166,6 +166,26 @@ def test_example(client, auth_headers):
     response = client.get("/api/v1/lists", headers=auth_headers)
 ```
 
+### Frontend E2E Tests (Playwright)
+
+Located in `/web/e2e/`. Run with `npm run e2e` or specific tests with `npx playwright test <file>`.
+
+**Screenshot utility** for visual testing:
+```bash
+npm run screenshot              # Mobile only (Pixel 6 Pro)
+npm run screenshot:all          # All projects (mobile, pixel6, desktop)
+```
+
+**Device configurations** (`web/playwright.config.ts`): The only users of this app use Pixel 6 Pro and Pixel 6 phones, so Playwright is configured with those exact viewport sizes:
+
+| Project | Device | Viewport | Scale Factor |
+|---------|--------|----------|--------------|
+| `mobile` | Pixel 6 Pro | 412×892 | 3.5 |
+| `pixel6` | Pixel 6 | 412×915 | 2.625 |
+| `desktop` | Desktop Chrome | 1280×720 | 1 |
+
+**API routing**: Since the frontend at port 3002 can't reach the API at port 8000 directly (nginx handles this in production), screenshot tests use `page.route()` to intercept `/api/**` calls and proxy them to the FastAPI backend. See `loginViaAPI()` in `e2e/screenshot.spec.ts`.
+
 ## Git Hooks
 
 Uses [pre-commit](https://pre-commit.com/) framework. Config in `.pre-commit-config.yaml`. Install with `uv run pre-commit install`.

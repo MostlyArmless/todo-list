@@ -1,5 +1,23 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Custom device definitions for actual user devices
+// The only users are on Pixel 6 Pro and Pixel 6
+const pixel6Pro = {
+  userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 6 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36',
+  viewport: { width: 412, height: 892 },
+  deviceScaleFactor: 3.5,
+  isMobile: true,
+  hasTouch: true,
+};
+
+const pixel6 = {
+  userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36',
+  viewport: { width: 412, height: 915 },
+  deviceScaleFactor: 2.625,
+  isMobile: true,
+  hasTouch: true,
+};
+
 export default defineConfig({
   testDir: './e2e',
   outputDir: './e2e/test-results',
@@ -10,7 +28,7 @@ export default defineConfig({
   reporter: 'html',
 
   use: {
-    // Use localhost directly; nginx proxy at todolist.lan requires hosts entry
+    // Use Next.js dev server directly (API calls intercepted in tests)
     baseURL: process.env.BASE_URL || 'http://127.0.0.1:3002',
     ignoreHTTPSErrors: true,
     trace: 'on-first-retry',
@@ -18,12 +36,15 @@ export default defineConfig({
   },
 
   projects: [
-    // Mobile viewport (primary - it's a PWA)
+    // Primary mobile device - Pixel 6 Pro (412x892 viewport)
     {
       name: 'mobile',
-      use: {
-        ...devices['Pixel 7'],
-      },
+      use: pixel6Pro,
+    },
+    // Secondary mobile device - Pixel 6 (412x915 viewport)
+    {
+      name: 'pixel6',
+      use: pixel6,
     },
     // Desktop for comparison
     {

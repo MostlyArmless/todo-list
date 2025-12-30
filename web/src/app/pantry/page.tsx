@@ -158,6 +158,63 @@ export default function PantryPage() {
     }
   };
 
+  const handleAddSelectedToShoppingList = async () => {
+    if (selectedItems.size === 0) return;
+
+    // Find the Grocery list
+    const groceryList = lists.find(l => l.name.toLowerCase() === 'grocery');
+    if (!groceryList) {
+      await alert({ message: 'No "Grocery" list found. Please create one first.' });
+      return;
+    }
+
+    // Get selected items data
+    const itemsToAdd = items.filter(item => selectedItems.has(item.id));
+    if (itemsToAdd.length === 0) return;
+
+    try {
+      // Get existing categories in the grocery list
+      const existingCategories = await api.getCategories(groceryList.id);
+      const categoryMap = new Map(existingCategories.map(c => [c.name.toLowerCase(), c.id]));
+
+      // Add each item, creating categories as needed
+      let addedCount = 0;
+      for (const item of itemsToAdd) {
+        let categoryId: number | undefined;
+
+        // If item has a category, find or create it in the list
+        if (item.category) {
+          const existingCategoryId = categoryMap.get(item.category.toLowerCase());
+          if (existingCategoryId) {
+            categoryId = existingCategoryId;
+          } else {
+            // Create new category
+            const newCategory = await api.createCategory(groceryList.id, { name: item.category });
+            categoryMap.set(item.category.toLowerCase(), newCategory.id);
+            categoryId = newCategory.id;
+          }
+        }
+
+        await api.createItem(groceryList.id, {
+          name: item.name,
+          category_id: categoryId,
+        });
+        addedCount++;
+      }
+
+      // Clear selection after adding
+      setSelectedItems(new Set());
+
+      await alert({
+        title: 'Added to List',
+        message: `Added ${addedCount} item${addedCount !== 1 ? 's' : ''} to shopping list`,
+      });
+    } catch (error) {
+      console.error('Failed to add items to shopping list:', error);
+      await alert({ message: 'Failed to add items to shopping list' });
+    }
+  };
+
   const handleStartEdit = (item: PantryItem) => {
     setEditingItemId(item.id);
     setEditName(item.name);
@@ -440,53 +497,69 @@ export default function PantryPage() {
         </select>
       </div>
 
-      {/* Selection controls */}
-      {filteredItems.length > 0 && (
-        <div className={styles.selectionControls}>
-          {/* Select all checkbox */}
-          <label className={styles.selectAllLabel}>
-            <input
-              type="checkbox"
-              checked={allFilteredSelected}
-              ref={(el) => {
-                if (el) {
-                  el.indeterminate = someFilteredSelected && !allFilteredSelected;
-                }
-              }}
-              onChange={() => {
+      {/* Selection controls - pill buttons in a row */}
+      {filteredItems.length > 0 && (() => {
+        // Determine which button should show the count based on selection
+        const selectedItemsList = filteredItems.filter(item => selectedItems.has(item.id));
+        const selectionCount = selectedItemsList.length;
+        const allSelectedAreLow = selectionCount > 0 && selectedItemsList.every(item => item.status === 'low');
+        const allSelectedAreOut = selectionCount > 0 && selectedItemsList.every(item => item.status === 'out');
+
+        return (
+          <div className={styles.selectionControls}>
+            <span className={styles.selectLabel}>Select:</span>
+            <button
+              onClick={() => {
                 if (allFilteredSelected) {
                   deselectAllItems();
                 } else {
                   selectAllItems();
                 }
               }}
-              className={styles.selectAllCheckbox}
-            />
-            <span>
-              {allFilteredSelected ? 'Deselect all' : 'Select all'}
-              {selectedItems.size > 0 && ` (${selectedItems.size})`}
-            </span>
-          </label>
-
-          {/* Quick-select buttons */}
-          <div className={styles.quickSelectBtns}>
+              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnAll} ${selectionCount > 0 && !allSelectedAreLow && !allSelectedAreOut ? styles.statusSelectBtnActive : ''}`}
+              title={allFilteredSelected ? 'Deselect all items' : 'Select all items'}
+            >
+              {selectionCount > 0 && !allSelectedAreLow && !allSelectedAreOut ? `All (${selectionCount})` : 'All'}
+            </button>
             <button
               onClick={() => selectItemsByStatus('low')}
-              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnLow}`}
+              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnLow} ${allSelectedAreLow ? styles.statusSelectBtnActive : ''}`}
               title="Select all items with Low status"
             >
-              Select Low
+              {allSelectedAreLow ? `Low (${selectionCount})` : 'Low'}
             </button>
             <button
               onClick={() => selectItemsByStatus('out')}
-              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnOut}`}
+              className={`${styles.statusSelectBtn} ${styles.statusSelectBtnOut} ${allSelectedAreOut ? styles.statusSelectBtnActive : ''}`}
               title="Select all items with Out status"
             >
-              Select Out
+              {allSelectedAreOut ? `Out (${selectionCount})` : 'Out'}
             </button>
+            {/* Add to shopping list button - only shown when items are selected */}
+            {selectionCount > 0 && (
+              <button
+                onClick={handleAddSelectedToShoppingList}
+                className={styles.addSelectedBtn}
+                title="Add selected items to shopping list"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="9" cy="21" r="1"></circle>
+                  <circle cx="20" cy="21" r="1"></circle>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <span>Add to List</span>
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Receipt Scan Section */}
       <div className={styles.receiptSection}>

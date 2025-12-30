@@ -67,6 +67,11 @@ export default function RecipeDetailPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState('');
 
+  // Metadata editing state (description, servings)
+  const [editingMeta, setEditingMeta] = useState(false);
+  const [metaDescription, setMetaDescription] = useState('');
+  const [metaServings, setMetaServings] = useState('');
+
   // Pantry state - maps normalized ingredient name to pantry item
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [pantryByName, setPantryByName] = useState<Map<string, PantryItem>>(new Map());
@@ -267,6 +272,42 @@ export default function RecipeDetailPage() {
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setEditingTitle(false);
+    }
+  };
+
+  const startEditMeta = () => {
+    setEditingMeta(true);
+    setMetaDescription(recipe?.description || '');
+    setMetaServings(recipe?.servings?.toString() || '');
+  };
+
+  const saveMeta = async () => {
+    if (!recipe) return;
+    try {
+      const servingsNum = metaServings.trim() ? parseInt(metaServings, 10) : undefined;
+      const descriptionVal = metaDescription.trim() || undefined;
+      await api.updateRecipe(recipe.id, {
+        description: descriptionVal,
+        servings: servingsNum,
+      });
+      setRecipe({
+        ...recipe,
+        description: descriptionVal || null,
+        servings: servingsNum ?? null,
+      });
+      setEditingMeta(false);
+    } catch (e) {
+      console.error('Failed to update metadata:', e);
+    }
+  };
+
+  const handleMetaKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveMeta();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditingMeta(false);
     }
   };
 
@@ -500,10 +541,56 @@ export default function RecipeDetailPage() {
               </IconButton>
             </div>
           )}
-          {(recipe.description || recipe.servings) && (
-            <p className={styles.subtitle}>
-              {recipe.description}{recipe.description && recipe.servings ? ' · ' : ''}{recipe.servings ? `${recipe.servings} servings` : ''}
-            </p>
+          {editingMeta ? (
+            <div className={styles.metaEditRow}>
+              <input
+                type="text"
+                className={styles.metaDescInput}
+                value={metaDescription}
+                onChange={(e) => setMetaDescription(e.target.value)}
+                onKeyDown={handleMetaKeyDown}
+                placeholder="Description (optional)"
+                autoFocus
+              />
+              <input
+                type="number"
+                className={styles.metaServingsInput}
+                value={metaServings}
+                onChange={(e) => setMetaServings(e.target.value)}
+                onKeyDown={handleMetaKeyDown}
+                placeholder="Servings"
+                min="1"
+              />
+              <IconButton onClick={saveMeta} variant="accent" size="sm" title="Save">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </IconButton>
+              <IconButton onClick={() => setEditingMeta(false)} size="sm" title="Cancel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </IconButton>
+            </div>
+          ) : (
+            <div className={styles.metaRow} onClick={startEditMeta} title="Click to edit">
+              <p className={styles.subtitle}>
+                {recipe.description || recipe.servings ? (
+                  <>
+                    {recipe.description}{recipe.description && recipe.servings ? ' · ' : ''}{recipe.servings ? `${recipe.servings} servings` : ''}
+                  </>
+                ) : (
+                  <span className={styles.metaPlaceholder}>Add description & servings</span>
+                )}
+              </p>
+              <IconButton onClick={startEditMeta} size="sm" title="Edit details">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </IconButton>
+            </div>
           )}
         </div>
         <button onClick={() => router.push('/recipes')} className={styles.backBtn}>

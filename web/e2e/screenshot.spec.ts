@@ -16,7 +16,42 @@ const API_URL = 'http://127.0.0.1:8000';
 const TEST_EMAIL = 'screenshot-test@example.com';
 const TEST_PASSWORD = 'testpassword123';
 
-// Helper to login via UI
+// Helper to login by setting localStorage token directly (bypasses UI login)
+// Also sets up API route interception to proxy /api/* to the backend
+async function loginViaAPI(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext) {
+  // Get token from API
+  const loginResponse = await request.post(`${API_URL}/api/v1/auth/login`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const { access_token, user } = await loginResponse.json();
+
+  // Intercept API calls and proxy them to the FastAPI backend
+  await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url());
+    const backendUrl = `${API_URL}${url.pathname}${url.search}`;
+
+    const response = await request.fetch(backendUrl, {
+      method: route.request().method(),
+      headers: route.request().headers(),
+      data: route.request().postData() || undefined,
+    });
+
+    await route.fulfill({
+      status: response.status(),
+      headers: response.headers(),
+      body: await response.body(),
+    });
+  });
+
+  // Set token in localStorage before navigating
+  await page.goto('/');
+  await page.evaluate(({ token, userData }) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+  }, { token: access_token, userData: user });
+}
+
+// Legacy UI login (kept for reference, but loginViaAPI is preferred)
 async function loginViaUI(page: import('@playwright/test').Page) {
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
@@ -121,6 +156,57 @@ test('capture list detail', async ({ page, request }, testInfo) => {
   const project = testInfo.project.name;
   await page.screenshot({
     path: `screenshots/list-detail-${project}.png`,
+    fullPage: true,
+  });
+});
+
+// Capture pantry page with sample data
+test('capture pantry with data', async ({ page, request }, testInfo) => {
+  // Ensure user exists
+  await request.post(`${API_URL}/api/v1/auth/register`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const loginResponse = await request.post(`${API_URL}/api/v1/auth/login`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const { access_token } = await loginResponse.json();
+  const headers = { Authorization: `Bearer ${access_token}` };
+
+  // Clear existing pantry items first
+  const existingItemsRes = await request.get(`${API_URL}/api/v1/pantry`, { headers });
+  const existingItems = await existingItemsRes.json();
+  for (const item of existingItems) {
+    await request.delete(`${API_URL}/api/v1/pantry/${item.id}`, { headers });
+  }
+
+  // Create pantry items with various statuses, categories, and stores
+  const pantryItems = [
+    { name: 'Olive Oil', status: 'have', category: 'Oils & Vinegars', preferred_store: 'Costco' },
+    { name: 'Salt', status: 'have', category: 'Spices', preferred_store: 'Grocery' },
+    { name: 'Black Pepper', status: 'low', category: 'Spices', preferred_store: 'Grocery' },
+    { name: 'Garlic Powder', status: 'out', category: 'Spices' },
+    { name: 'Onion Powder', status: 'have', category: 'Spices' },
+    { name: 'Rice', status: 'low', category: 'Grains', preferred_store: 'Costco' },
+    { name: 'Pasta', status: 'have', category: 'Grains' },
+    { name: 'Chicken Broth', status: 'out', category: 'Canned Goods', preferred_store: 'Grocery' },
+    { name: 'Diced Tomatoes', status: 'have', category: 'Canned Goods' },
+    { name: 'Butter', status: 'low', category: 'Dairy', preferred_store: 'Costco' },
+  ];
+
+  for (const item of pantryItems) {
+    await request.post(`${API_URL}/api/v1/pantry`, { headers, data: item });
+  }
+
+  // Login via API and set localStorage
+  await loginViaAPI(page, request);
+
+  await page.goto('/pantry');
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500);
+
+  const project = testInfo.project.name;
+  await page.screenshot({
+    path: `screenshots/pantry-data-${project}.png`,
     fullPage: true,
   });
 });
