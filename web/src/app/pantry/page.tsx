@@ -72,8 +72,8 @@ export default function PantryPage() {
       ]);
       setItems(pantryData);
       setLists(listsData);
-    } catch (error) {
-      console.error('Failed to load data:', error);
+    } catch {
+      // Failed to load data
     } finally {
       setLoading(false);
     }
@@ -83,8 +83,8 @@ export default function PantryPage() {
     try {
       const data = await api.getPantryItemsWithRecipes();
       setItems(data);
-    } catch (error) {
-      console.error('Failed to load pantry:', error);
+    } catch {
+      // Failed to load pantry
     } finally {
       setLoading(false);
     }
@@ -118,8 +118,7 @@ export default function PantryPage() {
       setNewItemStore('');
       setShowAddForm(false);
       loadPantry();
-    } catch (error) {
-      console.error('Failed to add item:', error);
+    } catch {
       await alert({ message: 'Failed to add item. It may already exist in your pantry.' });
     }
   };
@@ -131,8 +130,8 @@ export default function PantryPage() {
     try {
       await api.updatePantryItem(item.id, { status: nextStatus });
       loadPantry();
-    } catch (error) {
-      console.error('Failed to update status:', error);
+    } catch {
+      // Failed to update status
     }
   };
 
@@ -147,8 +146,8 @@ export default function PantryPage() {
     try {
       await api.deletePantryItem(item.id);
       loadPantry();
-    } catch (error) {
-      console.error('Failed to delete item:', error);
+    } catch {
+      // Failed to delete item
     }
   };
 
@@ -166,8 +165,7 @@ export default function PantryPage() {
         title: 'Added to List',
         message: `Added "${item.name}" to shopping list`,
       });
-    } catch (error) {
-      console.error('Failed to add to shopping list:', error);
+    } catch {
       await alert({ message: 'Failed to add to shopping list' });
     }
   };
@@ -223,8 +221,7 @@ export default function PantryPage() {
         title: 'Added to List',
         message: `Added ${addedCount} item${addedCount !== 1 ? 's' : ''} to shopping list`,
       });
-    } catch (error) {
-      console.error('Failed to add items to shopping list:', error);
+    } catch {
       await alert({ message: 'Failed to add items to shopping list' });
     }
   };
@@ -262,8 +259,7 @@ export default function PantryPage() {
       setEditCategory('');
       setEditStore('');
       loadPantry();
-    } catch (error) {
-      console.error('Failed to update item:', error);
+    } catch {
       await alert({ message: 'Failed to update item. The name may already exist in your pantry.' });
     } finally {
       setSaving(false);
@@ -285,7 +281,6 @@ export default function PantryPage() {
       // Start polling for result
       pollScanStatus(result.id);
     } catch (error) {
-      console.error('Failed to upload receipt:', error);
       setScanError(error instanceof Error ? error.message : 'Failed to upload receipt');
     }
   };
@@ -310,8 +305,7 @@ export default function PantryPage() {
         setScanError(scan.error_message || 'Failed to process receipt');
         setPendingScan(null);
       }
-    } catch (error) {
-      console.error('Failed to poll scan status:', error);
+    } catch {
       setPendingScan(null);
     }
   };
@@ -752,8 +746,8 @@ export default function PantryPage() {
                           try {
                             await api.updatePantryItem(item.id, { preferred_store: newStore || undefined });
                             loadPantry();
-                          } catch (error) {
-                            console.error('Failed to update store:', error);
+                          } catch {
+                            // Failed to update store
                           }
                         }}
                         className={`${styles.storeSelect} ${!item.preferred_store ? styles.storeSelectEmpty : ''}`}

@@ -28,8 +28,8 @@ export default function ListsPage() {
       const data = await api.getLists();
       const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
       setLists(sorted);
-    } catch (error) {
-      console.error('Failed to load lists:', error);
+    } catch {
+      // Failed to load lists
     } finally {
       setLoading(false);
     }
@@ -44,8 +44,8 @@ export default function ListsPage() {
       setNewListName('');
       setShowNewList(false);
       loadLists();
-    } catch (error) {
-      console.error('Failed to create list:', error);
+    } catch {
+      // Failed to create list
     }
   };
 
@@ -60,8 +60,7 @@ export default function ListsPage() {
     try {
       await api.deleteList(id);
       loadLists();
-    } catch (error) {
-      console.error('Failed to delete list:', error);
+    } catch {
       await alert({ message: 'Failed to delete list. Please try again.' });
     }
   };

@@ -62,8 +62,8 @@ export default function ListDetailPage() {
       setList(listData);
       setCategories(categoriesData.sort((a, b) => a.sort_order - b.sort_order));
       setItems(itemsData);
-    } catch (error) {
-      console.error('Failed to load data:', error);
+    } catch {
+      // Failed to load data
     } finally {
       setLoading(false);
     }
@@ -108,8 +108,8 @@ export default function ListDetailPage() {
       setTimeout(() => setAddedItemMessage(null), 3000);
 
       loadData();
-    } catch (error) {
-      console.error('Failed to create item:', error);
+    } catch {
+      // Failed to create item
     }
   };
 
@@ -124,8 +124,8 @@ export default function ListDetailPage() {
       setInlineItemName('');
       setInlineAddCategory(null);
       loadData();
-    } catch (error) {
-      console.error('Failed to create item:', error);
+    } catch {
+      // Failed to create item
     }
   };
 
@@ -151,8 +151,8 @@ export default function ListDetailPage() {
         });
       }
       loadData();
-    } catch (error) {
-      console.error('Failed to toggle item:', error);
+    } catch {
+      // Failed to toggle item
     }
   };
 
@@ -161,8 +161,8 @@ export default function ListDetailPage() {
       const pantryItems = await api.getPantryItems();
       setExistingPantryItems(pantryItems);
       setShowPantryPrompt(true);
-    } catch (error) {
-      console.error('Failed to load pantry:', error);
+    } catch {
+      // Failed to load pantry
     }
   };
 
@@ -182,8 +182,8 @@ export default function ListDetailPage() {
       // Clear and close
       setRecentlyChecked([]);
       setShowPantryPrompt(false);
-    } catch (error) {
-      console.error('Failed to add to pantry:', error);
+    } catch {
+      // Failed to add to pantry
     } finally {
       setAddingToPantry(false);
     }
@@ -205,8 +205,8 @@ export default function ListDetailPage() {
     try {
       await api.deleteItem(id);
       loadData();
-    } catch (error) {
-      console.error('Failed to delete item:', error);
+    } catch {
+      // Failed to delete item
     }
   };
 
@@ -215,7 +215,6 @@ export default function ListDetailPage() {
       await api.updateItem(id, data);
       loadData();
     } catch (error) {
-      console.error('Failed to update item:', error);
       throw error;
     }
   };
@@ -232,8 +231,8 @@ export default function ListDetailPage() {
       setNewCategoryName('');
       setShowNewCategory(false);
       loadData();
-    } catch (error) {
-      console.error('Failed to create category:', error);
+    } catch {
+      // Failed to create category
     }
   };
 
@@ -248,8 +247,8 @@ export default function ListDetailPage() {
     try {
       await api.deleteCategory(id);
       loadData();
-    } catch (error) {
-      console.error('Failed to delete category:', error);
+    } catch {
+      // Failed to delete category
     }
   };
 
@@ -270,8 +269,8 @@ export default function ListDetailPage() {
       setEditingCategoryId(null);
       setEditCategoryName('');
       loadData();
-    } catch (error) {
-      console.error('Failed to update category:', error);
+    } catch {
+      // Failed to update category
     }
   };
 
@@ -316,8 +315,7 @@ export default function ListDetailPage() {
           api.updateCategory(cat.id, { sort_order: cat.sort_order })
         )
       );
-    } catch (error) {
-      console.error('Failed to update category order:', error);
+    } catch {
       loadData(); // Reload on error
     }
   };
@@ -368,8 +366,8 @@ export default function ListDetailPage() {
       await api.bulkDeleteItems(listId, Array.from(selectedItems));
       setSelectedItems(new Set());
       loadData();
-    } catch (error) {
-      console.error('Failed to bulk delete:', error);
+    } catch {
+      // Failed to bulk delete
     }
   };
 
@@ -389,8 +387,7 @@ export default function ListDetailPage() {
           message: `Could not categorize any items. ${result.failed} item${result.failed > 1 ? 's' : ''} remain uncategorized.`,
         });
       }
-    } catch (error) {
-      console.error('Failed to auto-categorize:', error);
+    } catch {
       await alert({
         title: 'Error',
         message: 'Failed to auto-categorize items. Please try again.',
@@ -1065,8 +1062,8 @@ function ItemRow({
         category_id: editCategoryId,
       });
       setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to update item:', error);
+    } catch {
+      // Failed to update item
     } finally {
       setSaving(false);
     }

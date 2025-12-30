@@ -73,8 +73,8 @@ export default function RecipesPage() {
       const backendSort: RecipeSortBy = sort === 'pantry_coverage_desc' ? 'name_asc' : sort;
       const data = await api.getRecipes(backendSort);
       setRecipes(data);
-    } catch (error) {
-      console.error('Failed to load recipes:', error);
+    } catch {
+      // Failed to load recipes
     } finally {
       setLoading(false);
     }
@@ -115,8 +115,8 @@ export default function RecipesPage() {
     try {
       const data = await api.getRecipeLabelColors();
       setAvailableColors(data.colors);
-    } catch (error) {
-      console.error('Failed to load colors:', error);
+    } catch {
+      // Failed to load colors
     }
   };
 
@@ -128,8 +128,8 @@ export default function RecipesPage() {
         statusMap.set(status.recipe_id, status);
       }
       setPantryStatus(statusMap);
-    } catch (error) {
-      console.error('Failed to load pantry status:', error);
+    } catch {
+      // Failed to load pantry status
     }
   };
 
@@ -138,8 +138,8 @@ export default function RecipesPage() {
       await api.updateRecipe(recipeId, { label_color: color });
       setRecipes(recipes.map((r) => (r.id === recipeId ? { ...r, label_color: color } : r)));
       setColorPickerOpen(null);
-    } catch (error) {
-      console.error('Failed to update color:', error);
+    } catch {
+      // Failed to update color
     }
   };
 
@@ -154,8 +154,7 @@ export default function RecipesPage() {
     try {
       await api.deleteRecipe(id);
       loadRecipes(sortBy);
-    } catch (error) {
-      console.error('Failed to delete recipe:', error);
+    } catch {
       await alert({ message: 'Failed to delete recipe. Please try again.' });
     }
   };

@@ -131,8 +131,8 @@ export default function RecipeDetailPage() {
         byName.set(item.normalized_name, item);
       }
       setPantryByName(byName);
-    } catch (e) {
-      console.error('Failed to load pantry items:', e);
+    } catch {
+      // Failed to load pantry items
     }
   }, []);
 
@@ -165,8 +165,8 @@ export default function RecipeDetailPage() {
       } else {
         setCompletedSteps(prev => prev.filter(i => i !== stepIndex));
       }
-    } catch (e) {
-      console.error('Failed to toggle step:', e);
+    } catch {
+      // Failed to toggle step
     }
   };
 
@@ -175,8 +175,8 @@ export default function RecipeDetailPage() {
     try {
       await api.resetStepCompletions(recipe.id);
       setCompletedSteps([]);
-    } catch (e) {
-      console.error('Failed to reset progress:', e);
+    } catch {
+      // Failed to reset progress
     }
   };
 
@@ -264,8 +264,8 @@ export default function RecipeDetailPage() {
       await api.updateRecipe(recipe.id, { name: titleText.trim() });
       setRecipe({ ...recipe, name: titleText.trim() });
       setEditingTitle(false);
-    } catch (e) {
-      console.error('Failed to update title:', e);
+    } catch {
+      // Failed to update title
     }
   };
 
@@ -300,8 +300,8 @@ export default function RecipeDetailPage() {
         servings: servingsNum ?? null,
       });
       setEditingMeta(false);
-    } catch (e) {
-      console.error('Failed to update metadata:', e);
+    } catch {
+      // Failed to update metadata
     }
   };
 
@@ -335,8 +335,8 @@ export default function RecipeDetailPage() {
       await api.updateRecipe(recipe.id, { last_cooked_at: isoDate });
       setRecipe({ ...recipe, last_cooked_at: isoDate });
       setEditingLastCooked(false);
-    } catch (e) {
-      console.error('Failed to update last cooked date:', e);
+    } catch {
+      // Failed to update last cooked date
     }
   };
 
@@ -346,8 +346,8 @@ export default function RecipeDetailPage() {
       await api.updateRecipe(recipe.id, { last_cooked_at: null });
       setRecipe({ ...recipe, last_cooked_at: null });
       setEditingLastCooked(false);
-    } catch (e) {
-      console.error('Failed to clear last cooked date:', e);
+    } catch {
+      // Failed to clear last cooked date
     }
   };
 
@@ -400,8 +400,8 @@ export default function RecipeDetailPage() {
       });
       setEditingId(null);
       loadRecipe();
-    } catch (e) {
-      console.error('Failed to update:', e);
+    } catch {
+      // Failed to update
     }
   };
 
@@ -416,8 +416,8 @@ export default function RecipeDetailPage() {
     try {
       await api.deleteIngredient(id);
       loadRecipe();
-    } catch (e) {
-      console.error('Failed to delete:', e);
+    } catch {
+      // Failed to delete
     }
   };
 
@@ -436,8 +436,8 @@ export default function RecipeDetailPage() {
       setNewStore('');
       setShowNewRow(false);
       loadRecipe();
-    } catch (e) {
-      console.error('Failed to add:', e);
+    } catch {
+      // Failed to add
     }
   };
 
@@ -482,8 +482,8 @@ export default function RecipeDetailPage() {
       loadRecipe();
       // Re-focus the name field
       setTimeout(() => newNameRef.current?.focus(), 0);
-    } catch (e) {
-      console.error('Failed to add:', e);
+    } catch {
+      // Failed to add
     }
   };
 
@@ -534,8 +534,8 @@ export default function RecipeDetailPage() {
       }
       // Reload pantry items to reflect changes
       await loadPantryItems();
-    } catch (e) {
-      console.error('Failed to update pantry status:', e);
+    } catch {
+      // Failed to update pantry status
     }
   };
 

@@ -82,8 +82,7 @@ export default function NewRecipePage() {
           })),
       });
       router.push(`/recipes/${recipe.id}`);
-    } catch (error) {
-      console.error('Failed to create recipe:', error);
+    } catch {
       await alert({ message: 'Failed to create recipe. Please try again.' });
     } finally {
       setSaving(false);

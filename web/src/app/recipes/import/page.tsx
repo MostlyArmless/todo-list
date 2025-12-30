@@ -82,8 +82,8 @@ export default function ImportRecipePage() {
           localStorage.removeItem(STORAGE_KEY);
           setStage('input');
         }
-      } catch (e) {
-        console.error('Poll error:', e);
+      } catch {
+        // Poll error
       }
     }, 2000);
 
