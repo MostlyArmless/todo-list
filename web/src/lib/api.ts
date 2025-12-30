@@ -7,6 +7,45 @@ function getApiUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 }
 
+// Simple in-memory cache for GET requests
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+class RequestCache {
+  private cache = new Map<string, CacheEntry<unknown>>();
+  private defaultTTL = 30000; // 30 seconds
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > this.defaultTTL) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.data as T;
+  }
+
+  set<T>(key: string, data: T): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  invalidate(pattern?: string): void {
+    if (!pattern) {
+      this.cache.clear();
+      return;
+    }
+    for (const key of this.cache.keys()) {
+      if (key.includes(pattern)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+}
+
+const requestCache = new RequestCache();
+
 class ApiClient {
   private getBaseUrl(): string {
     return getApiUrl();
@@ -31,6 +70,15 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    const method = options.method?.toUpperCase() || 'GET';
+    const isGet = method === 'GET';
+
+    // Check cache for GET requests
+    if (isGet) {
+      const cached = requestCache.get<T>(endpoint);
+      if (cached) return cached;
+    }
+
     const url = `${this.getBaseUrl()}${endpoint}`;
     const response = await fetch(url, {
       ...options,
@@ -55,7 +103,25 @@ class ApiClient {
       return undefined as T;
     }
 
-    return response.json();
+    const data = await response.json();
+
+    // Cache GET responses
+    if (isGet) {
+      requestCache.set(endpoint, data);
+    }
+
+    return data;
+  }
+
+  // Helper for mutations that invalidates cache
+  private async mutate<T>(
+    endpoint: string,
+    options: RequestInit,
+    invalidatePatterns: string[]
+  ): Promise<T> {
+    const result = await this.request<T>(endpoint, options);
+    invalidatePatterns.forEach(pattern => requestCache.invalidate(pattern));
+    return result;
   }
 
   // Auth
@@ -128,23 +194,23 @@ class ApiClient {
   }
 
   async createList(data: { name: string; description?: string; icon?: string }) {
-    return this.request<List>('/api/v1/lists', {
+    return this.mutate<List>('/api/v1/lists', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, ['/api/v1/lists']);
   }
 
   async updateList(id: number, data: Partial<List>) {
-    return this.request<List>(`/api/v1/lists/${id}`, {
+    return this.mutate<List>(`/api/v1/lists/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
+    }, ['/api/v1/lists']);
   }
 
   async deleteList(id: number) {
-    return this.request<void>(`/api/v1/lists/${id}`, {
+    return this.mutate<void>(`/api/v1/lists/${id}`, {
       method: 'DELETE',
-    });
+    }, ['/api/v1/lists']);
   }
 
   // Categories
@@ -153,23 +219,23 @@ class ApiClient {
   }
 
   async createCategory(listId: number, data: { name: string; sort_order?: number; color?: string }) {
-    return this.request<Category>(`/api/v1/lists/${listId}/categories`, {
+    return this.mutate<Category>(`/api/v1/lists/${listId}/categories`, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, [`/api/v1/lists/${listId}/categories`]);
   }
 
   async updateCategory(id: number, data: Partial<Category>) {
-    return this.request<Category>(`/api/v1/categories/${id}`, {
+    return this.mutate<Category>(`/api/v1/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
+    }, ['/categories']);
   }
 
   async deleteCategory(id: number) {
-    return this.request<void>(`/api/v1/categories/${id}`, {
+    return this.mutate<void>(`/api/v1/categories/${id}`, {
       method: 'DELETE',
-    });
+    }, ['/categories']);
   }
 
   // Items
@@ -185,48 +251,48 @@ class ApiClient {
     quantity?: string;
     description?: string;
   }) {
-    return this.request<Item>(`/api/v1/lists/${listId}/items`, {
+    return this.mutate<Item>(`/api/v1/lists/${listId}/items`, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, [`/api/v1/lists/${listId}/items`]);
   }
 
   async updateItem(id: number, data: Partial<Item>) {
-    return this.request<Item>(`/api/v1/items/${id}`, {
+    return this.mutate<Item>(`/api/v1/items/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
+    }, ['/items']);
   }
 
   async checkItem(id: number) {
-    return this.request<Item>(`/api/v1/items/${id}/check`, {
+    return this.mutate<Item>(`/api/v1/items/${id}/check`, {
       method: 'POST',
-    });
+    }, ['/items']);
   }
 
   async uncheckItem(id: number) {
-    return this.request<Item>(`/api/v1/items/${id}/uncheck`, {
+    return this.mutate<Item>(`/api/v1/items/${id}/uncheck`, {
       method: 'POST',
-    });
+    }, ['/items']);
   }
 
   async deleteItem(id: number) {
-    return this.request<void>(`/api/v1/items/${id}`, {
+    return this.mutate<void>(`/api/v1/items/${id}`, {
       method: 'DELETE',
-    });
+    }, ['/items']);
   }
 
   async bulkDeleteItems(listId: number, itemIds: number[]) {
-    return this.request<void>(`/api/v1/lists/${listId}/items/bulk-delete`, {
+    return this.mutate<void>(`/api/v1/lists/${listId}/items/bulk-delete`, {
       method: 'POST',
       body: JSON.stringify(itemIds),
-    });
+    }, [`/api/v1/lists/${listId}/items`]);
   }
 
   async autoCategorizeItems(listId: number) {
-    return this.request<AutoCategorizeResult>(`/api/v1/lists/${listId}/items/auto-categorize`, {
+    return this.mutate<AutoCategorizeResult>(`/api/v1/lists/${listId}/items/auto-categorize`, {
       method: 'POST',
-    });
+    }, [`/api/v1/lists/${listId}/items`]);
   }
 
   // Recipes
@@ -244,9 +310,10 @@ class ApiClient {
   }
 
   async computeRecipeNutrition(recipeId: number) {
-    return this.request<{ message: string; recipe_id: number }>(
+    return this.mutate<{ message: string; recipe_id: number }>(
       `/api/v1/recipes/${recipeId}/compute-nutrition`,
-      { method: 'POST' }
+      { method: 'POST' },
+      [`/api/v1/recipes/${recipeId}`, '/api/v1/recipes']
     );
   }
 
@@ -262,62 +329,62 @@ class ApiClient {
       store_preference?: string;
     }[];
   }) {
-    return this.request<Recipe>('/api/v1/recipes', {
+    return this.mutate<Recipe>('/api/v1/recipes', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, ['/api/v1/recipes']);
   }
 
   async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number; label_color?: string; instructions?: string }) {
-    return this.request<Recipe>(`/api/v1/recipes/${id}`, {
+    return this.mutate<Recipe>(`/api/v1/recipes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
+    }, [`/api/v1/recipes/${id}`, '/api/v1/recipes']);
   }
 
   async deleteRecipe(id: number) {
-    return this.request<void>(`/api/v1/recipes/${id}`, {
+    return this.mutate<void>(`/api/v1/recipes/${id}`, {
       method: 'DELETE',
-    });
+    }, ['/api/v1/recipes']);
   }
 
   async addIngredient(
     recipeId: number,
     data: { name: string; quantity?: string; description?: string; store_preference?: string }
   ) {
-    return this.request<RecipeIngredient>(`/api/v1/recipes/${recipeId}/ingredients`, {
+    return this.mutate<RecipeIngredient>(`/api/v1/recipes/${recipeId}/ingredients`, {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, [`/api/v1/recipes/${recipeId}`]);
   }
 
   async updateIngredient(
     id: number,
     data: { name?: string; quantity?: string; description?: string; store_preference?: string }
   ) {
-    return this.request<RecipeIngredient>(`/api/v1/recipes/ingredients/${id}`, {
+    return this.mutate<RecipeIngredient>(`/api/v1/recipes/ingredients/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
+    }, ['/recipes/']);
   }
 
   async deleteIngredient(id: number) {
-    return this.request<void>(`/api/v1/recipes/ingredients/${id}`, {
+    return this.mutate<void>(`/api/v1/recipes/ingredients/${id}`, {
       method: 'DELETE',
-    });
+    }, ['/recipes/']);
   }
 
   async addRecipesToList(recipeIds: number[]) {
-    return this.request<AddToListResult>('/api/v1/recipes/add-to-list', {
+    return this.mutate<AddToListResult>('/api/v1/recipes/add-to-list', {
       method: 'POST',
       body: JSON.stringify({ recipe_ids: recipeIds }),
-    });
+    }, ['/items', '/api/v1/lists']);
   }
 
   async undoAddToList(eventId: number) {
-    return this.request<{ status: string }>(`/api/v1/recipes/add-events/${eventId}/undo`, {
+    return this.mutate<{ status: string }>(`/api/v1/recipes/add-events/${eventId}/undo`, {
       method: 'POST',
-    });
+    }, ['/items', '/api/v1/lists']);
   }
 
   async getStoreDefaults() {
@@ -325,10 +392,10 @@ class ApiClient {
   }
 
   async setStoreDefault(ingredientName: string, storePreference: string) {
-    return this.request<IngredientStoreDefault>('/api/v1/recipes/store-defaults', {
+    return this.mutate<IngredientStoreDefault>('/api/v1/recipes/store-defaults', {
       method: 'POST',
       body: JSON.stringify({ ingredient_name: ingredientName, store_preference: storePreference }),
-    });
+    }, ['/api/v1/recipes/store-defaults']);
   }
 
   // Pantry
@@ -337,30 +404,30 @@ class ApiClient {
   }
 
   async createPantryItem(data: { name: string; status?: string; category?: string; preferred_store?: string }) {
-    return this.request<PantryItem>('/api/v1/pantry', {
+    return this.mutate<PantryItem>('/api/v1/pantry', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, ['/api/v1/pantry', '/pantry-status']);
   }
 
   async updatePantryItem(id: number, data: { name?: string; status?: string; category?: string; preferred_store?: string }) {
-    return this.request<PantryItem>(`/api/v1/pantry/${id}`, {
+    return this.mutate<PantryItem>(`/api/v1/pantry/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
+    }, ['/api/v1/pantry', '/pantry-status']);
   }
 
   async deletePantryItem(id: number) {
-    return this.request<void>(`/api/v1/pantry/${id}`, {
+    return this.mutate<void>(`/api/v1/pantry/${id}`, {
       method: 'DELETE',
-    });
+    }, ['/api/v1/pantry', '/pantry-status']);
   }
 
   async bulkAddPantryItems(items: { name: string; status?: string; category?: string }[]) {
-    return this.request<PantryBulkAddResult>('/api/v1/pantry/bulk', {
+    return this.mutate<PantryBulkAddResult>('/api/v1/pantry/bulk', {
       method: 'POST',
       body: JSON.stringify({ items }),
-    });
+    }, ['/api/v1/pantry', '/pantry-status']);
   }
 
   // Receipt Scanning
@@ -413,13 +480,13 @@ class ApiClient {
     recipeIds: number[],
     ingredientOverrides?: { name: string; add_to_list: boolean }[]
   ) {
-    return this.request<AddToListResult>('/api/v1/recipes/add-to-list', {
+    return this.mutate<AddToListResult>('/api/v1/recipes/add-to-list', {
       method: 'POST',
       body: JSON.stringify({
         recipe_ids: recipeIds,
         ingredient_overrides: ingredientOverrides,
       }),
-    });
+    }, ['/items', '/api/v1/lists']);
   }
 
   // Recipe Import
@@ -440,10 +507,10 @@ class ApiClient {
     ingredients?: { name: string; quantity?: string; description?: string; store_preference?: string }[];
     instructions?: string;
   }): Promise<Recipe> {
-    return this.request(`/api/v1/recipes/import/${importId}/confirm`, {
+    return this.mutate(`/api/v1/recipes/import/${importId}/confirm`, {
       method: 'POST',
       body: JSON.stringify(edits || {}),
-    });
+    }, ['/api/v1/recipes']);
   }
 
   async deleteRecipeImport(importId: number): Promise<void> {
@@ -472,17 +539,17 @@ class ApiClient {
     id: number,
     edits?: { list_id?: number; items?: { name: string; category_id?: number | null }[] }
   ): Promise<PendingConfirmation> {
-    return this.request(`/api/v1/voice/pending/${id}/action`, {
+    return this.mutate(`/api/v1/voice/pending/${id}/action`, {
       method: 'POST',
       body: JSON.stringify({ action: 'confirm', edits }),
-    });
+    }, ['/api/v1/voice/pending', '/items', '/api/v1/lists']);
   }
 
   async rejectPendingConfirmation(id: number): Promise<PendingConfirmation> {
-    return this.request(`/api/v1/voice/pending/${id}/action`, {
+    return this.mutate(`/api/v1/voice/pending/${id}/action`, {
       method: 'POST',
       body: JSON.stringify({ action: 'reject' }),
-    });
+    }, ['/api/v1/voice/pending']);
   }
 }
 
