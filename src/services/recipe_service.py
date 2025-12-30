@@ -19,6 +19,7 @@ GROCERY_LIST_NAME = "Grocery"
 COSTCO_LIST_NAME = "Costco"
 
 # Ingredients that are typically already available and shouldn't be added to shopping lists
+# SYNC: Keep in sync with web/src/app/recipes/[id]/page.tsx SKIP_INGREDIENTS
 SKIP_INGREDIENTS = {
     "water",
     "tap water",

@@ -10,13 +10,18 @@ import { useConfirmDialog } from '@/components/ConfirmDialog';
 import MarkdownInstructions from '@/components/MarkdownInstructions';
 import styles from './page.module.css';
 
-// Ingredients that are auto-skipped (never shopped for) - matches backend SKIP_INGREDIENTS
+// Ingredients that are auto-skipped (never shopped for)
+// SYNC: Keep in sync with src/services/recipe_service.py SKIP_INGREDIENTS
 const SKIP_INGREDIENTS = new Set([
   'water',
   'tap water',
   'cold water',
   'hot water',
   'warm water',
+  'boiling water',
+  'ice',
+  'ice water',
+  'ice cubes',
 ]);
 
 interface Toast {
