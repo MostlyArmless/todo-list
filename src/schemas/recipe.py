@@ -62,6 +62,7 @@ class RecipeUpdate(BaseModel):
     servings: int | None = None
     label_color: str | None = Field(None, max_length=50)
     instructions: str | None = Field(None, max_length=50000)
+    last_cooked_at: datetime | None = None
 
 
 class RecipeResponse(BaseModel):

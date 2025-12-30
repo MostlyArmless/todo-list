@@ -54,7 +54,7 @@ export default function PantryCheckModal({
   return (
     <div className={styles.overlay} onClick={onCancel}>
       <div
-        className={`card ${styles.modal}`}
+        className={styles.modal}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

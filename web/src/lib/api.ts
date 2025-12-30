@@ -335,7 +335,7 @@ class ApiClient {
     }, ['/api/v1/recipes']);
   }
 
-  async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number; label_color?: string; instructions?: string }) {
+  async updateRecipe(id: number, data: { name?: string; description?: string; servings?: number; label_color?: string; instructions?: string; last_cooked_at?: string | null }) {
     return this.mutate<Recipe>(`/api/v1/recipes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),

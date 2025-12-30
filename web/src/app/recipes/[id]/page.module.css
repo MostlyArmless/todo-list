@@ -135,6 +135,61 @@
   -moz-appearance: textfield;
 }
 
+/* Last Cooked Row */
+.lastCookedRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  cursor: pointer;
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.lastCookedRow:hover {
+  background: var(--bg-hover);
+}
+
+.lastCookedIcon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.lastCookedText {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.lastCookedPlaceholder {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.lastCookedEditRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.lastCookedInput {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+  color-scheme: dark;
+}
+
+.lastCookedInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
 .backBtn {
   padding: var(--space-2) var(--space-4);
   font-size: var(--text-sm);
@@ -638,4 +693,156 @@
 .loadingText {
   color: var(--text-secondary);
   font-size: var(--text-sm);
+}
+
+/* =============================================================================
+   Mobile Responsive Styles
+   ============================================================================= */
+
+@media (max-width: 600px) {
+  .container {
+    padding: var(--space-3);
+  }
+
+  /* Header adjustments */
+  .header {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .backBtn {
+    align-self: flex-start;
+  }
+
+  .title {
+    font-size: var(--text-xl);
+  }
+
+  .titleInput {
+    font-size: var(--text-lg);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .metaEditRow {
+    flex-wrap: wrap;
+  }
+
+  .metaDescInput {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .metaServingsInput {
+    flex: 1;
+    min-width: 60px;
+  }
+
+  /* Nutrition card */
+  .nutritionCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .nutritionInfo {
+    width: 100%;
+  }
+
+  .calcBtn {
+    width: 100%;
+  }
+
+  /* Hide table header on mobile */
+  .ingredientHeader {
+    display: none;
+  }
+
+  /* Card-based ingredient rows for mobile */
+  .ingredientRow {
+    flex-wrap: wrap;
+    padding: var(--space-3);
+    gap: var(--space-2);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--space-2);
+    background: var(--surface-2);
+  }
+
+  /* Non-editing row layout */
+  .ingredientRow > .ingredientName {
+    flex: 1 1 100%;
+    font-weight: var(--font-medium);
+    order: 1;
+  }
+
+  .ingredientRow > .ingredientQty {
+    flex: 0 0 auto;
+    order: 2;
+    font-size: var(--text-sm);
+    background: var(--bg-tertiary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+  }
+
+  .ingredientRow > .pantrySelect {
+    flex: 0 0 auto;
+    order: 3;
+  }
+
+  .ingredientRow > .ingredientNotes {
+    flex: 1 1 100%;
+    order: 5;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+
+  /* Hide empty notes placeholder on mobile */
+  .ingredientRow > .ingredientNotes:empty,
+  .ingredientNotes[data-empty="true"] {
+    display: none;
+  }
+
+  /* Hide empty notes/store on mobile */
+  .ingredientRow > span[style*="width: 70px"] {
+    display: none;
+  }
+
+  .ingredientRow > .actionBtns {
+    order: 4;
+    margin-left: auto;
+  }
+
+  /* Edit mode inputs */
+  .ingredientRow > .nameInput {
+    flex: 1 1 100%;
+    order: 1;
+  }
+
+  .ingredientRow > .qtyInput {
+    flex: 1;
+    order: 2;
+    min-width: 0;
+  }
+
+  .ingredientRow > .notesInput {
+    flex: 1 1 100%;
+    order: 5;
+  }
+
+  .ingredientRow > .storeSelect {
+    flex: 0 0 auto;
+    order: 4;
+  }
+
+  /* Instructions textarea */
+  .textarea {
+    min-height: 150px;
+  }
+
+  /* Toast position */
+  .toast {
+    left: var(--space-3);
+    right: var(--space-3);
+    transform: none;
+    bottom: var(--space-4);
+  }
 }

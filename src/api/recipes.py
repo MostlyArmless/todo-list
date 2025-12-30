@@ -703,6 +703,9 @@ def update_recipe(
                 "match_pattern": f'[{{"recipe_id": {recipe_id}}}]',
             },
         )
+    # Allow setting last_cooked_at (including clearing it with null)
+    if "last_cooked_at" in recipe_data.model_fields_set:
+        recipe.last_cooked_at = recipe_data.last_cooked_at
 
     db.commit()
     db.refresh(recipe)

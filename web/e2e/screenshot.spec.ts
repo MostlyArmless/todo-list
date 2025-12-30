@@ -277,10 +277,15 @@ test('capture recipes list', async ({ page, request }, testInfo) => {
 
 // Capture recipe detail page with sample data
 test('capture recipe detail', async ({ page, request }, testInfo) => {
-  // Ensure user exists and login
+  // Ensure user exists
   await request.post(`${API_URL}/api/v1/auth/register`, {
     data: { email: TEST_EMAIL, password: TEST_PASSWORD },
   });
+
+  // Login via API (sets localStorage and intercepts API calls)
+  await loginViaAPI(page, request);
+
+  // Get token for creating test data
   const loginResponse = await request.post(`${API_URL}/api/v1/auth/login`, {
     data: { email: TEST_EMAIL, password: TEST_PASSWORD },
   });
@@ -300,7 +305,7 @@ test('capture recipe detail', async ({ page, request }, testInfo) => {
   // Add ingredients
   await request.post(`${API_URL}/api/v1/recipes/${recipe.id}/ingredients`, {
     headers: { Authorization: `Bearer ${access_token}` },
-    data: { name: 'Chicken breast', quantity: '2', notes: 'boneless' },
+    data: { name: 'Chicken breast', quantity: '2', description: 'boneless' },
   });
   await request.post(`${API_URL}/api/v1/recipes/${recipe.id}/ingredients`, {
     headers: { Authorization: `Bearer ${access_token}` },
@@ -311,9 +316,6 @@ test('capture recipe detail', async ({ page, request }, testInfo) => {
     data: { name: 'Cherry tomatoes', quantity: '1 cup' },
   });
 
-  // Login via UI
-  await loginViaUI(page);
-
   await page.goto(`/recipes/${recipe.id}`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(500);
@@ -321,6 +323,15 @@ test('capture recipe detail', async ({ page, request }, testInfo) => {
   const project = testInfo.project.name;
   await page.screenshot({
     path: `screenshots/recipe-detail-${project}.png`,
+    fullPage: true,
+  });
+
+  // Click "Add to Shopping List" to show the pantry check modal
+  await page.click('button:has-text("Add to Shopping List")');
+  await page.waitForTimeout(500);
+
+  await page.screenshot({
+    path: `screenshots/recipe-add-to-list-modal-${project}.png`,
     fullPage: true,
   });
 });
