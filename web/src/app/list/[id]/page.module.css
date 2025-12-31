@@ -492,10 +492,10 @@
 
 .recipeBadge {
   font-size: var(--text-xs);
-  color: white;
   padding: 2px var(--space-2);
   border-radius: var(--radius-sm);
   white-space: nowrap;
+  /* color is set dynamically based on background luminance */
 }
 
 /* Item Edit Mode */

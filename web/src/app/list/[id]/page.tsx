@@ -25,6 +25,24 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import styles from './page.module.css';
 
+/**
+ * Calculate whether text should be dark or light based on background color luminance.
+ * Uses relative luminance formula from WCAG 2.0.
+ */
+function getContrastTextColor(hexColor: string): string {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  // Calculate relative luminance
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+  // Use dark text for light backgrounds (luminance > 0.5)
+  return luminance > 0.5 ? '#1a1a1a' : '#ffffff';
+}
+
 export default function ListDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -1176,18 +1194,22 @@ function ItemRow({
           {/* Recipe source badges */}
           {item.recipe_sources && item.recipe_sources.length > 0 && (
             <span className={styles.recipeBadges}>
-              {item.recipe_sources.map((source, idx) => (
-                <span
-                  key={source.recipe_id ?? `adhoc-${idx}`}
-                  className={styles.recipeBadge}
-                  style={{
-                    backgroundColor: source.label_color || (source.recipe_id ? '#e6194b' : 'var(--text-secondary)'),
-                  }}
-                  title={source.recipe_id ? `From recipe: ${source.recipe_name}` : 'Manually added'}
-                >
-                  {source.recipe_name}
-                </span>
-              ))}
+              {item.recipe_sources.map((source, idx) => {
+                const bgColor = source.label_color || (source.recipe_id ? '#e6194b' : '#666666');
+                return (
+                  <span
+                    key={source.recipe_id ?? `adhoc-${idx}`}
+                    className={styles.recipeBadge}
+                    style={{
+                      backgroundColor: bgColor,
+                      color: getContrastTextColor(bgColor),
+                    }}
+                    title={source.recipe_id ? `From recipe: ${source.recipe_name}` : 'Manually added'}
+                  >
+                    {source.recipe_name}
+                  </span>
+                );
+              })}
             </span>
           )}
         </div>
