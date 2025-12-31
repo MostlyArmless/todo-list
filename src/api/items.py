@@ -196,9 +196,11 @@ def update_item(
     if item_data.name is not None:
         item.name = item_data.name
     if item_data.description is not None:
-        item.description = item_data.description
+        # Empty string clears the field
+        item.description = item_data.description or None
     if item_data.quantity is not None:
-        item.quantity = item_data.quantity
+        # Empty string clears the field
+        item.quantity = item_data.quantity or None
     if item_data.category_id is not None:
         # Validate category_id before setting (silently ignores invalid/deleted categories)
         item.category_id = validate_category_id(db, item_data.category_id, item.list_id)

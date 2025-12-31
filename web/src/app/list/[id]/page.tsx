@@ -1075,8 +1075,8 @@ function ItemRow({
     try {
       await onUpdate(item.id, {
         name: editName.trim(),
-        quantity: editQuantity.trim() || undefined,
-        description: editDescription.trim() || undefined,
+        quantity: editQuantity.trim(),
+        description: editDescription.trim(),
         category_id: editCategoryId,
       });
       setIsEditing(false);
