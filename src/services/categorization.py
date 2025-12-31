@@ -60,11 +60,14 @@ class CategorizationService:
     ) -> dict[str, Any] | None:
         """Check for exact match in item history."""
         normalized = item_name.lower().strip()
+        # Join with Category to ensure we only return active (non-deleted) categories
         history = (
             self.db.query(ItemHistory)
+            .join(Category, ItemHistory.category_id == Category.id)
             .filter(
                 ItemHistory.list_id == list_id,
                 ItemHistory.normalized_name == normalized,
+                Category.deleted_at.is_(None),
             )
             .order_by(ItemHistory.occurrence_count.desc())
             .first()
@@ -88,8 +91,13 @@ class CategorizationService:
         """Check for fuzzy match in item history."""
         item_lower = item_name.lower().strip()
 
-        # Get all history for this list
-        all_history = self.db.query(ItemHistory).filter(ItemHistory.list_id == list_id).all()
+        # Get all history for this list, only for active (non-deleted) categories
+        all_history = (
+            self.db.query(ItemHistory)
+            .join(Category, ItemHistory.category_id == Category.id)
+            .filter(ItemHistory.list_id == list_id, Category.deleted_at.is_(None))
+            .all()
+        )
 
         # Count category matches for similar items (weighted by occurrence_count)
         category_scores = defaultdict(int)
@@ -122,10 +130,10 @@ class CategorizationService:
 
     def _categorize_with_llm(self, item_name: str, list_id: int, user_id: int) -> dict[str, Any]:
         """Use LLM to categorize item with historical context."""
-        # Get all categories for this list
+        # Get all active (non-deleted) categories for this list
         categories = (
             self.db.query(Category)
-            .filter(Category.list_id == list_id)
+            .filter(Category.list_id == list_id, Category.deleted_at.is_(None))
             .order_by(Category.sort_order)
             .all()
         )

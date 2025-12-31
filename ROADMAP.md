@@ -12,7 +12,23 @@ This file tracks pending work items for coordination across agents and sessions.
 
 ## Active Tasks
 
-*No active tasks*
+### Recipe Types
+**Priority:** Medium
+
+Add the concept of recipe types to categorize recipes (e.g., veggie main, meat main, side, dessert).
+
+**Features:**
+- [ ] Backend: Add `recipe_type` model with predefined types (veggie main, meat main, side, dessert)
+- [ ] Backend: Add ability for users to define custom recipe types
+- [ ] Backend: Add `type_id` foreign key to Recipe model
+- [ ] Frontend: Filter recipes by type on `/recipes` page
+- [ ] Frontend: Edit recipe type on `/recipes/[id]` page
+
+**Default types:**
+- Veggie Main
+- Meat Main
+- Side
+- Dessert
 
 ---
 

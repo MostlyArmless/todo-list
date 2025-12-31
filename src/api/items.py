@@ -17,11 +17,37 @@ from src.schemas.item import ItemCreate, ItemResponse, ItemUpdate
 router = APIRouter(prefix="/api/v1", tags=["items"])
 
 
+def validate_category_id(db: Session, category_id: int | None, list_id: int) -> int | None:
+    """Validate that a category_id is valid for the given list.
+
+    Returns the category_id if valid, None if category_id was None or invalid.
+    Silently returns None for deleted/invalid categories rather than raising an error,
+    allowing items to be created as uncategorized.
+    """
+    if category_id is None:
+        return None
+
+    from src.models.category import Category
+
+    category = (
+        db.query(Category)
+        .filter(
+            Category.id == category_id,
+            Category.list_id == list_id,
+            Category.deleted_at.is_(None),
+        )
+        .first()
+    )
+    return category_id if category else None
+
+
 def lookup_category_from_history(db: Session, item_name: str, list_id: int) -> int | None:
     """Look up category_id from item history for exact match.
 
-    Returns category_id if found in history, None otherwise.
+    Returns category_id if found in history and category is not deleted, None otherwise.
     """
+    from src.models.category import Category
+
     normalized = item_name.lower().strip()
     history = (
         db.query(ItemHistory)
@@ -32,8 +58,18 @@ def lookup_category_from_history(db: Session, item_name: str, list_id: int) -> i
         .order_by(ItemHistory.occurrence_count.desc())
         .first()
     )
-    if history:
-        return history.category_id
+    if history and history.category_id:
+        # Verify the category still exists and is not deleted
+        category = (
+            db.query(Category)
+            .filter(
+                Category.id == history.category_id,
+                Category.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if category:
+            return history.category_id
     return None
 
 
@@ -123,8 +159,11 @@ def create_item(
         return matching_item
     else:
         # Create new item
-        # Determine category_id: use provided value, or look up from history
+        # Determine category_id: use provided value (validated), or look up from history
         category_id = item_data.category_id
+        if category_id is not None:
+            # Validate the provided category_id
+            category_id = validate_category_id(db, category_id, list_id)
         if category_id is None:
             # Check item history for an exact match (no LLM call needed)
             category_id = lookup_category_from_history(db, item_data.name, list_id)
@@ -161,7 +200,8 @@ def update_item(
     if item_data.quantity is not None:
         item.quantity = item_data.quantity
     if item_data.category_id is not None:
-        item.category_id = item_data.category_id
+        # Validate category_id before setting (silently ignores invalid/deleted categories)
+        item.category_id = validate_category_id(db, item_data.category_id, item.list_id)
     if item_data.sort_order is not None:
         item.sort_order = item_data.sort_order
 

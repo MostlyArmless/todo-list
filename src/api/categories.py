@@ -104,6 +104,8 @@ def delete_category(
     db: Annotated[Session, Depends(get_db)],
 ):
     """Soft delete a category. Items in the category become uncategorized."""
+    from src.models.item_history import ItemHistory
+
     category = get_category(db, category_id, current_user)
 
     # Move items in this category to uncategorized
@@ -111,6 +113,11 @@ def delete_category(
         Item.category_id == category_id,
         Item.deleted_at.is_(None),
     ).update({Item.category_id: None})
+
+    # Clear category from item history to prevent auto-categorization to deleted category
+    db.query(ItemHistory).filter(
+        ItemHistory.category_id == category_id,
+    ).update({ItemHistory.category_id: None})
 
     category.soft_delete()
     db.commit()
