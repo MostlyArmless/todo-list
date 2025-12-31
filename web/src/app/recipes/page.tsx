@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api, type RecipeListItem, type RecipePantryStatus, type RecipeSortBy } from '@/lib/api';
 import IconButton from '@/components/IconButton';
 import Dropdown from '@/components/Dropdown';
+import ViewToggle, { type ViewMode } from '@/components/ViewToggle';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
@@ -24,9 +25,11 @@ const SORT_OPTIONS: { value: SortOption; label: string; emoji: string }[] = [
   { value: 'calories_desc', label: 'Highest Calories', emoji: '🍔' },
   { value: 'protein_desc', label: 'Highest Protein', emoji: '💪' },
   { value: 'created_at_desc', label: 'Recently Added', emoji: '🆕' },
+  { value: 'updated_at_desc', label: 'Recently Modified', emoji: '✏️' },
 ];
 
 const SORT_STORAGE_KEY = 'recipeSortBy';
+const VIEW_MODE_STORAGE_KEY = 'recipeViewMode';
 
 export default function RecipesPage() {
   const router = useRouter();
@@ -37,6 +40,7 @@ export default function RecipesPage() {
   const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
   const [pantryStatus, setPantryStatus] = useState<Map<number, RecipePantryStatus>>(new Map());
   const [sortBy, setSortBy] = useState<SortOption>('name_asc');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,9 +53,18 @@ export default function RecipesPage() {
     if (savedSort && SORT_OPTIONS.some((o) => o.value === savedSort)) {
       setSortBy(savedSort);
     }
+    const savedViewMode = localStorage.getItem(VIEW_MODE_STORAGE_KEY) as ViewMode | null;
+    if (savedViewMode && (savedViewMode === 'list' || savedViewMode === 'gallery')) {
+      setViewMode(savedViewMode);
+    }
     loadColors();
     loadPantryStatus();
   }, [router]);
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  };
 
   useEffect(() => {
     loadRecipes(sortBy);
@@ -168,134 +181,169 @@ export default function RecipesPage() {
   }
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${viewMode === 'gallery' ? styles.containerWide : ''}`}>
       <div className={styles.header}>
         <h1 className={styles.title}>Recipes</h1>
-        <Dropdown
-          options={SORT_OPTIONS}
-          value={sortBy}
-          onChange={(value) => handleSortChange(value as SortOption)}
-          className={styles.sortDropdown}
-        />
+        <div className={styles.headerControls}>
+          <ViewToggle value={viewMode} onChange={handleViewModeChange} />
+          <Dropdown
+            options={SORT_OPTIONS}
+            value={sortBy}
+            onChange={(value) => handleSortChange(value as SortOption)}
+            className={styles.sortDropdown}
+          />
+        </div>
       </div>
 
-      <div className={styles.recipeList}>
-        {getSortedRecipes().map((recipe) => (
-          <div
-            key={recipe.id}
-            className={styles.recipeCard}
-            onClick={() => router.push(`/recipes/${recipe.id}`)}
-          >
-            <div className={styles.recipeInfo}>
-              <h2 className={styles.recipeName}>{recipe.name}</h2>
-              <p className={styles.recipeDetails}>
-                {recipe.ingredient_count} ingredient{recipe.ingredient_count !== 1 ? 's' : ''}
-                {recipe.servings && ` | ${recipe.servings} servings`}
-              </p>
-              {recipe.description && (
-                <p className={styles.recipeDescription}>{recipe.description}</p>
-              )}
-
-              {/* Nutrition Info */}
-              {recipe.calories_per_serving != null && (
-                <div className={styles.nutritionRow}>
-                  <span className={styles.caloriesText}>{recipe.calories_per_serving} cal</span>
-                  {recipe.protein_grams != null && (
-                    <span className={`${styles.macroBadge} ${styles.macroBadgeProtein}`}>
-                      <span className={styles.macroValue}>{recipe.protein_grams}g</span> P
-                    </span>
-                  )}
-                  {recipe.carbs_grams != null && (
-                    <span className={`${styles.macroBadge} ${styles.macroBadgeCarbs}`}>
-                      <span className={styles.macroValue}>{recipe.carbs_grams}g</span> C
-                    </span>
-                  )}
-                  {recipe.fat_grams != null && (
-                    <span className={`${styles.macroBadge} ${styles.macroBadgeFat}`}>
-                      <span className={styles.macroValue}>{recipe.fat_grams}g</span> F
-                    </span>
-                  )}
+      {/* List View */}
+      {viewMode === 'list' && (
+        <div className={styles.recipeList}>
+          {getSortedRecipes().map((recipe) => (
+            <div
+              key={recipe.id}
+              className={styles.recipeCard}
+              onClick={() => router.push(`/recipes/${recipe.id}`)}
+            >
+              {recipe.thumbnail_url ? (
+                <img
+                  src={recipe.thumbnail_url}
+                  alt=""
+                  className={styles.recipeThumbnail}
+                />
+              ) : (
+                <div className={styles.recipeThumbnailPlaceholder}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
                 </div>
               )}
+              <div className={styles.recipeInfo}>
+                <h2 className={styles.recipeName}>{recipe.name}</h2>
+                <p className={styles.recipeDetails}>
+                  {recipe.ingredient_count} ingredient{recipe.ingredient_count !== 1 ? 's' : ''}
+                  {recipe.servings && ` | ${recipe.servings} servings`}
+                </p>
+                {recipe.description && (
+                  <p className={styles.recipeDescription}>{recipe.description}</p>
+                )}
 
-              {/* Pantry Progress */}
-              {(() => {
-                const status = pantryStatus.get(recipe.id);
-                if (!status || status.total_ingredients === 0) return null;
-                const total = status.total_ingredients;
-                const havePercent = (status.have_count / total) * 100;
-                const lowPercent = (status.low_count / total) * 100;
-                const outPercent = (status.out_count / total) * 100;
-                const unmatchedPercent = (status.unmatched_count / total) * 100;
-                const matchedCount = status.have_count + status.low_count + status.out_count;
-                return (
-                  <div className={styles.pantryProgress}>
-                    <div className={styles.pantryProgressRow}>
-                      <div className={styles.progressBar}>
-                        {havePercent > 0 && (
-                          <div className={styles.progressHave} style={{ width: `${havePercent}%` }} />
-                        )}
-                        {lowPercent > 0 && (
-                          <div className={styles.progressLow} style={{ width: `${lowPercent}%` }} />
-                        )}
-                        {outPercent > 0 && (
-                          <div className={styles.progressOut} style={{ width: `${outPercent}%` }} />
-                        )}
-                        {unmatchedPercent > 0 && (
-                          <div className={styles.progressUnmatched} style={{ width: `${unmatchedPercent}%` }} />
-                        )}
-                      </div>
-                      <span>
-                        {matchedCount}/{total} in pantry
+                {/* Nutrition Info */}
+                {recipe.calories_per_serving != null && (
+                  <div className={styles.nutritionRow}>
+                    <span className={styles.caloriesText}>{recipe.calories_per_serving} cal</span>
+                    {recipe.protein_grams != null && (
+                      <span className={`${styles.macroBadge} ${styles.macroBadgeProtein}`}>
+                        <span className={styles.macroValue}>{recipe.protein_grams}g</span> P
                       </span>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div className={styles.recipeActions}>
-              {/* Color Picker */}
-              <div
-                className={styles.colorPickerWrapper}
-                ref={colorPickerOpen === recipe.id ? colorPickerRef : null}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setColorPickerOpen(colorPickerOpen === recipe.id ? null : recipe.id);
-                  }}
-                  className={styles.colorSwatch}
-                  style={{ backgroundColor: recipe.label_color || '#e6194b' }}
-                  title="Change label color"
-                />
-                {colorPickerOpen === recipe.id && (
-                  <div className={styles.colorPicker} onClick={(e) => e.stopPropagation()}>
-                    {availableColors.map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => handleColorChange(recipe.id, color)}
-                        className={`${styles.colorOption} ${
-                          recipe.label_color === color ? styles.colorOptionSelected : ''
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
+                    )}
+                    {recipe.carbs_grams != null && (
+                      <span className={`${styles.macroBadge} ${styles.macroBadgeCarbs}`}>
+                        <span className={styles.macroValue}>{recipe.carbs_grams}g</span> C
+                      </span>
+                    )}
+                    {recipe.fat_grams != null && (
+                      <span className={`${styles.macroBadge} ${styles.macroBadgeFat}`}>
+                        <span className={styles.macroValue}>{recipe.fat_grams}g</span> F
+                      </span>
+                    )}
                   </div>
                 )}
+
+                {/* Pantry Progress */}
+                {(() => {
+                  const status = pantryStatus.get(recipe.id);
+                  if (!status || status.total_ingredients === 0) return null;
+                  const total = status.total_ingredients;
+                  const havePercent = (status.have_count / total) * 100;
+                  const lowPercent = (status.low_count / total) * 100;
+                  const outPercent = (status.out_count / total) * 100;
+                  const unmatchedPercent = (status.unmatched_count / total) * 100;
+                  const matchedCount = status.have_count + status.low_count + status.out_count;
+                  return (
+                    <div className={styles.pantryProgress}>
+                      <div className={styles.pantryProgressRow}>
+                        <div className={styles.progressBar}>
+                          {havePercent > 0 && (
+                            <div className={styles.progressHave} style={{ width: `${havePercent}%` }} />
+                          )}
+                          {lowPercent > 0 && (
+                            <div className={styles.progressLow} style={{ width: `${lowPercent}%` }} />
+                          )}
+                          {outPercent > 0 && (
+                            <div className={styles.progressOut} style={{ width: `${outPercent}%` }} />
+                          )}
+                          {unmatchedPercent > 0 && (
+                            <div className={styles.progressUnmatched} style={{ width: `${unmatchedPercent}%` }} />
+                          )}
+                        </div>
+                        <span>
+                          {matchedCount}/{total} in pantry
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteRecipe(recipe.id, recipe.name);
-                }}
-                variant="default"
-                title="Delete recipe"
-              >
+              <div className={styles.recipeActions}>
+                {/* Color Picker */}
+                <div
+                  className={styles.colorPickerWrapper}
+                  ref={colorPickerOpen === recipe.id ? colorPickerRef : null}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setColorPickerOpen(colorPickerOpen === recipe.id ? null : recipe.id);
+                    }}
+                    className={styles.colorSwatch}
+                    style={{ backgroundColor: recipe.label_color || '#e6194b' }}
+                    title="Change label color"
+                  />
+                  {colorPickerOpen === recipe.id && (
+                    <div className={styles.colorPicker} onClick={(e) => e.stopPropagation()}>
+                      {availableColors.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => handleColorChange(recipe.id, color)}
+                          className={`${styles.colorOption} ${
+                            recipe.label_color === color ? styles.colorOptionSelected : ''
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteRecipe(recipe.id, recipe.name);
+                  }}
+                  variant="default"
+                  title="Delete recipe"
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </IconButton>
+
                 <svg
-                  width="20"
-                  height="20"
+                  width="24"
+                  height="24"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -303,28 +351,125 @@ export default function RecipesPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
-              </IconButton>
-
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+      )}
 
-        <div className={styles.addButtonRow}>
+      {/* Gallery View */}
+      {viewMode === 'gallery' && (
+        <div className={styles.recipeGrid}>
+          {getSortedRecipes().map((recipe) => (
+            <div
+              key={recipe.id}
+              className={styles.galleryCard}
+              onClick={() => router.push(`/recipes/${recipe.id}`)}
+            >
+              {/* Color indicator */}
+              <div
+                className={styles.galleryColorDot}
+                style={{ backgroundColor: recipe.label_color || '#e6194b' }}
+              />
+
+              {/* Image or placeholder */}
+              {recipe.thumbnail_url ? (
+                <img
+                  src={recipe.thumbnail_url.replace('_thumb', '')}
+                  alt={recipe.name}
+                  className={styles.galleryImage}
+                />
+              ) : (
+                <div className={styles.galleryPlaceholder}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                </div>
+              )}
+
+              {/* Action buttons (show on hover) */}
+              <div className={styles.galleryActions}>
+                <div
+                  className={styles.colorPickerWrapper}
+                  ref={colorPickerOpen === recipe.id ? colorPickerRef : null}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setColorPickerOpen(colorPickerOpen === recipe.id ? null : recipe.id);
+                    }}
+                    className={styles.galleryColorSwatch}
+                    style={{ backgroundColor: recipe.label_color || '#e6194b' }}
+                    title="Change label color"
+                  />
+                  {colorPickerOpen === recipe.id && (
+                    <div className={styles.colorPicker} onClick={(e) => e.stopPropagation()}>
+                      {availableColors.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => handleColorChange(recipe.id, color)}
+                          className={`${styles.colorOption} ${
+                            recipe.label_color === color ? styles.colorOptionSelected : ''
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteRecipe(recipe.id, recipe.name);
+                  }}
+                  className={styles.galleryActionBtn}
+                  title="Delete recipe"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Overlay with info */}
+              <div className={styles.galleryOverlay}>
+                <h2 className={styles.galleryName}>{recipe.name}</h2>
+                <p className={styles.galleryDetails}>
+                  {recipe.ingredient_count} ingredient{recipe.ingredient_count !== 1 ? 's' : ''}
+                  {recipe.servings && ` · ${recipe.servings} servings`}
+                </p>
+                {recipe.calories_per_serving != null && (
+                  <div className={styles.galleryNutrition}>
+                    <span className={styles.galleryCalories}>{recipe.calories_per_serving} cal</span>
+                    {recipe.protein_grams != null && (
+                      <span className={`${styles.macroBadge} ${styles.macroBadgeProtein}`}>
+                        <span className={styles.macroValue}>{recipe.protein_grams}g</span> P
+                      </span>
+                    )}
+                    {recipe.carbs_grams != null && (
+                      <span className={`${styles.macroBadge} ${styles.macroBadgeCarbs}`}>
+                        <span className={styles.macroValue}>{recipe.carbs_grams}g</span> C
+                      </span>
+                    )}
+                    {recipe.fat_grams != null && (
+                      <span className={`${styles.macroBadge} ${styles.macroBadgeFat}`}>
+                        <span className={styles.macroValue}>{recipe.fat_grams}g</span> F
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.addButtonRow}>
           <button onClick={() => router.push('/recipes/new')} className={styles.addButton}>
             <svg
               width="24"
@@ -359,7 +504,6 @@ export default function RecipesPage() {
             <span>Import Recipe</span>
           </Link>
         </div>
-      </div>
     </div>
   );
 }

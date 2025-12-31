@@ -348,6 +348,42 @@ class ApiClient {
     }, ['/api/v1/recipes']);
   }
 
+  async uploadRecipeImage(recipeId: number, file: File): Promise<Recipe> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: HeadersInit = {};
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    const response = await fetch(`${this.getBaseUrl()}/api/v1/recipes/${recipeId}/image`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    // Invalidate recipe caches
+    requestCache.invalidate(`/api/v1/recipes/${recipeId}`);
+    requestCache.invalidate('/api/v1/recipes');
+
+    return response.json();
+  }
+
+  async deleteRecipeImage(recipeId: number): Promise<void> {
+    return this.mutate<void>(`/api/v1/recipes/${recipeId}/image`, {
+      method: 'DELETE',
+    }, [`/api/v1/recipes/${recipeId}`, '/api/v1/recipes']);
+  }
+
   async addIngredient(
     recipeId: number,
     data: { name: string; quantity?: string; description?: string; store_preference?: string }
@@ -535,8 +571,9 @@ class ApiClient {
   }
 
   // Voice Input Confirmations
-  async getPendingConfirmations(): Promise<PendingConfirmation[]> {
-    return this.request('/api/v1/voice/pending/list');
+  async getPendingConfirmations(): Promise<VoiceQueueResponse> {
+    // Use cache-busting param since this is polled frequently
+    return this.request(`/api/v1/voice/pending/list?_=${Date.now()}`);
   }
 
   async confirmPendingConfirmation(
@@ -553,6 +590,19 @@ class ApiClient {
     return this.mutate(`/api/v1/voice/pending/${id}/action`, {
       method: 'POST',
       body: JSON.stringify({ action: 'reject' }),
+    }, ['/api/v1/voice/pending']);
+  }
+
+  async deleteVoiceInput(id: number): Promise<void> {
+    return this.mutate(`/api/v1/voice/${id}`, {
+      method: 'DELETE',
+    }, ['/api/v1/voice/pending']);
+  }
+
+  async retryVoiceInput(id: number, rawText: string): Promise<void> {
+    return this.mutate(`/api/v1/voice/${id}/retry`, {
+      method: 'POST',
+      body: JSON.stringify({ raw_text: rawText }),
     }, ['/api/v1/voice/pending']);
   }
 }
@@ -613,6 +663,9 @@ export interface Recipe {
   fat_grams: number | null;
   nutrition_computed_at: string | null;
   last_cooked_at: string | null;
+  // Image URLs (null if no image uploaded)
+  image_url: string | null;
+  thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -628,7 +681,8 @@ export type RecipeSortBy =
   | 'calories_desc'
   | 'protein_asc'
   | 'protein_desc'
-  | 'created_at_desc';
+  | 'created_at_desc'
+  | 'updated_at_desc';
 
 export interface RecipeListItem {
   id: number;
@@ -643,6 +697,8 @@ export interface RecipeListItem {
   carbs_grams: number | null;
   fat_grams: number | null;
   last_cooked_at: string | null;
+  // Image thumbnail URL (null if no image uploaded)
+  thumbnail_url: string | null;
   created_at: string;
 }
 
@@ -819,6 +875,19 @@ export interface PendingConfirmation {
   proposed_changes: ProposedChanges;
   status: string;
   created_at: string;
+}
+
+export interface InProgressVoiceJob {
+  id: number;
+  raw_text: string;
+  status: 'pending' | 'processing' | 'failed';
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface VoiceQueueResponse {
+  in_progress: InProgressVoiceJob[];
+  pending_confirmations: PendingConfirmation[];
 }
 
 export const api = new ApiClient();

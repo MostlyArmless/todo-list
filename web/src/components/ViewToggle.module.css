@@ -1,0 +1,35 @@
+.toggle {
+  display: inline-flex;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.option:hover:not(.active) {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+}
+
+.option.active {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+}
+
+.option svg {
+  flex-shrink: 0;
+}

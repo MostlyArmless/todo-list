@@ -58,3 +58,28 @@ class ConfirmationAction(BaseModel):
 
     action: str = Field(..., max_length=50)  # "confirm" or "reject"
     edits: ConfirmationEdits | None = None
+
+
+class InProgressVoiceJob(BaseModel):
+    """In-progress or failed voice processing job."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    raw_text: str
+    status: str  # 'pending', 'processing', or 'failed'
+    error_message: str | None
+    created_at: datetime
+
+
+class VoiceQueueResponse(BaseModel):
+    """Combined response for confirm page with in-progress jobs and pending confirmations."""
+
+    in_progress: list[InProgressVoiceJob]
+    pending_confirmations: list[PendingConfirmationResponse]
+
+
+class VoiceInputRetry(BaseModel):
+    """Request to retry a voice input with updated text."""
+
+    raw_text: str = Field(..., max_length=50000)

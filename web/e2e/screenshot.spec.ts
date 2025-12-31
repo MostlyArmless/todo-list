@@ -273,6 +273,14 @@ test('capture recipes list', async ({ page, request }, testInfo) => {
     path: `screenshots/recipes-list-${project}.png`,
     fullPage: true,
   });
+
+  // Switch to gallery view and capture
+  await page.click('[title="Gallery view"]');
+  await page.waitForTimeout(300);
+  await page.screenshot({
+    path: `screenshots/recipes-gallery-${project}.png`,
+    fullPage: true,
+  });
 });
 
 // Capture recipe detail page with sample data

@@ -76,10 +76,15 @@ def test_get_voice_input_not_found(client, auth_headers):
 
 
 def test_list_pending_confirmations(client, auth_headers):
-    """Test listing pending confirmations."""
+    """Test listing pending confirmations returns correct structure."""
     response = client.get("/api/v1/voice/pending/list", headers=auth_headers)
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    data = response.json()
+    # Check the new VoiceQueueResponse structure
+    assert "in_progress" in data
+    assert "pending_confirmations" in data
+    assert isinstance(data["in_progress"], list)
+    assert isinstance(data["pending_confirmations"], list)
 
 
 def test_confirm_pending_confirmation(client, auth_headers, db):
@@ -201,3 +206,250 @@ def test_reject_pending_confirmation(client, auth_headers, db):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "rejected"
+
+
+def test_list_pending_confirmations_returns_queue_response(client, auth_headers, db):
+    """Test that pending list endpoint returns the new queue response format."""
+    user_id = auth_headers.user_id
+
+    from src.models.pending_confirmation import PendingConfirmation
+    from src.models.voice_input import VoiceInput
+
+    # Create a pending voice input (in-progress)
+    voice_pending = VoiceInput(
+        user_id=user_id,
+        raw_text="add something to list",
+        status="pending",
+    )
+    db.add(voice_pending)
+
+    # Create a processing voice input
+    voice_processing = VoiceInput(
+        user_id=user_id,
+        raw_text="add another thing",
+        status="processing",
+    )
+    db.add(voice_processing)
+
+    # Create a failed voice input
+    voice_failed = VoiceInput(
+        user_id=user_id,
+        raw_text="this failed",
+        status="failed",
+        error_message="Test error",
+    )
+    db.add(voice_failed)
+    db.flush()
+
+    # Create a completed voice input with pending confirmation
+    voice_completed = VoiceInput(
+        user_id=user_id,
+        raw_text="completed voice",
+        status="completed",
+    )
+    db.add(voice_completed)
+    db.flush()
+
+    pending_conf = PendingConfirmation(
+        user_id=user_id,
+        voice_input_id=voice_completed.id,
+        proposed_changes={
+            "action": "add",
+            "list_id": 1,
+            "list_name": "Test",
+            "items": [{"name": "test", "category_id": None, "confidence": 0.8}],
+        },
+        status="pending",
+    )
+    db.add(pending_conf)
+    db.commit()
+
+    response = client.get("/api/v1/voice/pending/list", headers=auth_headers)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Check new response structure
+    assert "in_progress" in data
+    assert "pending_confirmations" in data
+
+    # Should have 3 in-progress jobs (pending, processing, failed)
+    assert len(data["in_progress"]) == 3
+
+    # Verify statuses are present
+    statuses = [job["status"] for job in data["in_progress"]]
+    assert "pending" in statuses
+    assert "processing" in statuses
+    assert "failed" in statuses
+
+    # The failed job should have error_message
+    failed_jobs = [j for j in data["in_progress"] if j["status"] == "failed"]
+    assert len(failed_jobs) == 1
+    assert failed_jobs[0]["error_message"] == "Test error"
+
+    # Should have 1 pending confirmation
+    assert len(data["pending_confirmations"]) == 1
+
+
+def test_delete_voice_input(client, auth_headers, db):
+    """Test deleting a voice input."""
+    user_id = auth_headers.user_id
+
+    from src.models.voice_input import VoiceInput
+
+    # Create a failed voice input
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="failed input to delete",
+        status="failed",
+        error_message="Some error",
+    )
+    db.add(voice_input)
+    db.commit()
+    voice_id = voice_input.id
+
+    # Delete the voice input
+    response = client.delete(f"/api/v1/voice/{voice_id}", headers=auth_headers)
+    assert response.status_code == 204
+
+    # Verify it's gone
+    get_response = client.get(f"/api/v1/voice/{voice_id}", headers=auth_headers)
+    assert get_response.status_code == 404
+
+
+def test_delete_voice_input_not_found(client, auth_headers):
+    """Test deleting a non-existent voice input."""
+    response = client.delete("/api/v1/voice/99999", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_delete_voice_input_unauthorized(client, auth_headers, db):
+    """Test that users cannot delete other users' voice inputs."""
+    user_id = auth_headers.user_id
+
+    from src.models.voice_input import VoiceInput
+
+    # Create a voice input for user 1
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="user1's input",
+        status="failed",
+    )
+    db.add(voice_input)
+    db.commit()
+    voice_id = voice_input.id
+
+    # Create a second user
+    user2_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "user2@example.com", "password": "testpass123", "name": "User 2"},
+    )
+    assert user2_response.status_code == 201
+    user2_token = user2_response.json()["access_token"]
+    user2_headers = {"Authorization": f"Bearer {user2_token}"}
+
+    # Try to delete with user 2's auth
+    response = client.delete(f"/api/v1/voice/{voice_id}", headers=user2_headers)
+    assert response.status_code == 403
+
+
+def test_retry_voice_input(client, auth_headers, db):
+    """Test retrying a failed voice input."""
+    user_id = auth_headers.user_id
+
+    from src.models.voice_input import VoiceInput
+
+    # Create a failed voice input
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="orignal typo text",
+        status="failed",
+        error_message="Parse error",
+    )
+    db.add(voice_input)
+    db.commit()
+    voice_id = voice_input.id
+
+    # Retry with corrected text
+    with patch("src.tasks.voice_processing.process_voice_input.delay") as mock_task:
+        response = client.post(
+            f"/api/v1/voice/{voice_id}/retry",
+            headers=auth_headers,
+            json={"raw_text": "original corrected text"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "pending"
+        assert data["raw_text"] == "original corrected text"
+        assert data["error_message"] is None
+        # Verify task was triggered
+        mock_task.assert_called_once()
+
+
+def test_retry_voice_input_not_found(client, auth_headers):
+    """Test retrying a non-existent voice input."""
+    response = client.post(
+        "/api/v1/voice/99999/retry",
+        headers=auth_headers,
+        json={"raw_text": "test"},
+    )
+    assert response.status_code == 404
+
+
+def test_retry_voice_input_unauthorized(client, auth_headers, db):
+    """Test that users cannot retry other users' voice inputs."""
+    user_id = auth_headers.user_id
+
+    from src.models.voice_input import VoiceInput
+
+    # Create a voice input for user 1
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="user1's input",
+        status="failed",
+    )
+    db.add(voice_input)
+    db.commit()
+    voice_id = voice_input.id
+
+    # Create a second user
+    user2_response = client.post(
+        "/api/v1/auth/register",
+        json={"email": "user2-retry@example.com", "password": "testpass123", "name": "User 2"},
+    )
+    assert user2_response.status_code == 201
+    user2_token = user2_response.json()["access_token"]
+    user2_headers = {"Authorization": f"Bearer {user2_token}"}
+
+    # Try to retry with user 2's auth
+    response = client.post(
+        f"/api/v1/voice/{voice_id}/retry",
+        headers=user2_headers,
+        json={"raw_text": "hacked"},
+    )
+    assert response.status_code == 403
+
+
+def test_retry_voice_input_already_completed(client, auth_headers, db):
+    """Test that completed voice inputs cannot be retried."""
+    user_id = auth_headers.user_id
+
+    from src.models.voice_input import VoiceInput
+
+    # Create a completed voice input
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="completed input",
+        status="completed",
+    )
+    db.add(voice_input)
+    db.commit()
+    voice_id = voice_input.id
+
+    response = client.post(
+        f"/api/v1/voice/{voice_id}/retry",
+        headers=auth_headers,
+        json={"raw_text": "try again"},
+    )
+    assert response.status_code == 400

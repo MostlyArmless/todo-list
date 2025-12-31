@@ -15,9 +15,12 @@ from src.models.user import User
 from src.models.voice_input import VoiceInput
 from src.schemas.voice import (
     ConfirmationAction,
+    InProgressVoiceJob,
     PendingConfirmationResponse,
     VoiceInputCreate,
     VoiceInputResponse,
+    VoiceInputRetry,
+    VoiceQueueResponse,
 )
 from src.tasks.voice_processing import process_voice_input
 
@@ -68,12 +71,24 @@ def get_voice_input(
     return voice_input
 
 
-@router.get("/pending/list", response_model=list[PendingConfirmationResponse])
+@router.get("/pending/list", response_model=VoiceQueueResponse)
 def list_pending_confirmations(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
-    """List all pending confirmations for the current user."""
+    """List in-progress voice jobs and pending confirmations for the current user."""
+    # Get in-progress and failed voice inputs
+    in_progress = (
+        db.query(VoiceInput)
+        .filter(
+            VoiceInput.user_id == current_user.id,
+            VoiceInput.status.in_(["pending", "processing", "failed"]),
+        )
+        .order_by(VoiceInput.created_at.desc())
+        .all()
+    )
+
+    # Get pending confirmations
     confirmations = (
         db.query(PendingConfirmation)
         .filter(
@@ -83,7 +98,11 @@ def list_pending_confirmations(
         .order_by(PendingConfirmation.created_at.desc())
         .all()
     )
-    return confirmations
+
+    return VoiceQueueResponse(
+        in_progress=[InProgressVoiceJob.model_validate(vi) for vi in in_progress],
+        pending_confirmations=confirmations,
+    )
 
 
 @router.get("/pending/{confirmation_id}", response_model=PendingConfirmationResponse)
@@ -197,3 +216,58 @@ def action_pending_confirmation(
         raise HTTPException(status_code=400, detail="Invalid action")
 
     return confirmation
+
+
+@router.delete("/{voice_input_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_voice_input(
+    voice_input_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Delete a voice input (used to dismiss failed jobs)."""
+    voice_input = db.query(VoiceInput).filter(VoiceInput.id == voice_input_id).first()
+    if not voice_input:
+        raise HTTPException(status_code=404, detail="Voice input not found")
+
+    if voice_input.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    db.delete(voice_input)
+    db.commit()
+
+    logger.info(f"Deleted voice input {voice_input_id} for user {current_user.id}")
+
+
+@router.post("/{voice_input_id}/retry", response_model=VoiceInputResponse)
+def retry_voice_input(
+    voice_input_id: int,
+    retry_data: VoiceInputRetry,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Retry a failed voice input with optionally edited text."""
+    voice_input = db.query(VoiceInput).filter(VoiceInput.id == voice_input_id).first()
+    if not voice_input:
+        raise HTTPException(status_code=404, detail="Voice input not found")
+
+    if voice_input.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if voice_input.status not in ["failed", "pending", "processing"]:
+        raise HTTPException(status_code=400, detail="Voice input cannot be retried")
+
+    # Update the voice input with new text and reset status
+    voice_input.raw_text = retry_data.raw_text
+    voice_input.status = "pending"
+    voice_input.error_message = None
+    voice_input.result_json = None
+    voice_input.processed_at = None
+    db.commit()
+    db.refresh(voice_input)
+
+    # Trigger async processing
+    process_voice_input.delay(voice_input.id)
+
+    logger.info(f"Retrying voice input {voice_input_id} for user {current_user.id}")
+
+    return voice_input
