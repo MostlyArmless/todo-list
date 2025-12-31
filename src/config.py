@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # LLM
     ollama_base_url: str = Field(default="http://localhost:11434")
-    llm_model: str = Field(default="gemma3:12b")
+    llm_model: str = Field(default="qwen2.5:7b")
 
     # USDA FoodData Central API (for nutrition data - free)
     usda_api_key: str | None = Field(default=None)

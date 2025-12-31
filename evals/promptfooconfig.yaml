@@ -1,0 +1,468 @@
+description: 'LLM Model Comparison: gemma3:12b vs qwen2.5:7b'
+providers:
+- id: ollama:gemma3:12b
+  label: gemma3:12b
+  config:
+    temperature: 0.1
+    num_predict: 2048
+- id: ollama:qwen2.5:7b
+  label: qwen2.5:7b
+  config:
+    temperature: 0.1
+    num_predict: 2048
+defaultTest:
+  options:
+    transform: "let text = output.trim();\nif (text.startsWith('```json')) {\n  text = text.slice(7);\n} else if (text.startsWith('```'))\
+      \ {\n  text = text.slice(3);\n}\nif (text.endsWith('```')) {\n  text = text.slice(0, -3);\n}\nreturn text.trim();\n"
+tests:
+- description: 'Voice: Simple addition'
+  vars:
+    voice_text: add milk to costco
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Common patterns:\n- \"add milk to costco list\" → {\"action\": \"add\", \"list_name\": \"costco\", \"items\": [\"milk\"\
+      ]}\n- \"add apples and bananas to walmart\" → {\"action\": \"add\", \"list_name\": \"walmart\", \"items\": [\"apples\"\
+      , \"bananas\"]}\n- \"remove eggs from todo list\" → {\"action\": \"remove\", \"list_name\": \"todo\", \"items\": [\"\
+      eggs\"]}\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\"\
+      : \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.action === 'add' &&\n       json.list_name.toLowerCase() === 'costco'\
+      \ &&\n       json.items.some(i => i.toLowerCase().includes('milk'));\n"
+- description: 'Voice: Multiple items'
+  vars:
+    voice_text: add apples bananas and oranges to walmart
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Respond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\": \"string\"\
+      ,\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.action === 'add' &&\n       json.list_name.toLowerCase() === 'walmart'\
+      \ &&\n       json.items.length >= 3;\n"
+- description: 'Voice: Fuzzy list matching'
+  vars:
+    voice_text: add eggs to the costco list
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Respond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\": \"string\"\
+      ,\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.action === 'add' &&\n       json.list_name.toLowerCase() === 'costco';\n"
+- description: 'Voice: Remove action'
+  vars:
+    voice_text: remove bread from shopping list
+    available_lists: '"Costco", "Walmart", "Shopping List"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Respond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\": \"string\"\
+      ,\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.action === 'remove' &&\n       json.items.some(i => i.toLowerCase().includes('bread'));\n"
+- description: 'Voice: Default to todo list'
+  vars:
+    voice_text: add butter
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Respond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\": \"string\"\
+      ,\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.action === 'add' &&\n       json.list_name.toLowerCase() === 'todo';\n"
+- description: 'Voice: Compound items'
+  vars:
+    voice_text: add olive oil and balsamic vinegar to costco
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Respond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\": \"string\"\
+      ,\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.action === ''add'' && json.items.length === 2;
+
+      '
+- description: 'Voice: Natural language phrasing'
+  vars:
+    voice_text: I need to pick up some chicken breast and ground beef at walmart
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a shopping list assistant. Parse voice input into structured todo items.\n\nExtract:\n- list_name: which\
+      \ list (e.g., \"costco\", \"walmart\", \"todo\")\n- items: array of item names\n- action: \"add\" or \"remove\"\n\n\
+      Respond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\" | \"remove\",\n  \"list_name\": \"string\"\
+      ,\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\
+      \nIf the list name doesn't match exactly, use fuzzy matching (e.g., \"costco\" matches \"Costco\").\nIf no list is mentioned,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.action === 'add' &&\n       json.list_name.toLowerCase() === 'walmart'\
+      \ &&\n       json.items.length >= 2;\n"
+- description: 'Category: Clear dairy (milk)'
+  vars:
+    item_name: milk
+    categories: '- ID 1: Dairy (past items: yogurt, cheese, butter, cream)
+
+      - ID 2: Produce (past items: apples, lettuce, tomatoes, bananas)
+
+      - ID 3: Pantry (past items: rice, pasta, olive oil, canned beans)
+
+      - ID 4: Meat (past items: chicken breast, ground beef, bacon)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nGiven an item name, list of categories with their historical\
+      \ items, suggest the best category.\n\nConsider:\n1. Historical patterns (items previously in each category)\n2. Semantic\
+      \ similarity (e.g., \"milk\" goes with \"dairy\")\n3. Store layout context (categories are often store sections)\n\n\
+      Important distinctions:\n- PANTRY: Dried spices, dried herbs, and seasonings, canned goods, dry goods, oils, vinegars\n\
+      - PRODUCE: Fresh fruits, fresh vegetables, fresh herbs only if specified as \"fresh\"\n- When ambiguous (e.g., \"coriander\"\
+      \ without \"fresh\"), prefer Pantry for herbs/spices\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number\
+      \ | null,\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"brief explanation\"\n}\n\nIf confidence < 0.5, set category_id\
+      \ to null for manual confirmation.\n\nItem to categorize: \"{{item_name}}\"\n\nAvailable categories:\n{{categories}}\n\
+      \nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 1 && json.confidence >= 0.7;
+
+      '
+- description: 'Category: Clear produce (bananas)'
+  vars:
+    item_name: bananas
+    categories: '- ID 1: Dairy (past items: milk, yogurt, cheese)
+
+      - ID 2: Produce (past items: apples, lettuce, tomatoes)
+
+      - ID 3: Pantry (past items: rice, pasta, olive oil)
+
+      - ID 4: Meat (past items: chicken, beef, pork)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number\
+      \ | null,\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\
+      \n\nAvailable categories:\n{{categories}}\n\nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 2 && json.confidence >= 0.7;
+
+      '
+- description: 'Category: Dried herb to Pantry (oregano)'
+  vars:
+    item_name: oregano
+    categories: '- ID 1: Dairy (past items: milk, cheese)
+
+      - ID 2: Produce (past items: apples, lettuce, fresh basil)
+
+      - ID 3: Pantry (past items: paprika, cumin, cinnamon, olive oil)
+
+      - ID 4: Meat (past items: chicken, beef)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nImportant: Dried spices and herbs (oregano, paprika, cumin)\
+      \ go in Pantry. Only \"fresh X\" goes in Produce.\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number | null,\n\
+      \  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\n\n\
+      Available categories:\n{{categories}}\n\nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 3;
+
+      '
+- description: 'Category: Fresh herb to Produce'
+  vars:
+    item_name: fresh basil
+    categories: '- ID 1: Dairy (past items: milk, cheese)
+
+      - ID 2: Produce (past items: apples, lettuce, tomatoes, fresh cilantro)
+
+      - ID 3: Pantry (past items: dried basil, oregano, cumin)
+
+      - ID 4: Meat (past items: chicken, beef)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nImportant: Items labeled \"fresh X\" go in Produce. Dried\
+      \ herbs go in Pantry.\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number | null,\n  \"confidence\": 0.0-1.0,\n\
+      \  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\n\nAvailable categories:\n{{categories}}\n\
+      \nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 2;
+
+      '
+- description: 'Category: Ambiguous herb prefers Pantry (coriander)'
+  vars:
+    item_name: coriander
+    categories: '- ID 1: Dairy (past items: milk, cheese)
+
+      - ID 2: Produce (past items: apples, fresh cilantro)
+
+      - ID 3: Pantry (past items: cumin, paprika, dried herbs)
+
+      - ID 4: Meat (past items: chicken, beef)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nImportant: When herb name is ambiguous (no \"fresh\" qualifier),\
+      \ prefer Pantry since dried is more common on shopping lists.\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\"\
+      : number | null,\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\
+      \n\nAvailable categories:\n{{categories}}\n\nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 3;
+
+      '
+- description: 'Category: Meat item (chicken thighs)'
+  vars:
+    item_name: chicken thighs
+    categories: '- ID 1: Dairy (past items: milk, cheese)
+
+      - ID 2: Produce (past items: apples, lettuce)
+
+      - ID 3: Pantry (past items: rice, pasta)
+
+      - ID 4: Meat (past items: chicken breast, ground beef, pork chops)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number\
+      \ | null,\n  \"confidence\": 0.0-1.0,\n  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\
+      \n\nAvailable categories:\n{{categories}}\n\nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 4 && json.confidence >= 0.7;
+
+      '
+- description: 'Category: Oil to Pantry'
+  vars:
+    item_name: avocado oil
+    categories: '- ID 1: Dairy (past items: milk, cheese)
+
+      - ID 2: Produce (past items: avocado, lettuce)
+
+      - ID 3: Pantry (past items: olive oil, vegetable oil, coconut oil)
+
+      - ID 4: Meat (past items: chicken, beef)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nImportant: Oils go in Pantry, not Produce (even if derived\
+      \ from produce items).\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number | null,\n  \"confidence\": 0.0-1.0,\n\
+      \  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\n\nAvailable categories:\n{{categories}}\n\
+      \nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 3 && json.confidence >= 0.7;
+
+      '
+- description: 'Category: Canned goods to Pantry'
+  vars:
+    item_name: canned tomatoes
+    categories: '- ID 1: Dairy (past items: milk, cheese)
+
+      - ID 2: Produce (past items: fresh tomatoes, lettuce)
+
+      - ID 3: Pantry (past items: canned beans, canned corn, rice)
+
+      - ID 4: Meat (past items: chicken, beef)
+
+      '
+    prompt: "You are a shopping list categorization assistant.\n\nImportant: Canned goods go in Pantry, not Produce (even\
+      \ if the item is a vegetable).\n\nRespond ONLY with valid JSON:\n{\n  \"category_id\": number | null,\n  \"confidence\"\
+      : 0.0-1.0,\n  \"reasoning\": \"brief explanation\"\n}\n\nItem to categorize: \"{{item_name}}\"\n\nAvailable categories:\n\
+      {{categories}}\n\nWhich category best fits this item? Respond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: 'const json = JSON.parse(output);
+
+      return json.category_id === 3 && json.confidence >= 0.7;
+
+      '
+- description: 'Recipe: Simple pancakes'
+  vars:
+    recipe_text: 'Classic Pancakes
+
+      Serves 4
+
+
+      Ingredients:
+
+      - 1 cup all-purpose flour
+
+      - 2 tablespoons sugar
+
+      - 1 teaspoon baking powder
+
+      - 1 cup milk
+
+      - 1 egg
+
+      - 2 tablespoons melted butter
+
+
+      Instructions:
+
+      1. Mix dry ingredients in a bowl.
+
+      2. Add milk, egg, and melted butter.
+
+      3. Whisk until smooth.
+
+      4. Cook on a greased griddle until bubbles form.
+
+      5. Flip and cook until golden brown.
+
+      '
+    prompt: "You are a recipe parsing assistant. Extract structured data from free-form recipe text.\n\nExtract:\n- name:\
+      \ The recipe title\n- servings: Number of servings (integer or null if not specified)\n- ingredients: Array of {name,\
+      \ quantity, description} objects\n- instructions: The cooking steps as markdown\n\nIngredient field rules:\n- name:\
+      \ The ingredient name only (e.g., \"flour\", \"butter\")\n- quantity: Numeric amount + unit (e.g., \"2 cups\", \"1 lb\"\
+      ). Use \"Tbsp\" not \"tablespoon\", \"tsp\" not \"teaspoon\". Set to null if no specific amount.\n- description: Preparation\
+      \ notes (e.g., \"melted\", \"finely chopped\"). Set to null if none.\n\nRespond ONLY with valid JSON:\n{\n  \"name\"\
+      : \"string\",\n  \"servings\": number | null,\n  \"ingredients\": [{\"name\": \"string\", \"quantity\": \"string | null\"\
+      , \"description\": \"string | null\"}, ...],\n  \"instructions\": \"markdown string\"\n}\n\nParse this recipe:\n---\n\
+      {{recipe_text}}\n---\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.name &&\n       json.servings === 4 &&\n       json.ingredients.length\
+      \ >= 5 &&\n       json.instructions.includes('1.');\n"
+- description: 'Recipe: Unit standardization (tablespoons to Tbsp)'
+  vars:
+    recipe_text: 'Garlic Butter Shrimp
+
+
+      1 pound large shrimp, peeled
+
+      4 tablespoons butter
+
+      4 cloves garlic, minced
+
+
+      Melt butter. Add garlic. Add shrimp. Cook 3 minutes per side.
+
+      '
+    prompt: "You are a recipe parsing assistant.\n\nQuantity unit standardization - ALWAYS use abbreviated forms:\n- \"Tbsp\"\
+      \ not \"tablespoon\" or \"tablespoons\"\n- \"tsp\" not \"teaspoon\" or \"teaspoons\"\n- \"lb\" not \"pound\" or \"pounds\"\
+      \n\nRespond ONLY with valid JSON:\n{\n  \"name\": \"string\",\n  \"servings\": number | null,\n  \"ingredients\": [{\"\
+      name\": \"string\", \"quantity\": \"string | null\", \"description\": \"string | null\"}, ...],\n  \"instructions\"\
+      : \"markdown string\"\n}\n\nParse this recipe:\n---\n{{recipe_text}}\n---\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nconst butterIngredient = json.ingredients.find(i =>\n  i.name.toLowerCase().includes('butter')\n\
+      );\nreturn json.name &&\n       json.ingredients.length >= 3 &&\n       butterIngredient &&\n       butterIngredient.quantity\
+      \ &&\n       (butterIngredient.quantity.includes('Tbsp') || butterIngredient.quantity.includes('4'));\n"
+- description: 'Recipe: No servings specified'
+  vars:
+    recipe_text: 'Simple Vinaigrette
+
+
+      3 tablespoons olive oil
+
+      1 tablespoon red wine vinegar
+
+      1 teaspoon Dijon mustard
+
+      Salt to taste
+
+
+      Whisk all ingredients together until emulsified.
+
+      '
+    prompt: "You are a recipe parsing assistant.\n\nRespond ONLY with valid JSON:\n{\n  \"name\": \"string\",\n  \"servings\"\
+      : number | null,\n  \"ingredients\": [{\"name\": \"string\", \"quantity\": \"string | null\", \"description\": \"string\
+      \ | null\"}, ...],\n  \"instructions\": \"markdown string\"\n}\n\nImportant: If servings is not specified in the recipe,\
+      \ return null for servings.\n\nParse this recipe:\n---\n{{recipe_text}}\n---\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn json.name &&\n       json.servings === null &&\n       json.ingredients.length\
+      \ >= 3;\n"
+- description: 'Pantry: Exact matches'
+  vars:
+    ingredients: '["olive oil", "salt", "black pepper"]'
+    pantry_items: '["olive oil", "salt", "black pepper", "garlic"]'
+    prompt: "You are a kitchen pantry assistant. Match recipe ingredients to pantry items.\n\nConsider:\n1. Exact matches\
+      \ (e.g., \"olive oil\" → \"olive oil\")\n2. Partial matches (e.g., \"garlic cloves\" → \"garlic\")\n3. Ingredient forms\
+      \ (e.g., \"fresh basil\" → \"basil\")\n4. Common substitutions shouldn't match (butter ≠ margarine)\n\nRespond ONLY\
+      \ with valid JSON - an array with one object per ingredient:\n[\n  {\"ingredient\": \"string\", \"pantry_match\": \"\
+      string\" | null, \"confidence\": 0.0-1.0}\n]\n\nRules:\n- confidence >= 0.7: confident match\n- confidence 0.4-0.7:\
+      \ possible match\n- confidence < 0.4 or no match: set pantry_match to null\n\nRecipe ingredients: {{ingredients}}\n\
+      Pantry items: {{pantry_items}}\n\nRespond with JSON array only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn Array.isArray(json) &&\n       json.length === 3 &&\n       json.every(m\
+      \ => m.confidence >= 0.9);\n"
+- description: 'Pantry: Partial matches'
+  vars:
+    ingredients: '["garlic cloves", "chicken broth"]'
+    pantry_items: '["garlic", "chicken stock", "olive oil"]'
+    prompt: "You are a kitchen pantry assistant. Match recipe ingredients to pantry items.\n\nConsider:\n1. Exact matches\
+      \ (e.g., \"olive oil\" → \"olive oil\")\n2. Partial matches (e.g., \"garlic cloves\" → \"garlic\")\n3. Ingredient forms\
+      \ (e.g., \"fresh basil\" → \"basil\")\n\nRespond ONLY with valid JSON - an array with one object per ingredient:\n[\n\
+      \  {\"ingredient\": \"string\", \"pantry_match\": \"string\" | null, \"confidence\": 0.0-1.0}\n]\n\nRecipe ingredients:\
+      \ {{ingredients}}\nPantry items: {{pantry_items}}\n\nRespond with JSON array only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nconst garlicMatch = json.find(m => m.ingredient.includes('garlic'));\nreturn\
+      \ Array.isArray(json) &&\n       json.length === 2 &&\n       garlicMatch && garlicMatch.pantry_match === 'garlic';\n"
+- description: 'Pantry: No matches available'
+  vars:
+    ingredients: '["saffron", "truffle oil"]'
+    pantry_items: '["olive oil", "salt", "pepper", "garlic"]'
+    prompt: "You are a kitchen pantry assistant. Match recipe ingredients to pantry items.\n\nRules:\n- confidence >= 0.7:\
+      \ confident match\n- confidence 0.4-0.7: possible match\n- confidence < 0.4 or no match: set pantry_match to null\n\
+      - Different items should NOT match (truffle oil ≠ olive oil)\n\nRespond ONLY with valid JSON - an array with one object\
+      \ per ingredient:\n[\n  {\"ingredient\": \"string\", \"pantry_match\": \"string\" | null, \"confidence\": 0.0-1.0}\n\
+      ]\n\nRecipe ingredients: {{ingredients}}\nPantry items: {{pantry_items}}\n\nRespond with JSON array only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: "const json = JSON.parse(output);\nreturn Array.isArray(json) &&\n       json.length === 2 &&\n       json.every(m\
+      \ => m.pantry_match === null || m.confidence < 0.5);\n"
+outputPath: ./results/eval-results.json
+prompts:
+- '{{prompt}}'
