@@ -23,6 +23,7 @@ Self-hosted shopping and meal planning application with voice input, recipe mana
 - **Web Speech API**: Browser-native speech recognition
 - **Natural Language Processing**: Add multiple items in one sentence
 - **Confirmation Flow**: Review and edit parsed items before adding
+- **Browser Support**: Chrome, Edge, Safari, and Brave (Android only). Brave on desktop does not support Web Speech API due to privacy restrictions.
 
 ### Recipe Management
 - **Recipe Library**: Store recipes with ingredients and instructions

@@ -94,6 +94,15 @@ Located in `/web/` with App Router (`/web/src/app/`):
 - `/voice` - Standalone voice input page (also at `/web/public/voice/index.html`)
 - `/confirm` - Pending confirmation review
 
+**Voice Page Browser Compatibility:**
+The `/voice` page uses the Web Speech API for speech recognition. This API works differently across browsers:
+- **Chrome/Edge (all platforms)**: Full support - uses Google's cloud speech recognition
+- **Safari**: Works on macOS and iOS
+- **Brave (Android)**: Works - uses Android's on-device speech recognition
+- **Brave (Desktop)**: **Does NOT work** - Brave intentionally blocks connections to Google's speech servers for privacy reasons. There is no workaround; users must use Chrome/Edge/Safari on desktop. See [GitHub issue #3725](https://github.com/brave/brave-browser/issues/3725).
+
+The voice page detects desktop Brave and shows a warning banner directing users to use Chrome instead.
+
 API client in `/web/src/lib/api.ts` handles auth token management and includes a 30-second in-memory cache for GET requests. Mutations automatically invalidate related cache entries.
 
 ### Local Network Deployment (Deprecated)

@@ -4,10 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#63b3ab" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Voice Input - Todo List</title>
-    <link rel="manifest" href="/voice/manifest.json" />
+    <!-- Manifest disabled: Cloudflare Access blocks it causing CORS errors -->
+    <!-- <link rel="manifest" href="/voice/manifest.json" /> -->
     <link rel="icon" href="/voice/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="/voice/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -206,10 +208,57 @@
         width: 16px;
         height: 16px;
       }
+
+      .browser-warning {
+        background: var(--danger-muted);
+        border: 1px solid var(--danger);
+        border-radius: var(--radius-lg);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        text-align: left;
+      }
+
+      .browser-warning h3 {
+        color: var(--danger);
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .browser-warning p {
+        color: var(--text-secondary);
+        font-size: 0.813rem;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      .browser-warning a {
+        color: var(--accent);
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
     <div class="container">
+      <div class="browser-warning hidden" id="braveWarning">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+            <path d="M12 9v4"/><path d="M12 17h.01"/>
+          </svg>
+          Voice Input Not Supported in Brave Desktop
+        </h3>
+        <p>
+          Brave browser on desktop blocks the Web Speech API for privacy reasons.
+          Please use <strong>Chrome</strong>, <strong>Edge</strong>, or <strong>Safari</strong> instead,
+          or use Brave on your Android phone where it works via on-device recognition.
+          <a href="https://github.com/brave/brave-browser/issues/3725" target="_blank" rel="noopener">Learn more</a>
+        </p>
+      </div>
+
       <div class="card">
         <h1>Voice Input</h1>
         <p class="subtitle">Tap the microphone and speak to add items to your lists</p>
@@ -243,6 +292,19 @@
       let recognition = null;
       let isListening = false;
       let isProcessing = false;
+
+      // Detect desktop Brave browser and show warning
+      // Brave on desktop blocks Web Speech API; Brave on Android works via on-device recognition
+      function isDesktopBrave() {
+        const ua = navigator.userAgent;
+        const isBrave = navigator.brave && navigator.brave.isBrave || /Brave/.test(ua);
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+        return isBrave && !isMobile;
+      }
+
+      if (isDesktopBrave()) {
+        document.getElementById('braveWarning').classList.remove('hidden');
+      }
 
       // DOM elements
       const micButton = document.getElementById('micButton');
