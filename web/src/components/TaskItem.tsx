@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
-import { api, type Item, type Category, type RecurrencePattern } from '@/lib/api';
+import { useState, useEffect, type ReactNode } from 'react';
+import { type Item, type RecurrencePattern } from '@/lib/api';
 import styles from './TaskItem.module.css';
 
 // URL regex that matches http(s) URLs
@@ -75,7 +75,7 @@ const RECURRENCE_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
-function formatDueDate(dateStr: string): string {
+function formatAbsoluteDateTime(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -93,6 +93,34 @@ function formatDueDate(dateStr: string): string {
     const dateFormatted = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     return `${dateFormatted} at ${timeStr}`;
   }
+}
+
+/**
+ * Format relative time as "Xd Xh Xm" with fixed-width padding.
+ * Shows days only if > 0, hours only if > 0 or days > 0, always shows minutes.
+ * Negative values show as past time with "-" prefix.
+ */
+function formatRelativeCountdown(targetDate: Date, now: Date): string {
+  const diffMs = targetDate.getTime() - now.getTime();
+  const isPast = diffMs < 0;
+  const absDiffMs = Math.abs(diffMs);
+
+  const totalMinutes = Math.floor(absDiffMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  // Build the string with fixed-width components
+  let result = '';
+  if (days > 0) {
+    result += `${days}d`;
+  }
+  if (days > 0 || hours > 0) {
+    result += `${hours}h`;
+  }
+  result += `${minutes}m`;
+
+  return isPast ? `-${result}` : result;
 }
 
 function formatCompletedAt(dateStr: string): string {
@@ -125,47 +153,11 @@ function parseOffsetMs(offset: string): number {
   }
 }
 
-function formatReminderTime(dueDate: string, offset: string): { absolute: string; relative: string } | null {
+function getReminderTime(dueDate: string, offset: string): Date | null {
   if (!dueDate || !offset) return null;
-
   const due = new Date(dueDate);
   const offsetMs = parseOffsetMs(offset);
-  const reminderTime = new Date(due.getTime() - offsetMs);
-  const now = new Date();
-
-  // Absolute time
-  const timeStr = reminderTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const reminderDate = new Date(reminderTime.getFullYear(), reminderTime.getMonth(), reminderTime.getDate());
-
-  let absolute: string;
-  if (reminderDate.getTime() === today.getTime()) {
-    absolute = timeStr;
-  } else {
-    absolute = reminderTime.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeStr;
-  }
-
-  // Relative time
-  const diffMs = reminderTime.getTime() - now.getTime();
-  const diffMin = Math.round(diffMs / 60000);
-
-  let relative: string;
-  if (diffMs < 0) {
-    const pastMin = Math.abs(diffMin);
-    if (pastMin < 60) relative = `${pastMin}m ago`;
-    else if (pastMin < 1440) relative = `${Math.round(pastMin / 60)}h ago`;
-    else relative = `${Math.round(pastMin / 1440)}d ago`;
-  } else if (diffMin < 1) {
-    relative = 'now';
-  } else if (diffMin < 60) {
-    relative = `in ${diffMin}m`;
-  } else if (diffMin < 1440) {
-    relative = `in ${Math.round(diffMin / 60)}h`;
-  } else {
-    relative = `in ${Math.round(diffMin / 1440)}d`;
-  }
-
-  return { absolute, relative };
+  return new Date(due.getTime() - offsetMs);
 }
 
 export default function TaskItem({
@@ -181,6 +173,18 @@ export default function TaskItem({
   const [editReminderOffset, setEditReminderOffset] = useState(item.reminder_offset || '');
   const [editRecurrence, setEditRecurrence] = useState(item.recurrence_pattern || '');
   const [saving, setSaving] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  // Real-time countdown update
+  useEffect(() => {
+    if (item.checked || !item.due_date) return;
+
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [item.checked, item.due_date]);
 
   const handleStartEdit = () => {
     setEditName(item.name);
@@ -329,7 +333,10 @@ export default function TaskItem({
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
-              {formatDueDate(item.due_date)}
+              {formatAbsoluteDateTime(item.due_date)}
+              <span className={styles.countdown}>
+                ({formatRelativeCountdown(new Date(item.due_date), now)})
+              </span>
             </span>
           )}
 
@@ -349,15 +356,18 @@ export default function TaskItem({
 
           {/* Reminder indicator */}
           {item.reminder_offset && item.due_date && !item.checked && (() => {
-            const reminder = formatReminderTime(item.due_date, item.reminder_offset);
-            if (!reminder) return null;
+            const reminderTime = getReminderTime(item.due_date, item.reminder_offset);
+            if (!reminderTime) return null;
             return (
               <span className={styles.reminderBadge} title={`Reminder: ${REMINDER_OFFSET_OPTIONS.find(o => o.value === item.reminder_offset)?.label || item.reminder_offset}`}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                {reminder.absolute} ({reminder.relative})
+                {formatAbsoluteDateTime(reminderTime.toISOString())}
+                <span className={styles.countdown}>
+                  ({formatRelativeCountdown(reminderTime, now)})
+                </span>
               </span>
             );
           })()}

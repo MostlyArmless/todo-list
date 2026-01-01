@@ -125,7 +125,18 @@
 .reminderBadge {
   display: flex;
   align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
+}
+
+/* Countdown - fixed width monospace to prevent layout shift */
+.countdown {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  min-width: 5.5em;
+  display: inline-block;
+  text-align: left;
 }
 
 /* Action Buttons */
