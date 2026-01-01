@@ -1,250 +1,116 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Build and Development Commands
 
-### Docker Services
 ```bash
+# Docker Services
 docker compose up -d              # Start all services
 docker compose down               # Stop all services
 docker compose logs -f api        # Follow API logs
 docker compose logs -f celery-worker  # Follow Celery logs
-```
 
-### Testing
-```bash
-# Run all tests (in Docker)
+# Testing (in Docker)
 docker compose exec -T api pytest --tb=short -q
-
-# Run specific test file
-docker compose exec -T api pytest tests/test_api.py -v
-
-# Run specific test
 docker compose exec -T api pytest tests/test_api.py::test_create_list -v
-```
 
-### Database Migrations
-```bash
+# Database
 docker compose exec api alembic revision --autogenerate -m "description"
 docker compose exec api alembic upgrade head
 docker compose exec api alembic downgrade -1
-```
-
-### Linting and Formatting (requires `uv sync --extra dev`)
-```bash
-uv run ruff format .              # Format code
-uv run ruff check . --fix         # Lint and auto-fix
-```
-
-### Direct Database Access
-```bash
 docker compose exec -T db psql -U todo_user -d todo_list
+
+# Linting (requires `uv sync --extra dev`)
+uv run ruff format .
+uv run ruff check . --fix
 ```
 
 ## Architecture
 
 ### Backend (FastAPI + Celery)
 
-**API Structure**: `/src/api/` contains routers following REST conventions:
-- `auth.py`: JWT-based authentication (register, login)
-- `lists.py`, `categories.py`, `items.py`: Standard CRUD
-- `voice.py`: Voice input processing with async Celery tasks
+**API Structure** (`/src/api/`): `auth.py` (JWT), `lists.py`, `categories.py`, `items.py`, `voice.py`
 
 **Voice Processing Flow**:
-1. User submits voice text via `POST /api/v1/voice`
-2. Celery task `process_voice_input` parses with Ollama LLM
-3. Items auto-categorized using `CategorizationService` (history-first, LLM fallback)
-4. Creates `PendingConfirmation` for user review
-5. User confirms/rejects via `/api/v1/voice/pending/{id}/action`
+1. `POST /api/v1/voice` → Celery task `process_voice_input` → Ollama LLM parsing
+2. Auto-categorization via `CategorizationService` (history-first, LLM fallback)
+3. Creates `PendingConfirmation` → user confirms via `/api/v1/voice/pending/{id}/action`
 
-**Categorization Strategy** (`src/services/categorization.py`):
-1. Exact match on `ItemHistory.normalized_name` → confidence 1.0
-2. Fuzzy substring match weighted by `occurrence_count` → confidence ≥0.5
-3. LLM fallback with category context
+**Categorization** (`src/services/categorization.py`): Exact match (confidence 1.0) → fuzzy substring (≥0.5) → LLM fallback
 
-**After adding new Celery tasks**, restart the worker to register them:
-```bash
-docker compose restart celery-worker
-```
+**After adding Celery tasks**: `docker compose restart celery-worker`
 
-**Household Sharing** (`src/api/dependencies.py`):
-Users who share lists form a "household" and automatically share recipes and pantry items. Use `get_household_user_ids(db, user)` to get all user IDs in a household, then filter queries with `.filter(Model.user_id.in_(household_ids))`. This pattern is used in:
-- `recipes.py` - All recipe queries
-- `pantry.py` - All pantry queries
+**Household Sharing** (`src/api/dependencies.py`): Users sharing lists form a "household" and auto-share recipes/pantry. Use `get_household_user_ids(db, user)` then `.filter(Model.user_id.in_(household_ids))`. Lists use explicit `ListShare` table with permission levels.
 
-Lists use explicit sharing via `ListShare` table with permission levels (view/edit/admin).
+**List Types**: `grocery` (default) or `task`. Task lists support `due_date`, `reminder_offset`, `reminder_at`, `recurrence_pattern`.
 
-**Recipe Images** (`src/api/recipes.py`):
-Recipes can have an associated image. Images are:
-- Uploaded via `POST /api/v1/recipes/{id}/image` (multipart/form-data)
-- Resized on upload: 800px max for main image, 200px thumbnail
-- Stored in `/app/uploads/recipes/` as JPEG
-- Served via FastAPI's StaticFiles at `/api/v1/uploads/recipes/{id}.jpg` (under `/api/` so Cloudflare tunnel routes correctly)
-- Database stores `image_path` (e.g., "recipes/123.jpg"); API returns computed `image_url` and `thumbnail_url`
+**Task Reminders** (`src/tasks/reminders.py`): `celery-beat` runs `process_escalations` every minute. Escalation: push → SMS (5min) → voice call (15min). Settings in `UserNotificationSettings`. Twilio webhooks at `/api/v1/webhooks/twilio/{sms,voice/*}`.
+
+**Recipe Images**: Upload via `POST /api/v1/recipes/{id}/image`. Stored in `/app/uploads/recipes/` as JPEG (800px main, 200px thumb). Served at `/api/v1/uploads/recipes/{id}.jpg`.
 
 ### Frontend (Next.js PWA)
 
-Located in `/web/` with App Router (`/web/src/app/`):
-- `/lists` - List management
-- `/list/[id]` - List detail with items and categories
-- `/recipes` - Recipe management
-- `/recipes/[id]` - Recipe detail with "Add to Shopping List" button
-- `/pantry` - Pantry inventory with recipe participation display
-- `/voice` - Standalone voice input page (also at `/web/public/voice/index.html`)
-- `/confirm` - Pending confirmation review
+Located in `/web/` with App Router. Routes: `/lists`, `/list/[id]`, `/recipes`, `/recipes/[id]`, `/pantry`, `/voice`, `/confirm`
 
-**Voice Page Browser Compatibility:**
-The `/voice` page uses the Web Speech API for speech recognition. This API works differently across browsers:
-- **Chrome/Edge (all platforms)**: Full support - uses Google's cloud speech recognition
-- **Safari**: Works on macOS and iOS
-- **Brave (Android)**: Works - uses Android's on-device speech recognition
-- **Brave (Desktop)**: **Does NOT work** - Brave intentionally blocks connections to Google's speech servers for privacy reasons. There is no workaround; users must use Chrome/Edge/Safari on desktop. See [GitHub issue #3725](https://github.com/brave/brave-browser/issues/3725).
+**Voice Page**: Uses Web Speech API. Brave Desktop blocks Google's speech servers (privacy); code shows warning banner. Other browsers work fine.
 
-The voice page detects desktop Brave and shows a warning banner directing users to use Chrome instead.
+**API Client** (`/web/src/lib/api.ts`): Handles auth tokens, 30s cache for GETs, mutations auto-invalidate cache.
 
-API client in `/web/src/lib/api.ts` handles auth token management and includes a 30-second in-memory cache for GET requests. Mutations automatically invalidate related cache entries.
+### Deployment (Cloudflare Tunnel)
 
-### Local Network Deployment (Deprecated)
+App accessible at `https://thiemnet.ca`. Config at `/etc/cloudflared/config.yml`. Restart: `sudo systemctl restart cloudflared`
 
-> **Note:** The local `todolist.lan` deployment is no longer actively used. The app is now accessed via Cloudflare Tunnel at `https://thiemnet.ca`. The nginx config is kept for reference but may not be current.
+Key routing:
+- `/api/*` → FastAPI (port 8000)
+- `/voice` → nginx (port 443) for static voice.html
+- Everything else → Next.js (port 3002)
 
-The app was served at `https://todolist.lan` via nginx on the Ubuntu desktop (192.168.0.150).
+**Important**: The `/voice` navbar link uses `<a>` tag (not Next.js `<Link>`) since voice page is static HTML served by nginx.
 
-**Traffic flow:**
-```
-Browser → nginx (443) → Docker PWA container (3002) → Next.js
-                     → Docker API container (8000) → FastAPI (for /api/ routes)
-```
-
-**nginx config** (`/etc/nginx/sites-available/todolist.lan`):
-- HTTPS with self-signed cert
-- `/` → proxies to `http://192.168.0.150:3002` (Next.js)
-- `/api/` → proxies to `http://192.168.0.150:8000` (FastAPI)
-- `/voice` → serves static file from `/var/www/todolist/voice.html`
-
-**Development mode (default):**
-- The `pwa` container runs `npm run dev` with hot reloading
-- File changes in `./web/` are reflected immediately on browser refresh
-- `WATCHPACK_POLLING=true` enables file watching inside Docker
-
-**Production build (manual):**
-```bash
-# Edit docker-compose.yml to change pwa command:
-# command: sh -c "npm install && npm run build && npm run start"
-# Then recreate the container:
-docker compose up -d pwa
-```
-
-**Troubleshooting:**
-- If changes aren't appearing, check `docker compose logs pwa` for compilation errors
-- The pwa container uses an anonymous volume for `node_modules` (isolated from host)
-- Hard refresh (Ctrl+Shift+R) to bypass browser cache
-
-### Public Internet Deployment (Cloudflare Tunnel)
-
-The app is also accessible at `https://thiemnet.ca` via Cloudflare Tunnel, allowing access without VPN.
-
-**Tunnel configuration** (`/etc/cloudflared/config.yml`):
-```yaml
-tunnel: <tunnel-id>
-credentials-file: /home/mike/.cloudflared/<tunnel-id>.json
-
-ingress:
-    - hostname: thiemnet.ca
-      path: /api/*
-      service: http://192.168.0.150:8000
-
-    - hostname: thiemnet.ca
-      path: /voice
-      service: https://192.168.0.150:443
-      originRequest:
-        httpHostHeader: todolist.lan
-        noTLSVerify: true
-
-    - hostname: thiemnet.ca
-      service: http://192.168.0.150:3002
-
-    - service: http_status:404
-```
-
-**Key points:**
-- The tunnel is locally configured (not dashboard-managed), config lives at `/etc/cloudflared/config.yml`
-- `/api/*` routes directly to FastAPI (port 8000)
-- `/voice` routes to nginx (port 443) which serves the static voice.html; requires `httpHostHeader: todolist.lan` for nginx server_name matching and `noTLSVerify: true` for self-signed cert
-- Everything else routes to Next.js (port 3002)
-- The systemd service is `cloudflared` - restart with `sudo systemctl restart cloudflared`
-
-**CORS:** The backend allows `https://thiemnet.ca` in CORS origins (see `src/main.py`)
-
-**Important:** The `/voice` navbar link uses a regular `<a>` tag (not Next.js `<Link>`) because the voice page is a static HTML file served by nginx, not a Next.js route. See `web/src/components/Navbar.tsx`.
-
-**Auth tokens:** localStorage is domain-specific, so `todolist.lan` and `thiemnet.ca` have separate auth sessions.
+**CORS**: `https://thiemnet.ca` allowed in `src/main.py`
 
 ### Test Infrastructure
 
-Tests use a separate PostgreSQL database (`todo_list_test`) in Docker. Each test gets a clean session with automatic cleanup via `conftest.py`. **Always use the `db` fixture from conftest.py—never import `SessionLocal` directly in tests.**
+Tests use `todo_list_test` database. **Use `db` fixture from conftest.py, never import `SessionLocal` directly.**
 
-The `AuthHeaders` fixture provides headers dict plus `.user_id` and `.email`:
 ```python
 def test_example(client, auth_headers):
     user_id = auth_headers.user_id
-    email = auth_headers.email  # unique per test
+    email = auth_headers.email
     response = client.get("/api/v1/lists", headers=auth_headers)
 ```
 
-### Frontend E2E Tests (Playwright)
+### Playwright E2E Tests
 
-Located in `/web/e2e/`. Run with `npm run e2e` or specific tests with `npx playwright test <file>`.
+Located in `/web/e2e/`. Run: `npm run e2e` or `npx playwright test <file>`
 
-**Screenshot utility** for visual testing:
-```bash
-npm run screenshot              # Mobile only (Pixel 6 Pro)
-npm run screenshot:all          # All projects (mobile, pixel6, desktop)
-```
+Screenshot utility: `npm run screenshot` (mobile) or `npm run screenshot:all` (all viewports)
 
-**Device configurations** (`web/playwright.config.ts`): The only users of this app use Pixel 6 Pro and Pixel 6 phones, so Playwright is configured with those exact viewport sizes:
-
-| Project | Device | Viewport | Scale Factor |
-|---------|--------|----------|--------------|
-| `mobile` | Pixel 6 Pro | 412×892 | 3.5 |
-| `pixel6` | Pixel 6 | 412×915 | 2.625 |
-| `desktop` | Desktop Chrome | 1280×720 | 1 |
-
-**API routing**: Since the frontend at port 3002 can't reach the API at port 8000 directly (nginx handles this in production), screenshot tests use `page.route()` to intercept `/api/**` calls and proxy them to the FastAPI backend. See `loginViaAPI()` in `e2e/screenshot.spec.ts`.
-
-**Verifying UI changes**: When making targeted UI changes (spacing, sizing, layout), use Playwright screenshots to verify your work as you go. Run specific tests like `npx playwright test e2e/screenshot.spec.ts -g "pantry with data" --project=mobile` and view the resulting screenshot in `web/screenshots/`. For testing specific UI states (like edit mode), add a quick test that triggers that state before capturing.
+Device viewports configured for Pixel 6/6 Pro (the actual users' devices). See `web/playwright.config.ts`.
 
 ## Git Hooks
 
-Uses [pre-commit](https://pre-commit.com/) framework. Config in `.pre-commit-config.yaml`. Install with `uv run pre-commit install`.
+Uses pre-commit framework. Config in `.pre-commit-config.yaml`. Install: `uv run pre-commit install`
 
-Post-commit hook syncs voice page to `/var/www/todolist/voice.html` (nginx can't access files in user home directories).
+Post-commit syncs voice page to `/var/www/todolist/voice.html`.
 
-## Code Quality Expectations
+## Code Quality
 
-### Testing Requirements
-- New endpoints require corresponding tests in `tests/`
-- New React components should have basic Jest tests
-- Bug fixes should include a regression test when practical
+**Testing**: New endpoints need tests. Bug fixes should include regression tests when practical.
 
-### Patterns to Follow
-- Use Pydantic models for all request/response schemas
-- Services go in `src/services/`, CRUD logic stays in routers
-- Frontend uses CSS Modules (`.module.css`), not inline styles or global CSS
-- Use the existing `api.ts` client for all API calls, don't use fetch directly
+**UI Changes**: Always validate UI changes with Playwright. Use `npm run screenshot` for visual verification of styling/layout changes, or write e2e tests for behavioral changes. Never commit UI changes without visual confirmation they work correctly on mobile viewports.
 
-### Anti-patterns to Avoid
-- Don't add `print()` or `console.log()` except during active debugging (ruff T20 catches this)
-- Don't bypass type checking with `# type: ignore` or `as any` without a comment explaining why
-- Don't add dependencies without discussing tradeoffs (bundle size, maintenance burden)
+**Patterns**:
+- Services in `src/services/`, CRUD in routers
+- Frontend uses CSS Modules (`.module.css`)
+- Use `api.ts` client, not fetch directly
 
-### Avoiding Cruft
-- Delete code rather than commenting it out (git history exists)
-- Remove unused imports, variables, and functions immediately
-- Don't create abstractions for single-use cases
-- Prefer deleting features over adding backwards-compatibility shims
+**Avoid**:
+- `print()`/`console.log()` (ruff T20 catches this)
+- `# type: ignore`/`as any` without comment
+- Adding dependencies without discussing tradeoffs
+- Commenting out code (use git history)
+- Abstractions for single-use cases
 
 ## Commit Hygiene
 
-**Before each commit**, read `ROADMAP.md` and remove any completed tasks (`[x]`) from the file. This prevents unbounded context window growth for future agents. Include the ROADMAP cleanup in the same commit as the feature work.
+**Before each commit**: Read `ROADMAP.md` and remove completed tasks (`[x]`). Include cleanup in the same commit.

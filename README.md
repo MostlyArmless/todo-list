@@ -1,6 +1,6 @@
 # Todo List App
 
-Self-hosted shopping and meal planning application with voice input, recipe management, pantry tracking, and LLM-powered auto-categorization.
+Self-hosted shopping and meal planning app with voice input, recipe management, pantry tracking, task reminders, and LLM-powered auto-categorization.
 
 ## Screenshots
 
@@ -9,50 +9,66 @@ Self-hosted shopping and meal planning application with voice input, recipe mana
   <img src="docs/images/login-desktop.png" alt="Desktop Login" width="500" />
 </p>
 
-*Modern dark theme with teal accents, designed for mobile-first use*
+*Dark theme with teal accents, mobile-first design*
 
 ## Features
 
 ### Shopping Lists
-- **Multiple Lists**: Organize shopping by store (grocery, hardware, etc.)
-- **Categories**: Group items by aisle/department with drag-and-drop reordering
-- **Smart Merging**: Duplicate items automatically merge with quantity tracking
+- **Multiple Lists**: Organize by store (grocery, hardware, etc.)
+- **Categories**: Group items by aisle with drag-and-drop reordering
+- **Smart Merging**: Duplicates auto-merge with quantity tracking
 - **Real-Time Sync**: SSE-based multi-device synchronization
+- **List Sharing**: Share lists with household members (view/edit/admin permissions)
+
+### Task Lists
+- **Due Dates**: Set deadlines for tasks
+- **Reminder Escalation**: Push notification → SMS (5min) → voice call (15min)
+- **Recurrence**: Set repeating patterns for recurring tasks
+- **Quiet Hours**: Respect do-not-disturb windows
 
 ### Voice Input
 - **Web Speech API**: Browser-native speech recognition
-- **Natural Language Processing**: Add multiple items in one sentence
-- **Confirmation Flow**: Review and edit parsed items before adding
-- **Browser Support**: Chrome, Edge, Safari, and Brave (Android only). Brave on desktop does not support Web Speech API due to privacy restrictions.
+- **Natural Language**: Add multiple items in one sentence ("milk, eggs, and bread")
+- **Confirmation Flow**: Review parsed items before adding
+- **Real-Time Status**: See in-progress voice jobs on confirmation page
 
 ### Recipe Management
-- **Recipe Library**: Store recipes with ingredients and instructions
-- **Smart Shopping**: Add recipe ingredients to shopping lists with one click
-- **Store Preferences**: Remember which store to buy each ingredient from
-- **Pantry Integration**: Skip ingredients you already have
-- **Recipe Labels**: Color-coded tags show which recipe each item is for
+- **Recipe Library**: Store ingredients, instructions, and images
+- **Image Upload**: Add photos to recipes (auto-resized with thumbnails)
+- **Smart Shopping**: Add recipe ingredients to lists with one click
+- **Pantry Integration**: Auto-skip ingredients you already have
+- **Recipe Labels**: Color-coded badges show which recipe each list item is for
+- **"Ready to Cook" Sort**: Sort recipes by pantry ingredient coverage
+- **Last Cooked Tracking**: Track when you last made each recipe
 - **Undo Support**: Easily undo recipe additions
 
 ### Pantry Tracking
 - **Inventory Management**: Track what you have on hand
-- **Recipe Matching**: LLM-powered matching of pantry items to recipe ingredients
-- **Quick Add to List**: One-click button to add missing pantry items to shopping lists
+- **Recipe Participation**: See which recipes use each pantry item
+- **LLM Matching**: Smart matching between pantry items and recipe ingredients
+- **Quick Add**: One-click to add low/missing items to shopping lists
+
+### Household Sharing
+- **Shared Recipes & Pantry**: Users who share lists automatically share recipes and pantry
+- **Permission Levels**: View, edit, or admin access per list
 
 ### AI-Powered Features
-- **Auto-Categorization**: Items automatically assigned to categories based on history
-- **Learning System**: Categorization improves over time from your corrections
-- **Ingredient Matching**: Smart matching between pantry items and recipe ingredients
+- **Auto-Categorization**: Items assigned to categories based on history
+- **Learning System**: Improves from your corrections over time
+- **Voice Parsing**: Natural language understanding via local LLM
+- **Ingredient Matching**: Smart pantry-to-recipe matching
 
 ### Progressive Web App
-- **Installable**: Add to home screen on mobile devices
-- **Offline Support**: Basic functionality works without internet
-- **Push Notifications**: Optional alerts for shared list updates
+- **Installable**: Add to home screen on mobile
+- **Offline Support**: Basic functionality without internet
+- **Fast Loading**: Client-side caching for snappy navigation
 
 ## Tech Stack
 
 - **Backend**: FastAPI + SQLAlchemy + PostgreSQL + Celery + Redis
-- **Frontend**: Next.js 16 with App Router and React 19
-- **LLM**: Ollama (gemma3:12b)
+- **Frontend**: Next.js (App Router) + React
+- **LLM**: Ollama (qwen2.5:7b)
+- **Notifications**: Twilio (SMS/voice) + Web Push
 - **Infrastructure**: Docker Compose
 - **External Access**: Cloudflare Tunnel (optional)
 
@@ -61,102 +77,41 @@ Self-hosted shopping and meal planning application with voice input, recipe mana
 ### Prerequisites
 
 - Docker and Docker Compose
-- Ollama installed on host with gemma3:12b model
-- Node.js 20+ (for PWA development)
+- Ollama with `qwen2.5:7b` model (`ollama pull qwen2.5:7b`)
 
 ### Setup
 
-1. Clone and enter directory:
 ```bash
-cd /path/to/todo-list
-```
-
-2. Copy environment file and configure:
-```bash
+# Configure environment
 cp .env.example .env
-# Edit .env with your settings (JWT_SECRET, etc.)
-```
+# Edit .env: set JWT_SECRET (openssl rand -hex 32), Twilio creds if using reminders
 
-3. Start services:
-```bash
+# Start services
 docker compose up -d
-```
 
-4. Run database migrations:
-```bash
+# Run migrations
 docker compose exec api alembic upgrade head
 ```
 
-5. Access the application:
-   - PWA: http://localhost:3002
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
-
-## Development
-
-### Database Migrations
-
-Create a new migration:
-```bash
-docker compose exec api alembic revision --autogenerate -m "description"
-```
-
-Apply migrations:
-```bash
-docker compose exec api alembic upgrade head
-```
-
-Rollback:
-```bash
-docker compose exec api alembic downgrade -1
-```
-
-### Running Tests
-
-```bash
-docker compose exec -T api pytest --tb=short -q
-```
-
-### Testing Ollama Connection
-
-```bash
-curl http://localhost:11434/api/tags
-```
-
-Should show gemma3:12b in the list of models.
-
-## Project Structure
-
-```
-todo-list/
-├── src/                    # Python backend
-│   ├── api/                # FastAPI endpoints
-│   ├── models/             # SQLAlchemy models
-│   ├── schemas/            # Pydantic schemas
-│   ├── services/           # Business logic
-│   └── tasks/              # Celery tasks
-├── web/                    # Next.js PWA
-│   ├── src/app/            # App Router pages
-│   │   ├── lists/          # Shopping lists
-│   │   ├── list/[id]/      # List detail view
-│   │   ├── recipes/        # Recipe management
-│   │   ├── pantry/         # Pantry tracking
-│   │   ├── confirm/        # Voice confirmation
-│   │   └── login/          # Authentication
-│   └── src/lib/            # API client and utilities
-├── alembic/                # Database migrations
-└── docker-compose.yml      # Service orchestration
-```
+Access at:
+- **App**: http://localhost:3002
+- **API Docs**: http://localhost:8000/docs
 
 ## Environment Variables
 
-Key environment variables (see `.env.example` for full list):
+Key variables (see `.env.example` for full list):
 
-- `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string
-- `OLLAMA_BASE_URL`: Ollama API URL (default: http://host.docker.internal:11434)
-- `LLM_MODEL`: Ollama model to use (default: gemma3:12b)
-- `JWT_SECRET`: Secret key for JWT tokens (generate with: `openssl rand -hex 32`)
+| Variable | Description |
+|----------|-------------|
+| `JWT_SECRET` | Secret for JWT tokens (`openssl rand -hex 32`) |
+| `OLLAMA_BASE_URL` | Ollama API (default: `http://host.docker.internal:11434`) |
+| `LLM_MODEL` | Model name (default: `qwen2.5:7b`) |
+| `TWILIO_*` | Twilio credentials for SMS/voice reminders |
+| `VAPID_*` | VAPID keys for web push notifications |
+
+## Development
+
+See `CLAUDE.md` for development commands, architecture details, and code conventions.
 
 ## License
 
