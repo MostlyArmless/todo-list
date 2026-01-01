@@ -32,15 +32,15 @@ def validate_parsed_recipe(parsed: dict) -> tuple[bool, str | None]:
 
     for i, ing in enumerate(ingredients):
         if not isinstance(ing, dict):
-            return False, f"Ingredient {i+1} must be an object"
+            return False, f"Ingredient {i + 1} must be an object"
         if not isinstance(ing.get("name"), str) or not ing["name"].strip():
-            return False, f"Ingredient {i+1} must have a non-empty name"
+            return False, f"Ingredient {i + 1} must have a non-empty name"
         if (
             "quantity" in ing
             and ing["quantity"] is not None
             and not isinstance(ing["quantity"], str)
         ):
-            return False, f"Ingredient {i+1} quantity must be a string"
+            return False, f"Ingredient {i + 1} quantity must be a string"
 
     # Check optional fields
     if (

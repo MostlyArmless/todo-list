@@ -30,6 +30,9 @@ class Recipe(Base, TimestampMixin, SoftDeleteMixin):
     # Tracking when recipe was last cooked (set when all steps completed)
     last_cooked_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Image path (relative to uploads directory, e.g., "recipes/123.jpg")
+    image_path = Column(String(255), nullable=True)
+
     # Relationships
     user = relationship("User", backref="recipes")
     ingredients = relationship(

@@ -46,8 +46,11 @@ export default function RecipeDetailPage() {
   const [adding, setAdding] = useState(false);
   const [checkingPantry, setCheckingPantry] = useState(false);
   const [calculatingNutrition, setCalculatingNutrition] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [pantryCheck, setPantryCheck] = useState<PantryCheckState>({ isOpen: false, ingredients: [] });
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Inline editing state
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -211,6 +214,41 @@ export default function RecipeDetailPage() {
       setToast({ message: 'Failed to calculate nutrition', eventId: null, type: 'error' });
     } finally {
       setCalculatingNutrition(false);
+    }
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !recipe) return;
+
+    setUploadingImage(true);
+    try {
+      const updated = await api.uploadRecipeImage(recipe.id, file);
+      setRecipe(updated);
+      setToast({ message: 'Image uploaded', eventId: null, type: 'success' });
+    } catch (err) {
+      setToast({
+        message: err instanceof Error ? err.message : 'Failed to upload image',
+        eventId: null,
+        type: 'error',
+      });
+    } finally {
+      setUploadingImage(false);
+      // Reset file input so same file can be re-selected
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    if (!recipe) return;
+    try {
+      await api.deleteRecipeImage(recipe.id);
+      setRecipe({ ...recipe, image_url: null, thumbnail_url: null });
+      setToast({ message: 'Image deleted', eventId: null, type: 'success' });
+    } catch {
+      setToast({ message: 'Failed to delete image', eventId: null, type: 'error' });
     }
   };
 
@@ -722,9 +760,54 @@ export default function RecipeDetailPage() {
             </div>
           )}
         </div>
-        <button onClick={() => router.push('/recipes')} className={styles.backBtn}>
-          Back
-        </button>
+      </div>
+
+      {/* Recipe Image */}
+      <div className={styles.imageSection}>
+        {recipe.image_url ? (
+          <div className={styles.imageContainer}>
+            <img
+              src={recipe.image_url}
+              alt={recipe.name}
+              className={styles.recipeImage}
+            />
+            <div className={styles.imageActions}>
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className={styles.imageBtn}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? 'Uploading...' : 'Change'}
+              </button>
+              <button
+                onClick={handleDeleteImage}
+                className={`${styles.imageBtn} ${styles.imageBtnDanger}`}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            className={styles.uploadBtn}
+            disabled={uploadingImage}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            {uploadingImage ? 'Uploading...' : 'Add Photo'}
+          </button>
+        )}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleImageSelect}
+          className={styles.hiddenInput}
+        />
       </div>
 
       {/* Pantry Check Modal */}

@@ -85,6 +85,9 @@ class RecipeResponse(BaseModel):
     fat_grams: float | None
     nutrition_computed_at: datetime | None
     last_cooked_at: datetime | None
+    # Image URLs (computed from image_path)
+    image_url: str | None = None
+    thumbnail_url: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -107,6 +110,8 @@ class RecipeListResponse(BaseModel):
     carbs_grams: float | None
     fat_grams: float | None
     last_cooked_at: datetime | None
+    # Image thumbnail URL (computed from image_path)
+    thumbnail_url: str | None = None
     created_at: datetime
 
 

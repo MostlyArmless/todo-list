@@ -50,6 +50,7 @@ services:
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
       - ./tests:/app/tests
+      - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy

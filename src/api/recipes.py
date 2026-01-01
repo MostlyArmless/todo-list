@@ -1,10 +1,13 @@
 """Recipe API endpoints."""
 
+import os
 from datetime import UTC, datetime
 from enum import Enum
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from PIL import Image
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session, selectinload
 
@@ -42,6 +45,14 @@ from src.schemas.recipe_import import (
 )
 from src.services.recipe_service import SKIP_INGREDIENTS
 
+# Upload configuration
+UPLOAD_DIR = Path("/app/uploads/recipes")
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_IMAGE_SIZE = 800  # Max dimension for main image
+THUMBNAIL_SIZE = 200  # Max dimension for thumbnail
+JPEG_QUALITY = 85
+THUMBNAIL_QUALITY = 80
+
 # 10 maximally distinguishable colors for recipe labels
 # Selected for maximum perceptual difference and good contrast on dark backgrounds
 RECIPE_LABEL_COLORS = [
@@ -58,6 +69,75 @@ RECIPE_LABEL_COLORS = [
 ]
 
 router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
+
+
+def get_image_urls(image_path: str | None) -> tuple[str | None, str | None]:
+    """Convert image_path to image_url and thumbnail_url."""
+    if not image_path:
+        return None, None
+    # image_path is like "recipes/123.jpg"
+    # URLs under /api/v1/uploads/ so Cloudflare tunnel routes them to FastAPI
+    base_url = f"/api/v1/uploads/{image_path}"
+    # Derive thumbnail path from main image path
+    path = Path(image_path)
+    thumb_path = path.parent / f"{path.stem}_thumb{path.suffix}"
+    thumb_url = f"/api/v1/uploads/{thumb_path}"
+    return base_url, thumb_url
+
+
+def process_and_save_image(file: UploadFile, recipe_id: int) -> str:
+    """Process uploaded image: resize and save main + thumbnail.
+
+    Returns the relative image_path to store in the database.
+    """
+    # Ensure upload directory exists
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Open and process image
+    img = Image.open(file.file)
+
+    # Convert to RGB if necessary (handles RGBA, P mode, etc.)
+    if img.mode in ("RGBA", "P", "LA"):
+        # Create white background for transparency
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        if img.mode == "P":
+            img = img.convert("RGBA")
+        background.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+        img = background
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    # Resize main image (maintain aspect ratio)
+    img.thumbnail((MAX_IMAGE_SIZE, MAX_IMAGE_SIZE), Image.Resampling.LANCZOS)
+
+    # Save main image
+    main_path = UPLOAD_DIR / f"{recipe_id}.jpg"
+    img.save(main_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
+
+    # Create and save thumbnail
+    thumb = img.copy()
+    thumb.thumbnail((THUMBNAIL_SIZE, THUMBNAIL_SIZE), Image.Resampling.LANCZOS)
+    thumb_path = UPLOAD_DIR / f"{recipe_id}_thumb.jpg"
+    thumb.save(thumb_path, "JPEG", quality=THUMBNAIL_QUALITY, optimize=True)
+
+    return f"recipes/{recipe_id}.jpg"
+
+
+def delete_recipe_images(image_path: str | None) -> None:
+    """Delete main and thumbnail images for a recipe."""
+    if not image_path:
+        return
+
+    # Delete main image
+    main_file = Path("/app/uploads") / image_path
+    if main_file.exists():
+        main_file.unlink()
+
+    # Delete thumbnail
+    path = Path(image_path)
+    thumb_path = Path("/app/uploads") / path.parent / f"{path.stem}_thumb{path.suffix}"
+    if thumb_path.exists():
+        thumb_path.unlink()
 
 
 def get_user_recipe(db: Session, recipe_id: int, user: User) -> Recipe:
@@ -104,6 +184,92 @@ def get_label_colors():
     return {"colors": RECIPE_LABEL_COLORS}
 
 
+# --- Image upload/delete endpoints ---
+
+
+@router.post("/{recipe_id}/image", response_model=RecipeResponse)
+def upload_recipe_image(
+    recipe_id: int,
+    file: Annotated[UploadFile, File()],
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Upload an image for a recipe.
+
+    Accepts JPEG, PNG, WebP, or GIF. Images are resized to max 800px
+    and a 200px thumbnail is created. Both are stored as JPEG.
+    """
+    recipe = get_user_recipe(db, recipe_id, current_user)
+
+    # Validate file extension
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
+        )
+
+    # Delete existing images if any
+    delete_recipe_images(recipe.image_path)
+
+    # Process and save new image
+    try:
+        image_path = process_and_save_image(file, recipe_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process image: {e}") from None
+
+    # Update recipe with new image path
+    recipe.image_path = image_path
+    db.commit()
+    db.refresh(recipe)
+
+    # Build response with image URLs
+    image_url, thumbnail_url = get_image_urls(recipe.image_path)
+    return RecipeResponse(
+        id=recipe.id,
+        user_id=recipe.user_id,
+        name=recipe.name,
+        description=recipe.description,
+        servings=recipe.servings,
+        label_color=recipe.label_color,
+        instructions=recipe.instructions,
+        ingredients=[RecipeIngredientResponse.model_validate(ing) for ing in recipe.ingredients],
+        calories_per_serving=recipe.calories_per_serving,
+        protein_grams=recipe.protein_grams,
+        carbs_grams=recipe.carbs_grams,
+        fat_grams=recipe.fat_grams,
+        nutrition_computed_at=recipe.nutrition_computed_at,
+        last_cooked_at=recipe.last_cooked_at,
+        image_url=image_url,
+        thumbnail_url=thumbnail_url,
+        created_at=recipe.created_at,
+        updated_at=recipe.updated_at,
+    )
+
+
+@router.delete("/{recipe_id}/image", status_code=status.HTTP_204_NO_CONTENT)
+def delete_image(
+    recipe_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Delete the image for a recipe."""
+    recipe = get_user_recipe(db, recipe_id, current_user)
+
+    if not recipe.image_path:
+        raise HTTPException(status_code=404, detail="Recipe has no image")
+
+    # Delete image files
+    delete_recipe_images(recipe.image_path)
+
+    # Clear image_path in database
+    recipe.image_path = None
+    db.commit()
+
+
 @router.post("/{recipe_id}/compute-nutrition")
 def compute_nutrition(
     recipe_id: int,
@@ -142,6 +308,7 @@ class RecipeSortBy(str, Enum):
     protein_asc = "protein_asc"
     protein_desc = "protein_desc"
     created_at_desc = "created_at_desc"
+    updated_at_desc = "updated_at_desc"
 
 
 @router.get("", response_model=list[RecipeListResponse])
@@ -179,6 +346,8 @@ def list_recipes(
         query = query.order_by(Recipe.protein_grams.desc().nullslast())
     elif sort_by == RecipeSortBy.created_at_desc:
         query = query.order_by(Recipe.created_at.desc())
+    elif sort_by == RecipeSortBy.updated_at_desc:
+        query = query.order_by(Recipe.updated_at.desc())
     # For ingredient sorting, we need to count in Python after fetching
 
     recipes = query.all()
@@ -191,6 +360,7 @@ def list_recipes(
 
     result = []
     for recipe in recipes:
+        _, thumbnail_url = get_image_urls(recipe.image_path)
         result.append(
             RecipeListResponse(
                 id=recipe.id,
@@ -205,6 +375,7 @@ def list_recipes(
                 carbs_grams=recipe.carbs_grams,
                 fat_grams=recipe.fat_grams,
                 last_cooked_at=recipe.last_cooked_at,
+                thumbnail_url=thumbnail_url,
                 created_at=recipe.created_at,
             )
         )
@@ -256,7 +427,7 @@ def create_recipe(
     db.add(recipe)
     db.commit()
     db.refresh(recipe)
-    return recipe
+    return build_recipe_response(recipe)
 
 
 # --- Add to Shopping List (static route) ---
@@ -565,7 +736,7 @@ def confirm_recipe_import(
     db.commit()
     db.refresh(recipe)
 
-    return recipe
+    return build_recipe_response(recipe)
 
 
 @router.delete("/import/{import_id}", status_code=204)
@@ -651,6 +822,31 @@ def check_recipe_pantry(
 # --- Dynamic recipe routes (must be last) ---
 
 
+def build_recipe_response(recipe: Recipe) -> RecipeResponse:
+    """Build RecipeResponse with computed image URLs."""
+    image_url, thumbnail_url = get_image_urls(recipe.image_path)
+    return RecipeResponse(
+        id=recipe.id,
+        user_id=recipe.user_id,
+        name=recipe.name,
+        description=recipe.description,
+        servings=recipe.servings,
+        label_color=recipe.label_color,
+        instructions=recipe.instructions,
+        ingredients=[RecipeIngredientResponse.model_validate(ing) for ing in recipe.ingredients],
+        calories_per_serving=recipe.calories_per_serving,
+        protein_grams=recipe.protein_grams,
+        carbs_grams=recipe.carbs_grams,
+        fat_grams=recipe.fat_grams,
+        nutrition_computed_at=recipe.nutrition_computed_at,
+        last_cooked_at=recipe.last_cooked_at,
+        image_url=image_url,
+        thumbnail_url=thumbnail_url,
+        created_at=recipe.created_at,
+        updated_at=recipe.updated_at,
+    )
+
+
 @router.get("/{recipe_id}", response_model=RecipeResponse)
 def get_recipe(
     recipe_id: int,
@@ -659,7 +855,7 @@ def get_recipe(
 ):
     """Get a specific recipe with all ingredients."""
     recipe = get_user_recipe(db, recipe_id, current_user)
-    return recipe
+    return build_recipe_response(recipe)
 
 
 @router.put("/{recipe_id}", response_model=RecipeResponse)
@@ -709,7 +905,7 @@ def update_recipe(
 
     db.commit()
     db.refresh(recipe)
-    return recipe
+    return build_recipe_response(recipe)
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)

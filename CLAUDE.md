@@ -75,6 +75,14 @@ Users who share lists form a "household" and automatically share recipes and pan
 
 Lists use explicit sharing via `ListShare` table with permission levels (view/edit/admin).
 
+**Recipe Images** (`src/api/recipes.py`):
+Recipes can have an associated image. Images are:
+- Uploaded via `POST /api/v1/recipes/{id}/image` (multipart/form-data)
+- Resized on upload: 800px max for main image, 200px thumbnail
+- Stored in `/app/uploads/recipes/` as JPEG
+- Served via FastAPI's StaticFiles at `/api/v1/uploads/recipes/{id}.jpg` (under `/api/` so Cloudflare tunnel routes correctly)
+- Database stores `image_path` (e.g., "recipes/123.jpg"); API returns computed `image_url` and `thumbnail_url`
+
 ### Frontend (Next.js PWA)
 
 Located in `/web/` with App Router (`/web/src/app/`):
@@ -88,9 +96,11 @@ Located in `/web/` with App Router (`/web/src/app/`):
 
 API client in `/web/src/lib/api.ts` handles auth token management and includes a 30-second in-memory cache for GET requests. Mutations automatically invalidate related cache entries.
 
-### Local Network Deployment
+### Local Network Deployment (Deprecated)
 
-The app is served at `https://todolist.lan` via nginx on the Ubuntu desktop (192.168.0.150).
+> **Note:** The local `todolist.lan` deployment is no longer actively used. The app is now accessed via Cloudflare Tunnel at `https://thiemnet.ca`. The nginx config is kept for reference but may not be current.
+
+The app was served at `https://todolist.lan` via nginx on the Ubuntu desktop (192.168.0.150).
 
 **Traffic flow:**
 ```

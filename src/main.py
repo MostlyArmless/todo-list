@@ -1,12 +1,18 @@
 """FastAPI application entry point."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.api import auth, categories, items, lists, pantry, recipes, voice
 from src.config import get_settings
+
+# Ensure uploads directory exists
+UPLOADS_DIR = Path("/app/uploads")
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 settings = get_settings()
 
@@ -56,3 +62,8 @@ app.include_router(pantry.router)
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "environment": settings.environment}
+
+
+# Mount static files for uploads under /api/v1/uploads so Cloudflare tunnel routes them correctly
+# (Cloudflare routes /api/* to FastAPI, everything else to Next.js)
+app.mount("/api/v1/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
