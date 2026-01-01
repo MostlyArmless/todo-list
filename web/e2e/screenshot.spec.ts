@@ -128,22 +128,23 @@ test('capture list detail', async ({ page, request }, testInfo) => {
   });
   const list = await listResponse.json();
 
-  // Add some items
-  await request.post(`${API_URL}/api/v1/items`, {
-    headers: { Authorization: `Bearer ${access_token}` },
-    data: { list_id: list.id, name: 'Milk', category: 'Dairy' },
+  // Add some items (note: endpoint is /lists/{id}/items)
+  const headers = { Authorization: `Bearer ${access_token}` };
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'Milk', category: 'Dairy' },
   });
-  await request.post(`${API_URL}/api/v1/items`, {
-    headers: { Authorization: `Bearer ${access_token}` },
-    data: { list_id: list.id, name: 'Bread', category: 'Bakery' },
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'Bread', category: 'Bakery' },
   });
-  await request.post(`${API_URL}/api/v1/items`, {
-    headers: { Authorization: `Bearer ${access_token}` },
-    data: { list_id: list.id, name: 'Apples', category: 'Produce' },
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'Apples', category: 'Produce' },
   });
-  await request.post(`${API_URL}/api/v1/items`, {
-    headers: { Authorization: `Bearer ${access_token}` },
-    data: { list_id: list.id, name: 'Chicken breast', category: 'Meat' },
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'Chicken breast', category: 'Meat' },
   });
 
   // Login via UI
@@ -319,6 +320,80 @@ test('capture recipes list', async ({ page, request }, testInfo) => {
   await page.waitForTimeout(300);
   await page.screenshot({
     path: `screenshots/recipes-gallery-${project}.png`,
+    fullPage: true,
+  });
+});
+
+// Capture list with long item names (regression test for text overflow)
+test('capture list with long names', async ({ page, request }, testInfo) => {
+  // Ensure user exists and login via API (sets up route interception)
+  await request.post(`${API_URL}/api/v1/auth/register`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  await loginViaAPI(page, request);
+
+  // Get fresh token for creating test data
+  const loginResponse = await request.post(`${API_URL}/api/v1/auth/login`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const { access_token } = await loginResponse.json();
+  const headers = { Authorization: `Bearer ${access_token}` };
+
+  // Create a grocery list with long item names
+  const listResponse = await request.post(`${API_URL}/api/v1/lists`, {
+    headers,
+    data: { name: 'Long Name Test', list_type: 'grocery' },
+  });
+  const list = await listResponse.json();
+
+  // Add items with various long names (note: endpoint is /lists/{id}/items)
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'This is a very long grocery item name that should wrap properly without overlapping the edit and delete buttons on the right side', category: 'Test' },
+  });
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'Supercalifragilisticexpialidociousitemnamewithoutanyspaces', category: 'Test' },
+  });
+  await request.post(`${API_URL}/api/v1/lists/${list.id}/items`, {
+    headers,
+    data: { name: 'Normal item for comparison', category: 'Test' },
+  });
+
+  // Create a task list with long names
+  const taskListResponse = await request.post(`${API_URL}/api/v1/lists`, {
+    headers,
+    data: { name: 'Long Task Test', list_type: 'task' },
+  });
+  const taskList = await taskListResponse.json();
+
+  await request.post(`${API_URL}/api/v1/lists/${taskList.id}/items`, {
+    headers,
+    data: { name: 'This is a very long task name that tests whether the text properly wraps without overlapping the action buttons' },
+  });
+  await request.post(`${API_URL}/api/v1/lists/${taskList.id}/items`, {
+    headers,
+    data: { name: 'Anotherlongtasknamethathasnospacesandshouldforcetexttobreakproperly' },
+  });
+
+  // Screenshot grocery list
+  await page.goto(`/list/${list.id}`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500);
+
+  const project = testInfo.project.name;
+  await page.screenshot({
+    path: `screenshots/list-long-names-${project}.png`,
+    fullPage: true,
+  });
+
+  // Screenshot task list
+  await page.goto(`/list/${taskList.id}`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(500);
+
+  await page.screenshot({
+    path: `screenshots/task-long-names-${project}.png`,
     fullPage: true,
   });
 });

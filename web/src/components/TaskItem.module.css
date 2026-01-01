@@ -60,6 +60,8 @@
 .taskName {
   font-size: var(--text-base);
   font-weight: var(--font-medium);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .taskNameCompleted {
