@@ -211,6 +211,46 @@ test('capture pantry with data', async ({ page, request }, testInfo) => {
   });
 });
 
+// Capture pantry edit mode
+test('capture pantry edit mode', async ({ page, request }, testInfo) => {
+  // Ensure user exists
+  await request.post(`${API_URL}/api/v1/auth/register`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const loginResponse = await request.post(`${API_URL}/api/v1/auth/login`, {
+    data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+  });
+  const { access_token } = await loginResponse.json();
+  const headers = { Authorization: `Bearer ${access_token}` };
+
+  // Ensure at least one pantry item exists
+  const existingItemsRes = await request.get(`${API_URL}/api/v1/pantry`, { headers });
+  const existingItems = await existingItemsRes.json();
+  if (existingItems.length === 0) {
+    await request.post(`${API_URL}/api/v1/pantry`, {
+      headers,
+      data: { name: 'Test Item', status: 'have', category: 'Test Category' },
+    });
+  }
+
+  // Login via API and set localStorage
+  await loginViaAPI(page, request);
+
+  await page.goto('/pantry');
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(300);
+
+  // Click edit button on first item to enter edit mode
+  await page.click('[title="Edit item"]');
+  await page.waitForTimeout(300);
+
+  const project = testInfo.project.name;
+  await page.screenshot({
+    path: `screenshots/pantry-edit-${project}.png`,
+    fullPage: true,
+  });
+});
+
 // Capture recipes list page with sample data
 test('capture recipes list', async ({ page, request }, testInfo) => {
   // Ensure user exists

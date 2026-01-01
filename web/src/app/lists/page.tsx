@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type List } from '@/lib/api';
+import { api, type List, type ListType } from '@/lib/api';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
@@ -13,6 +13,7 @@ export default function ListsPage() {
   const [loading, setLoading] = useState(true);
   const [showNewList, setShowNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [newListType, setNewListType] = useState<ListType>('grocery');
 
   useEffect(() => {
     const currentUser = api.getCurrentUser();
@@ -40,8 +41,9 @@ export default function ListsPage() {
     if (!newListName.trim()) return;
 
     try {
-      await api.createList({ name: newListName });
+      await api.createList({ name: newListName, list_type: newListType });
       setNewListName('');
+      setNewListType('grocery');
       setShowNewList(false);
       loadLists();
     } catch {
@@ -95,9 +97,14 @@ export default function ListsPage() {
                     </span>
                   )}
               </h2>
-              {list.description && (
-                <p className={styles.listDescription}>{list.description}</p>
-              )}
+              <div className={styles.listMeta}>
+                <span className={`${styles.listTypeBadge} ${list.list_type === 'task' ? styles.taskType : styles.groceryType}`}>
+                  {list.list_type === 'task' ? '✓ Task' : '🛒 Grocery'}
+                </span>
+                {list.description && (
+                  <span className={styles.listDescription}>{list.description}</span>
+                )}
+              </div>
             </div>
             <div className={styles.listActions}>
               <button
@@ -148,6 +155,24 @@ export default function ListsPage() {
               onChange={(e) => setNewListName(e.target.value)}
               autoFocus
             />
+            <div className={styles.typeSelector}>
+              <button
+                type="button"
+                className={`${styles.typeBtn} ${newListType === 'grocery' ? styles.typeBtnActive : ''}`}
+                onClick={() => setNewListType('grocery')}
+              >
+                <span className={styles.typeIcon}>🛒</span>
+                Grocery
+              </button>
+              <button
+                type="button"
+                className={`${styles.typeBtn} ${newListType === 'task' ? styles.typeBtnActive : ''}`}
+                onClick={() => setNewListType('task')}
+              >
+                <span className={styles.typeIcon}>✓</span>
+                Task
+              </button>
+            </div>
             <div className={styles.formButtons}>
               <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
                 Create
@@ -157,6 +182,7 @@ export default function ListsPage() {
                 onClick={() => {
                   setShowNewList(false);
                   setNewListName('');
+                  setNewListType('grocery');
                 }}
                 className={`${styles.btn} ${styles.btnSecondary}`}
               >

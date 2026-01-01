@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from src.api import auth, categories, items, lists, pantry, recipes, voice
+from src.api import auth, categories, items, lists, notifications, pantry, recipes, voice, webhooks
 from src.config import get_settings
 
 # Ensure uploads directory exists
@@ -56,6 +56,8 @@ app.include_router(items.router)
 app.include_router(voice.router)
 app.include_router(recipes.router)
 app.include_router(pantry.router)
+app.include_router(notifications.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/health")

@@ -453,3 +453,226 @@ def test_retry_voice_input_already_completed(client, auth_headers, db):
         json={"raw_text": "try again"},
     )
     assert response.status_code == 400
+
+
+def test_confirm_task_list_pending_confirmation(client, auth_headers, db):
+    """Test confirming a pending confirmation for a task list."""
+    user_id = auth_headers.user_id
+
+    # Create a task list
+    list_response = client.post(
+        "/api/v1/lists",
+        headers=auth_headers,
+        json={"name": "My Tasks", "icon": "✅", "list_type": "task"},
+    )
+    list_id = list_response.json()["id"]
+
+    from src.models.pending_confirmation import PendingConfirmation
+    from src.models.voice_input import VoiceInput
+
+    # Create voice input
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="add call dentist tomorrow to my tasks",
+        status="completed",
+    )
+    db.add(voice_input)
+    db.flush()
+
+    # Create pending confirmation with task fields
+    pending = PendingConfirmation(
+        user_id=user_id,
+        voice_input_id=voice_input.id,
+        proposed_changes={
+            "action": "add",
+            "list_id": list_id,
+            "list_name": "My Tasks",
+            "list_type": "task",
+            "items": [
+                {
+                    "name": "call dentist",
+                    "due_date": "2025-01-02T09:00:00",
+                    "reminder_offset": "1h",
+                    "recurrence_pattern": None,
+                }
+            ],
+        },
+        status="pending",
+    )
+    db.add(pending)
+    db.commit()
+    pending_id = pending.id
+
+    # Confirm the pending confirmation
+    response = client.post(
+        f"/api/v1/voice/pending/{pending_id}/action",
+        headers=auth_headers,
+        json={"action": "confirm"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "confirmed"
+
+    # Verify task item was created with task fields
+    items_response = client.get(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+    )
+    items = items_response.json()
+    assert len(items) == 1
+    assert items[0]["name"] == "call dentist"
+    assert items[0]["due_date"] is not None
+    assert "2025-01-02" in items[0]["due_date"]
+    assert items[0]["reminder_offset"] == "1h"
+    assert items[0]["category_id"] is None  # Tasks don't have categories
+
+
+def test_confirm_task_list_with_recurrence(client, auth_headers, db):
+    """Test confirming a task list item with recurrence."""
+    user_id = auth_headers.user_id
+
+    # Create a task list
+    list_response = client.post(
+        "/api/v1/lists",
+        headers=auth_headers,
+        json={"name": "Daily Tasks", "icon": "🔄", "list_type": "task"},
+    )
+    list_id = list_response.json()["id"]
+
+    from src.models.pending_confirmation import PendingConfirmation
+    from src.models.voice_input import VoiceInput
+
+    # Create voice input
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="add take vitamins every day",
+        status="completed",
+    )
+    db.add(voice_input)
+    db.flush()
+
+    # Create pending confirmation with recurrence
+    pending = PendingConfirmation(
+        user_id=user_id,
+        voice_input_id=voice_input.id,
+        proposed_changes={
+            "action": "add",
+            "list_id": list_id,
+            "list_name": "Daily Tasks",
+            "list_type": "task",
+            "items": [
+                {
+                    "name": "take vitamins",
+                    "due_date": "2025-01-01T08:00:00",
+                    "reminder_offset": None,
+                    "recurrence_pattern": "daily",
+                }
+            ],
+        },
+        status="pending",
+    )
+    db.add(pending)
+    db.commit()
+    pending_id = pending.id
+
+    # Confirm the pending confirmation
+    response = client.post(
+        f"/api/v1/voice/pending/{pending_id}/action",
+        headers=auth_headers,
+        json={"action": "confirm"},
+    )
+
+    assert response.status_code == 200
+
+    # Verify task item was created with recurrence
+    items_response = client.get(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+    )
+    items = items_response.json()
+    assert len(items) == 1
+    assert items[0]["name"] == "take vitamins"
+    assert items[0]["recurrence_pattern"] == "daily"
+
+
+def test_confirm_task_list_with_edits(client, auth_headers, db):
+    """Test confirming a task list with edited item data."""
+    user_id = auth_headers.user_id
+
+    # Create a task list
+    list_response = client.post(
+        "/api/v1/lists",
+        headers=auth_headers,
+        json={"name": "Work Tasks", "icon": "💼", "list_type": "task"},
+    )
+    list_id = list_response.json()["id"]
+
+    from src.models.pending_confirmation import PendingConfirmation
+    from src.models.voice_input import VoiceInput
+
+    # Create voice input
+    voice_input = VoiceInput(
+        user_id=user_id,
+        raw_text="add meeting with boss",
+        status="completed",
+    )
+    db.add(voice_input)
+    db.flush()
+
+    # Create pending confirmation
+    pending = PendingConfirmation(
+        user_id=user_id,
+        voice_input_id=voice_input.id,
+        proposed_changes={
+            "action": "add",
+            "list_id": list_id,
+            "list_name": "Work Tasks",
+            "list_type": "task",
+            "items": [
+                {
+                    "name": "meeting with boss",
+                    "due_date": None,
+                    "reminder_offset": None,
+                    "recurrence_pattern": None,
+                }
+            ],
+        },
+        status="pending",
+    )
+    db.add(pending)
+    db.commit()
+    pending_id = pending.id
+
+    # Confirm with edited data - user adds due date and weekly recurrence
+    response = client.post(
+        f"/api/v1/voice/pending/{pending_id}/action",
+        headers=auth_headers,
+        json={
+            "action": "confirm",
+            "edits": {
+                "items": [
+                    {
+                        "name": "Weekly meeting with boss",
+                        "due_date": "2025-01-06T10:00:00",
+                        "reminder_offset": "30m",
+                        "recurrence_pattern": "weekly",
+                    }
+                ]
+            },
+        },
+    )
+
+    assert response.status_code == 200
+
+    # Verify task item was created with edited data
+    items_response = client.get(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+    )
+    items = items_response.json()
+    assert len(items) == 1
+    assert items[0]["name"] == "Weekly meeting with boss"
+    assert "2025-01-06" in items[0]["due_date"]
+    assert items[0]["reminder_offset"] == "30m"
+    assert items[0]["recurrence_pattern"] == "weekly"

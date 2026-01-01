@@ -205,6 +205,7 @@ export default function RecipesPage() {
               onClick={() => router.push(`/recipes/${recipe.id}`)}
             >
               {recipe.thumbnail_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={recipe.thumbnail_url}
                   alt=""
@@ -376,6 +377,7 @@ export default function RecipesPage() {
 
               {/* Image or placeholder */}
               {recipe.thumbnail_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={recipe.thumbnail_url.replace('_thumb', '')}
                   alt={recipe.name}

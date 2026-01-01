@@ -9,12 +9,45 @@ from sqlalchemy.orm import Session
 from src.api.dependencies import get_current_user
 from src.api.lists import get_user_list
 from src.database import get_db
+from src.models.enums import ListType
 from src.models.item import Item
 from src.models.item_history import ItemHistory
+from src.models.list import List
 from src.models.user import User
 from src.schemas.item import ItemCreate, ItemResponse, ItemUpdate
+from src.tasks.reminders import schedule_reminder
 
 router = APIRouter(prefix="/api/v1", tags=["items"])
+
+
+def validate_item_fields_for_list_type(item_data: ItemCreate | ItemUpdate, list_obj: List) -> None:
+    """Validate that item fields are appropriate for the list type.
+
+    Raises HTTPException if invalid fields are provided.
+    """
+    is_task_list = list_obj.list_type == ListType.TASK
+
+    if is_task_list:
+        # Task lists don't support grocery-specific fields
+        if hasattr(item_data, "quantity") and item_data.quantity is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Task lists do not support quantity field",
+            )
+        if hasattr(item_data, "category_id") and item_data.category_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Task lists do not support categories",
+            )
+    else:
+        # Grocery lists don't support task-specific fields
+        task_fields = ["due_date", "reminder_at", "reminder_offset", "recurrence_pattern"]
+        for field in task_fields:
+            if hasattr(item_data, field) and getattr(item_data, field) is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Grocery lists do not support {field} field",
+                )
 
 
 def validate_category_id(db: Session, category_id: int | None, list_id: int) -> int | None:
@@ -116,11 +149,15 @@ def create_item(
 ):
     """Create a new item in a list, merging with existing if same name exists."""
     # Verify user has access to the list
-    get_user_list(db, list_id, current_user)
+    list_obj = get_user_list(db, list_id, current_user)
 
+    # Validate item fields match list type
+    validate_item_fields_for_list_type(item_data, list_obj)
+
+    is_task_list = list_obj.list_type == ListType.TASK
     normalized_name = item_data.name.lower().strip()
 
-    # Check for existing unchecked item with same name
+    # Check for existing unchecked item with same name (for merging)
     existing_item = (
         db.query(Item)
         .filter(
@@ -136,11 +173,11 @@ def create_item(
             matching_item = item
             break
 
-    # Ad-hoc source marker
-    adhoc_source = {"recipe_id": None, "recipe_name": "Ad-hoc"}
+    if matching_item and not is_task_list:
+        # Merge with existing item (only for grocery lists)
+        # Ad-hoc source marker
+        adhoc_source = {"recipe_id": None, "recipe_name": "Ad-hoc"}
 
-    if matching_item:
-        # Merge with existing item
         if item_data.quantity:
             if matching_item.quantity:
                 matching_item.quantity = f"{matching_item.quantity} + {item_data.quantity}"
@@ -159,27 +196,46 @@ def create_item(
         return matching_item
     else:
         # Create new item
-        # Determine category_id: use provided value (validated), or look up from history
-        category_id = item_data.category_id
-        if category_id is not None:
-            # Validate the provided category_id
-            category_id = validate_category_id(db, category_id, list_id)
-        if category_id is None:
-            # Check item history for an exact match (no LLM call needed)
-            category_id = lookup_category_from_history(db, item_data.name, list_id)
+        if is_task_list:
+            # Task list item - no category, no quantity
+            item = Item(
+                list_id=list_id,
+                name=item_data.name,
+                description=item_data.description,
+                sort_order=item_data.sort_order,
+                created_by=current_user.id,
+                due_date=item_data.due_date,
+                reminder_at=item_data.reminder_at,
+                reminder_offset=item_data.reminder_offset,
+                recurrence_pattern=item_data.recurrence_pattern,
+            )
+        else:
+            # Grocery list item - determine category_id
+            category_id = item_data.category_id
+            if category_id is not None:
+                # Validate the provided category_id
+                category_id = validate_category_id(db, category_id, list_id)
+            if category_id is None:
+                # Check item history for an exact match (no LLM call needed)
+                category_id = lookup_category_from_history(db, item_data.name, list_id)
 
-        item = Item(
-            list_id=list_id,
-            name=item_data.name,
-            description=item_data.description,
-            quantity=item_data.quantity,
-            category_id=category_id,
-            sort_order=item_data.sort_order,
-            created_by=current_user.id,
-        )
+            item = Item(
+                list_id=list_id,
+                name=item_data.name,
+                description=item_data.description,
+                quantity=item_data.quantity,
+                category_id=category_id,
+                sort_order=item_data.sort_order,
+                created_by=current_user.id,
+            )
         db.add(item)
         db.commit()
         db.refresh(item)
+
+        # Schedule reminder for task items with due date or reminder
+        if is_task_list and (item.due_date or item.reminder_at):
+            schedule_reminder.delay(item.id)
+
         return item
 
 
@@ -193,22 +249,55 @@ def update_item(
     """Update an item."""
     item = get_item(db, item_id, current_user)
 
+    # Get the list to validate fields
+    list_obj = db.query(List).filter(List.id == item.list_id).first()
+    validate_item_fields_for_list_type(item_data, list_obj)
+
+    is_task_list = list_obj.list_type == ListType.TASK
+
+    # Common fields
     if item_data.name is not None:
         item.name = item_data.name
     if item_data.description is not None:
         # Empty string clears the field
         item.description = item_data.description or None
-    if item_data.quantity is not None:
-        # Empty string clears the field
-        item.quantity = item_data.quantity or None
-    if item_data.category_id is not None:
-        # Validate category_id before setting (silently ignores invalid/deleted categories)
-        item.category_id = validate_category_id(db, item_data.category_id, item.list_id)
     if item_data.sort_order is not None:
         item.sort_order = item_data.sort_order
 
+    if is_task_list:
+        # Task-specific fields
+        if item_data.due_date is not None:
+            item.due_date = item_data.due_date
+        if item_data.reminder_at is not None:
+            item.reminder_at = item_data.reminder_at
+        if item_data.reminder_offset is not None:
+            item.reminder_offset = item_data.reminder_offset or None
+        if item_data.recurrence_pattern is not None:
+            item.recurrence_pattern = item_data.recurrence_pattern
+    else:
+        # Grocery-specific fields
+        if item_data.quantity is not None:
+            # Empty string clears the field
+            item.quantity = item_data.quantity or None
+        if item_data.category_id is not None:
+            # Validate category_id before setting (silently ignores invalid/deleted categories)
+            item.category_id = validate_category_id(db, item_data.category_id, item.list_id)
+
     db.commit()
     db.refresh(item)
+
+    # Reschedule reminder if task reminder fields changed
+    if (
+        is_task_list
+        and (
+            item_data.due_date is not None
+            or item_data.reminder_at is not None
+            or item_data.reminder_offset is not None
+        )
+        and (item.due_date or item.reminder_at)
+    ):
+        schedule_reminder.delay(item.id)
+
     return item
 
 
@@ -219,7 +308,16 @@ def delete_item(
     db: Annotated[Session, Depends(get_db)],
 ):
     """Soft delete an item."""
+    from src.models import ReminderState
+    from src.models.enums import ReminderStatus
+
     item = get_item(db, item_id, current_user)
+
+    # Cancel any pending reminders for this item
+    db.query(ReminderState).filter(
+        ReminderState.item_id == item_id,
+        ReminderState.status == ReminderStatus.PENDING,
+    ).update({"status": ReminderStatus.COMPLETED})
 
     item.soft_delete()
     db.commit()
@@ -261,6 +359,90 @@ def uncheck_item(
     return item
 
 
+@router.post("/items/{item_id}/complete", response_model=ItemResponse)
+def complete_task_item(
+    item_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Complete a task item (for task lists only).
+
+    Marks the item as checked and sets completed_at.
+    If the item has a recurrence pattern, creates the next occurrence.
+    """
+    from dateutil.relativedelta import relativedelta
+
+    item = get_item(db, item_id, current_user)
+
+    # Verify this is a task list item
+    list_obj = db.query(List).filter(List.id == item.list_id).first()
+    if list_obj.list_type != ListType.TASK:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Complete endpoint is only for task list items",
+        )
+
+    # Mark as completed
+    now = datetime.now(UTC)
+    item.checked = True
+    item.checked_at = now
+    item.checked_by = current_user.id
+    item.completed_at = now
+
+    # Handle recurrence - create next occurrence
+    if item.recurrence_pattern and item.due_date:
+        # Calculate next due date based on pattern
+        if item.recurrence_pattern == "daily":
+            next_due = item.due_date + relativedelta(days=1)
+        elif item.recurrence_pattern == "weekly":
+            next_due = item.due_date + relativedelta(weeks=1)
+        elif item.recurrence_pattern == "monthly":
+            next_due = item.due_date + relativedelta(months=1)
+        else:
+            next_due = None
+
+        if next_due:
+            # Calculate next reminder based on offset or original reminder
+            next_reminder = None
+            if item.reminder_offset and item.due_date:
+                # Parse offset and apply to new due date
+                # Format: "1h", "30m", "1d"
+                offset_str = item.reminder_offset.lower()
+                if offset_str.endswith("h"):
+                    hours = int(offset_str[:-1])
+                    next_reminder = next_due - relativedelta(hours=hours)
+                elif offset_str.endswith("m"):
+                    minutes = int(offset_str[:-1])
+                    next_reminder = next_due - relativedelta(minutes=minutes)
+                elif offset_str.endswith("d"):
+                    days = int(offset_str[:-1])
+                    next_reminder = next_due - relativedelta(days=days)
+            elif item.reminder_at and item.due_date:
+                # Calculate the offset from the original due_date to reminder_at
+                # and apply it to the new due date
+                offset = item.due_date - item.reminder_at
+                next_reminder = next_due - offset
+
+            # Create next occurrence
+            next_item = Item(
+                list_id=item.list_id,
+                name=item.name,
+                description=item.description,
+                sort_order=item.sort_order,
+                created_by=current_user.id,
+                due_date=next_due,
+                reminder_at=next_reminder,
+                reminder_offset=item.reminder_offset,
+                recurrence_pattern=item.recurrence_pattern,
+                recurrence_parent_id=item.recurrence_parent_id or item.id,
+            )
+            db.add(next_item)
+
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 @router.post("/lists/{list_id}/items/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
 def bulk_delete_items(
     list_id: int,
@@ -294,7 +476,14 @@ def auto_categorize_items(
     from src.services.categorization import CategorizationService
 
     # Verify user has access to the list
-    get_user_list(db, list_id, current_user)
+    list_obj = get_user_list(db, list_id, current_user)
+
+    # Task lists don't support categories
+    if list_obj.list_type == ListType.TASK:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Task lists do not support categories",
+        )
 
     # Get uncategorized items
     uncategorized = (

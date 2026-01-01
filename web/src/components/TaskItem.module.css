@@ -1,0 +1,222 @@
+/* =============================================================================
+   TaskItem Component Styles - Task list items with due dates and recurrence
+   ============================================================================= */
+
+.taskCard {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  transition: all var(--transition-fast);
+}
+
+.taskCard:hover {
+  border-color: var(--border-light);
+}
+
+.taskCardCompleted {
+  opacity: 0.6;
+}
+
+.taskCardOverdue {
+  border-color: var(--danger);
+  background: linear-gradient(135deg, var(--surface-1) 0%, rgba(239, 68, 68, 0.05) 100%);
+}
+
+/* Complete Circle Button */
+.completeCircle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-light);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.completeCircle:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.completeCircleChecked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Task Content */
+.taskContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.taskName {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+}
+
+.taskNameCompleted {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.taskMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+}
+
+/* Due Date */
+.dueDate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.dueDateOverdue {
+  color: var(--danger);
+  font-weight: var(--font-medium);
+}
+
+/* Completed At */
+.completedAt {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+/* Recurrence Badge */
+.recurrenceBadge {
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background: var(--accent-subtle);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+/* Reminder Badge */
+.reminderBadge {
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+/* Action Buttons */
+.actionBtn {
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.actionBtn:hover {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.actionBtnDanger:hover {
+  color: var(--danger);
+  background: var(--danger-muted);
+}
+
+/* Edit Mode */
+.editCard {
+  background: var(--surface-1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.editInput {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  width: 100%;
+}
+
+.editInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.editSelect {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  width: 100%;
+}
+
+.editRow {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.fieldLabel {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.editActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.btnPrimary {
+  flex: 1;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: var(--font-medium);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  flex: 1;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}

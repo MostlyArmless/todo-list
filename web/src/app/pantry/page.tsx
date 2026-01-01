@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type PantryItemWithRecipes, type List, type ReceiptScanResponse } from '@/lib/api';
+import { api, type PantryItemWithRecipes, type List, type ReceiptScanResponse, type Category } from '@/lib/api';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
@@ -52,6 +52,8 @@ export default function PantryPage() {
   const [editStatus, setEditStatus] = useState<PantryStatus>('have');
   const [editCategory, setEditCategory] = useState('');
   const [editStore, setEditStore] = useState('');
+  const [storeCategories, setStoreCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +65,35 @@ export default function PantryPage() {
     }
     loadData();
   }, [router]);
+
+  // Load categories when store selection changes
+  useEffect(() => {
+    const loadStoreCategories = async () => {
+      if (!editStore) {
+        setStoreCategories([]);
+        return;
+      }
+
+      // Find the list by name
+      const selectedList = lists.find(l => l.name === editStore);
+      if (!selectedList) {
+        setStoreCategories([]);
+        return;
+      }
+
+      setLoadingCategories(true);
+      try {
+        const categories = await api.getCategories(selectedList.id);
+        setStoreCategories(categories);
+      } catch {
+        setStoreCategories([]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    loadStoreCategories();
+  }, [editStore, lists]);
 
   const loadData = async () => {
     try {
@@ -240,6 +271,7 @@ export default function PantryPage() {
     setEditStatus('have');
     setEditCategory('');
     setEditStore('');
+    setStoreCategories([]);
   };
 
   const handleSaveEdit = async () => {
@@ -258,6 +290,7 @@ export default function PantryPage() {
       setEditStatus('have');
       setEditCategory('');
       setEditStore('');
+      setStoreCategories([]);
       loadPantry();
     } catch {
       await alert({ message: 'Failed to update item. The name may already exist in your pantry.' });
@@ -652,33 +685,38 @@ export default function PantryPage() {
                     </select>
                     <select
                       value={editStore}
-                      onChange={(e) => setEditStore(e.target.value)}
+                      onChange={(e) => {
+                        setEditStore(e.target.value);
+                        setEditCategory(''); // Reset category when store changes
+                      }}
                       className={styles.editSelect}
                     >
                       <option value="">No Store</option>
-                      {lists.map((list) => (
+                      {lists.filter(l => l.list_type !== 'task').map((list) => (
                         <option key={list.id} value={list.name}>
                           {list.name}
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="text"
+                    <select
                       value={editCategory}
                       onChange={(e) => setEditCategory(e.target.value)}
-                      placeholder="Category (optional)"
-                      list="edit-categories"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveEdit();
-                        if (e.key === 'Escape') handleCancelEdit();
-                      }}
-                      className={styles.editCategoryInput}
-                    />
-                    <datalist id="edit-categories">
-                      {existingCategories.map((cat) => (
-                        <option key={cat} value={cat} />
+                      disabled={!editStore || loadingCategories}
+                      className={styles.editCategorySelect}
+                    >
+                      <option value="">
+                        {!editStore
+                          ? 'Select store first'
+                          : loadingCategories
+                            ? 'Loading...'
+                            : 'No category'}
+                      </option>
+                      {storeCategories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
                       ))}
-                    </datalist>
+                    </select>
                   </div>
                   <div className={styles.editBtns}>
                     <button
@@ -754,7 +792,7 @@ export default function PantryPage() {
                         title="Select preferred store"
                       >
                         <option value="">Store</option>
-                        {lists.map((list) => (
+                        {lists.filter(l => l.list_type !== 'task').map((list) => (
                           <option key={list.id} value={list.name}>
                             {list.name}
                           </option>
@@ -900,7 +938,7 @@ export default function PantryPage() {
             className={styles.formInput}
           >
             <option value="">Preferred Store (optional)</option>
-            {lists.map((list) => (
+            {lists.filter(l => l.list_type !== 'task').map((list) => (
               <option key={list.id} value={list.name}>
                 {list.name}
               </option>

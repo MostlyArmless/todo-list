@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     # Anthropic API (for receipt scanning with Claude Vision)
     anthropic_api_key: str | None = Field(default=None)
 
+    # Twilio (for SMS and voice calls)
+    twilio_account_sid: str | None = Field(default=None)
+    twilio_auth_token: str | None = Field(default=None)
+    twilio_phone_number: str | None = Field(default=None)
+
+    # VAPID (for web push notifications)
+    vapid_public_key: str | None = Field(default=None)
+    vapid_private_key: str | None = Field(default=None)
+    vapid_email: str | None = Field(default=None)
+
     # API
     environment: str = Field(default="development")
 

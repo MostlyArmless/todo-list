@@ -16,6 +16,7 @@ app = Celery(
         "src.tasks.recipe_import",
         "src.tasks.nutrition",
         "src.tasks.receipt_scan",
+        "src.tasks.reminders",
     ],
 )
 
@@ -30,3 +31,11 @@ app.conf.update(
     task_time_limit=300,  # 5 minutes max per task
     task_soft_time_limit=240,  # 4 minutes soft limit
 )
+
+# Beat schedule for periodic tasks
+app.conf.beat_schedule = {
+    "process-reminder-escalations": {
+        "task": "src.tasks.reminders.process_escalations",
+        "schedule": 60.0,  # every minute
+    },
+}

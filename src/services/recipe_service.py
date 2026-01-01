@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from src.models.enums import ListType
 from src.models.ingredient_store_default import IngredientStoreDefault
 from src.models.item import Item
 from src.models.list import List
@@ -217,19 +218,20 @@ class RecipeService:
         self.db.commit()
 
     def _get_or_create_list(self, user_id: int, name: str, icon: str) -> List:
-        """Get or create a shopping list."""
+        """Get or create a grocery shopping list."""
         list_obj = (
             self.db.query(List)
             .filter(
                 List.owner_id == user_id,
                 List.name == name,
+                List.list_type == ListType.GROCERY,
                 List.deleted_at.is_(None),
             )
             .first()
         )
 
         if not list_obj:
-            list_obj = List(name=name, owner_id=user_id, icon=icon)
+            list_obj = List(name=name, owner_id=user_id, icon=icon, list_type=ListType.GROCERY)
             self.db.add(list_obj)
             self.db.flush()
 

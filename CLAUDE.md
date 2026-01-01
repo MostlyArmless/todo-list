@@ -213,6 +213,8 @@ npm run screenshot:all          # All projects (mobile, pixel6, desktop)
 
 **API routing**: Since the frontend at port 3002 can't reach the API at port 8000 directly (nginx handles this in production), screenshot tests use `page.route()` to intercept `/api/**` calls and proxy them to the FastAPI backend. See `loginViaAPI()` in `e2e/screenshot.spec.ts`.
 
+**Verifying UI changes**: When making targeted UI changes (spacing, sizing, layout), use Playwright screenshots to verify your work as you go. Run specific tests like `npx playwright test e2e/screenshot.spec.ts -g "pantry with data" --project=mobile` and view the resulting screenshot in `web/screenshots/`. For testing specific UI states (like edit mode), add a quick test that triggers that state before capturing.
+
 ## Git Hooks
 
 Uses [pre-commit](https://pre-commit.com/) framework. Config in `.pre-commit-config.yaml`. Install with `uv run pre-commit install`.

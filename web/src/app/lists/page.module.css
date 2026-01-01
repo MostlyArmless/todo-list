@@ -217,6 +217,70 @@
   background: var(--accent-subtle);
 }
 
+/* List Type Selector */
+.typeSelector {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.typeBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.typeBtn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.typeBtnActive {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.typeIcon {
+  font-size: var(--text-lg);
+}
+
+/* List Meta (type badge + description) */
+.listMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.listTypeBadge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.groceryType {
+  background: var(--success-muted);
+  color: var(--success);
+}
+
+.taskType {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
 /* Loading State */
 .loading {
   color: var(--text-secondary);

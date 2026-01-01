@@ -193,7 +193,7 @@ class ApiClient {
     return this.request<List>(`/api/v1/lists/${id}`);
   }
 
-  async createList(data: { name: string; description?: string; icon?: string }) {
+  async createList(data: { name: string; description?: string; icon?: string; list_type?: ListType }) {
     return this.mutate<List>('/api/v1/lists', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -250,6 +250,11 @@ class ApiClient {
     category_id?: number;
     quantity?: string;
     description?: string;
+    // Task-specific fields
+    due_date?: string;
+    reminder_at?: string;
+    reminder_offset?: string;
+    recurrence_pattern?: RecurrencePattern;
   }) {
     return this.mutate<Item>(`/api/v1/lists/${listId}/items`, {
       method: 'POST',
@@ -272,6 +277,12 @@ class ApiClient {
 
   async uncheckItem(id: number) {
     return this.mutate<Item>(`/api/v1/items/${id}/uncheck`, {
+      method: 'POST',
+    }, ['/items']);
+  }
+
+  async completeItem(id: number) {
+    return this.mutate<Item>(`/api/v1/items/${id}/complete`, {
       method: 'POST',
     }, ['/items']);
   }
@@ -570,6 +581,46 @@ class ApiClient {
     return this.request(`/api/v1/recipes/${recipeId}/step-completions`, { method: 'DELETE' });
   }
 
+  // Notifications
+  async getVapidPublicKey(): Promise<{ public_key: string | null }> {
+    return this.request('/api/v1/notifications/vapid-public-key');
+  }
+
+  async subscribePush(subscription: {
+    endpoint: string;
+    p256dh_key: string;
+    auth_key: string;
+  }): Promise<PushSubscription> {
+    return this.request('/api/v1/notifications/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+    });
+  }
+
+  async unsubscribePush(endpoint: string): Promise<void> {
+    return this.request(`/api/v1/notifications/subscribe?endpoint=${encodeURIComponent(endpoint)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getNotificationSettings(): Promise<NotificationSettings> {
+    return this.request('/api/v1/notifications/settings');
+  }
+
+  async updateNotificationSettings(settings: Partial<NotificationSettings>): Promise<NotificationSettings> {
+    return this.request('/api/v1/notifications/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async respondToReminder(itemId: number, response: string): Promise<ReminderResponseResult> {
+    return this.request('/api/v1/notifications/respond', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: itemId, response }),
+    });
+  }
+
   // Voice Input Confirmations
   async getPendingConfirmations(): Promise<VoiceQueueResponse> {
     // Use cache-busting param since this is polled frequently
@@ -614,6 +665,8 @@ export interface User {
   name: string | null;
 }
 
+export type ListType = 'grocery' | 'task';
+
 export interface List {
   id: number;
   name: string;
@@ -621,6 +674,7 @@ export interface List {
   icon: string | null;
   sort_order: number;
   owner_id: number;
+  list_type: ListType;
   created_at: string;
 }
 
@@ -632,6 +686,8 @@ export interface Category {
   color: string | null;
   created_at: string;
 }
+
+export type RecurrencePattern = 'daily' | 'weekly' | 'monthly';
 
 export interface Item {
   id: number;
@@ -645,6 +701,13 @@ export interface Item {
   sort_order: number;
   created_at: string;
   recipe_sources: { recipe_id: number; recipe_name: string; label_color?: string }[] | null;
+  // Task-specific fields (null for grocery items)
+  due_date: string | null;
+  reminder_at: string | null;
+  reminder_offset: string | null;
+  recurrence_pattern: RecurrencePattern | null;
+  recurrence_parent_id: number | null;
+  completed_at: string | null;
 }
 
 export interface Recipe {
@@ -888,6 +951,34 @@ export interface InProgressVoiceJob {
 export interface VoiceQueueResponse {
   in_progress: InProgressVoiceJob[];
   pending_confirmations: PendingConfirmation[];
+}
+
+// Notification types
+export interface PushSubscription {
+  id: number;
+  endpoint: string;
+  created_at: string;
+}
+
+export interface NotificationSettings {
+  id: number;
+  phone_number: string | null;
+  accountability_partner_phone: string | null;
+  escape_safe_word: string;
+  escalation_timing: {
+    push_to_sms: number;
+    sms_to_call: number;
+    call_repeat: number;
+  };
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  quiet_hours_timezone: string;
+}
+
+export interface ReminderResponseResult {
+  action: 'complete' | 'reschedule' | 'pushback' | 'escape';
+  new_reminder_at?: string;
+  pushback_message?: string;
 }
 
 export const api = new ApiClient();

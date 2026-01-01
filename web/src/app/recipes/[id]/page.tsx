@@ -766,6 +766,7 @@ export default function RecipeDetailPage() {
       <div className={styles.imageSection}>
         {recipe.image_url ? (
           <div className={styles.imageContainer}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={recipe.image_url}
               alt={recipe.name}

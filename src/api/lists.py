@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
 from src.database import get_db
-from src.models.enums import Permission
+from src.models.enums import ListType, Permission
 from src.models.item import Item
 from src.models.list import List, ListShare
 from src.models.user import User
@@ -96,6 +96,7 @@ def create_list(
         name=list_data.name,
         description=list_data.description,
         icon=list_data.icon,
+        list_type=ListType(list_data.list_type),
         owner_id=current_user.id,
     )
     db.add(new_list)

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { api, type List, type Category, type Item, type PantryItem } from '@/lib/api';
+import { api, type List, type Category, type Item, type PantryItem, type RecurrencePattern } from '@/lib/api';
+import TaskItem from '@/components/TaskItem';
 import { formatQuantityTotal } from '@/lib/formatQuantity';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
@@ -69,6 +70,10 @@ export default function ListDetailPage() {
   const [addedItemMessage, setAddedItemMessage] = useState<string | null>(null);
   const [inlineAddCategory, setInlineAddCategory] = useState<number | null | 'uncategorized'>(null);
   const [inlineItemName, setInlineItemName] = useState('');
+  // Task-specific form state
+  const [newItemDueDate, setNewItemDueDate] = useState('');
+  const [newItemReminderOffset, setNewItemReminderOffset] = useState('');
+  const [newItemRecurrence, setNewItemRecurrence] = useState<RecurrencePattern | ''>('');
 
   const loadData = useCallback(async () => {
     try {
@@ -99,31 +104,48 @@ export default function ListDetailPage() {
     e.preventDefault();
     if (!newItemName.trim()) return;
 
+    const isTaskList = list?.list_type === 'task';
+
     try {
-      // Check if item with same name already exists (for merge detection)
-      const existingItem = items.find(
+      // Check if item with same name already exists (for merge detection) - grocery only
+      const existingItem = !isTaskList ? items.find(
         i => i.name.toLowerCase().trim() === newItemName.toLowerCase().trim() && !i.checked
-      );
+      ) : null;
 
       const createdItem = await api.createItem(listId, {
         name: newItemName,
-        category_id: newItemCategory || undefined,
+        // Grocery-specific fields
+        category_id: !isTaskList ? (newItemCategory || undefined) : undefined,
+        // Task-specific fields
+        due_date: isTaskList && newItemDueDate ? new Date(newItemDueDate).toISOString() : undefined,
+        reminder_offset: isTaskList && newItemReminderOffset ? newItemReminderOffset : undefined,
+        recurrence_pattern: isTaskList && newItemRecurrence ? newItemRecurrence : undefined,
       });
+
+      // Reset form
       setNewItemName('');
       setNewItemCategory(null);
+      setNewItemDueDate('');
+      setNewItemReminderOffset('');
+      setNewItemRecurrence('');
 
       // Show ghost message indicating what happened
-      const wasMerged = existingItem && existingItem.id === createdItem.id;
-      const categoryName = createdItem.category_id
-        ? categories.find(c => c.id === createdItem.category_id)?.name || 'Unknown'
-        : 'Uncategorized';
+      if (!isTaskList) {
+        const wasMerged = existingItem && existingItem.id === createdItem.id;
+        const categoryName = createdItem.category_id
+          ? categories.find(c => c.id === createdItem.category_id)?.name || 'Unknown'
+          : 'Uncategorized';
 
-      if (wasMerged) {
-        setAddedItemMessage(`Merged with existing in ${categoryName}`);
+        if (wasMerged) {
+          setAddedItemMessage(`Merged with existing in ${categoryName}`);
+        } else {
+          setAddedItemMessage(`Added to ${categoryName}`);
+        }
+        setTimeout(() => setAddedItemMessage(null), 3000);
       } else {
-        setAddedItemMessage(`Added to ${categoryName}`);
+        setAddedItemMessage('Task added');
+        setTimeout(() => setAddedItemMessage(null), 2000);
       }
-      setTimeout(() => setAddedItemMessage(null), 3000);
 
       loadData();
     } catch {
@@ -171,6 +193,39 @@ export default function ListDetailPage() {
       loadData();
     } catch {
       // Failed to toggle item
+    }
+  };
+
+  // Task-specific handlers
+  const handleCompleteTask = async (item: Item) => {
+    try {
+      await api.completeItem(item.id);
+      loadData();
+    } catch {
+      // Failed to complete task
+    }
+  };
+
+  const handleUncheckTask = async (item: Item) => {
+    try {
+      await api.uncheckItem(item.id);
+      loadData();
+    } catch {
+      // Failed to uncheck task
+    }
+  };
+
+  const handleUpdateTask = async (id: number, data: {
+    name?: string;
+    due_date?: string | null;
+    reminder_offset?: string | null;
+    recurrence_pattern?: RecurrencePattern | null;
+  }) => {
+    try {
+      await api.updateItem(id, data);
+      loadData();
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -496,27 +551,72 @@ export default function ListDetailPage() {
         <div className={styles.addItemRow}>
           <input
             type="text"
-            placeholder="Add item..."
+            placeholder={list.list_type === 'task' ? 'Add task...' : 'Add item...'}
             className={styles.addItemInput}
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
           />
-          <select
-            className={styles.addItemSelect}
-            value={newItemCategory || ''}
-            onChange={(e) => setNewItemCategory(e.target.value ? parseInt(e.target.value) : null)}
-          >
-            <option value="">No category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
+          {list.list_type === 'grocery' && (
+            <select
+              className={styles.addItemSelect}
+              value={newItemCategory || ''}
+              onChange={(e) => setNewItemCategory(e.target.value ? parseInt(e.target.value) : null)}
+            >
+              <option value="">No category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button type="submit" className={styles.addItemBtn}>
             Add
           </button>
         </div>
+        {/* Task-specific fields */}
+        {list.list_type === 'task' && (
+          <div className={styles.taskFormFields}>
+            <label className={styles.taskFieldLabel}>
+              Due
+              <input
+                type="datetime-local"
+                className={styles.taskFieldInput}
+                value={newItemDueDate}
+                onChange={(e) => setNewItemDueDate(e.target.value)}
+              />
+            </label>
+            <label className={styles.taskFieldLabel}>
+              Reminder
+              <select
+                className={styles.taskFieldSelect}
+                value={newItemReminderOffset}
+                onChange={(e) => setNewItemReminderOffset(e.target.value)}
+              >
+                <option value="">No reminder</option>
+                <option value="1m">1 min before</option>
+                <option value="15m">15 min before</option>
+                <option value="30m">30 min before</option>
+                <option value="1h">1 hour before</option>
+                <option value="2h">2 hours before</option>
+                <option value="1d">1 day before</option>
+              </select>
+            </label>
+            <label className={styles.taskFieldLabel}>
+              Repeat
+              <select
+                className={styles.taskFieldSelect}
+                value={newItemRecurrence}
+                onChange={(e) => setNewItemRecurrence(e.target.value as RecurrencePattern | '')}
+              >
+                <option value="">No repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
+          </div>
+        )}
         {addedItemMessage && (
           <span className={styles.addedMessage}>
             {addedItemMessage}
@@ -540,8 +640,26 @@ export default function ListDetailPage() {
         </div>
       )}
 
-      {/* Uncategorized Items */}
-      {getItemsByCategory(null).length > 0 && (
+      {/* Task List Items */}
+      {list.list_type === 'task' && (
+        <div className={styles.taskListSection}>
+          <div className={styles.itemList}>
+            {items.map((item) => (
+              <TaskItem
+                key={item.id}
+                item={item}
+                onComplete={handleCompleteTask}
+                onUncheck={handleUncheckTask}
+                onDelete={handleDeleteItem}
+                onUpdate={handleUpdateTask}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grocery List: Uncategorized Items */}
+      {list.list_type === 'grocery' && getItemsByCategory(null).length > 0 && (
         <div className={styles.categorySection}>
           <div className={styles.categoryHeader}>
             <input
@@ -642,116 +760,124 @@ export default function ListDetailPage() {
         </div>
       )}
 
-      {/* Categorized Items with dnd-kit */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={categories.map((cat) => cat.id)}
-          strategy={verticalListSortingStrategy}
+      {/* Grocery List: Categorized Items with dnd-kit */}
+      {list.list_type === 'grocery' && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          {categories.map((category) => (
-            <SortableCategory
-              key={category.id}
-              category={category}
-              items={getItemsByCategory(category.id)}
-              isFullySelected={isCategoryFullySelected(category.id)}
-              isPartiallySelected={isCategoryPartiallySelected(category.id)}
-              onToggleCategorySelection={() => toggleCategorySelection(category.id)}
-              isEditing={editingCategoryId === category.id}
-              editName={editCategoryName}
-              onEditNameChange={setEditCategoryName}
-              onSaveEdit={() => handleSaveEditCategory(category.id)}
-              onCancelEdit={handleCancelEditCategory}
-              onStartEdit={() => handleStartEditCategory(category)}
-              onDelete={() => handleDeleteCategory(category.id)}
-              onToggleItemCheck={handleToggleCheck}
-              onDeleteItem={handleDeleteItem}
-              onUpdateItem={handleUpdateItem}
-              allCategories={categories}
-              isInlineAdding={inlineAddCategory === category.id}
-              inlineItemName={inlineItemName}
-              onInlineItemNameChange={setInlineItemName}
-              onStartInlineAdd={() => {
-                setInlineAddCategory(category.id);
-                setInlineItemName('');
-              }}
-              onCancelInlineAdd={() => {
-                setInlineAddCategory(null);
-                setInlineItemName('');
-              }}
-              onSubmitInlineAdd={() => handleInlineAdd(category.id)}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+          <SortableContext
+            items={categories.map((cat) => cat.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {categories.map((category) => (
+              <SortableCategory
+                key={category.id}
+                category={category}
+                items={getItemsByCategory(category.id)}
+                isFullySelected={isCategoryFullySelected(category.id)}
+                isPartiallySelected={isCategoryPartiallySelected(category.id)}
+                onToggleCategorySelection={() => toggleCategorySelection(category.id)}
+                isEditing={editingCategoryId === category.id}
+                editName={editCategoryName}
+                onEditNameChange={setEditCategoryName}
+                onSaveEdit={() => handleSaveEditCategory(category.id)}
+                onCancelEdit={handleCancelEditCategory}
+                onStartEdit={() => handleStartEditCategory(category)}
+                onDelete={() => handleDeleteCategory(category.id)}
+                onToggleItemCheck={handleToggleCheck}
+                onDeleteItem={handleDeleteItem}
+                onUpdateItem={handleUpdateItem}
+                allCategories={categories}
+                isInlineAdding={inlineAddCategory === category.id}
+                inlineItemName={inlineItemName}
+                onInlineItemNameChange={setInlineItemName}
+                onStartInlineAdd={() => {
+                  setInlineAddCategory(category.id);
+                  setInlineItemName('');
+                }}
+                onCancelInlineAdd={() => {
+                  setInlineAddCategory(null);
+                  setInlineItemName('');
+                }}
+                onSubmitInlineAdd={() => handleInlineAdd(category.id)}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )}
 
       {/* Empty State */}
       {items.length === 0 && (
         <div className={styles.emptyState}>
-          <p>No items yet. Add your first item above!</p>
+          <p>
+            {list.list_type === 'task'
+              ? 'No tasks yet. Add your first task above!'
+              : 'No items yet. Add your first item above!'}
+          </p>
         </div>
       )}
 
-      {/* Add Category */}
-      <div className={styles.addCategorySection}>
-        {showNewCategory ? (
-          <form onSubmit={handleAddCategory} className={styles.addCategoryForm}>
-            <input
-              type="text"
-              placeholder="Category name"
-              className={styles.addCategoryInput}
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
+      {/* Add Category - Grocery lists only */}
+      {list.list_type === 'grocery' && (
+        <div className={styles.addCategorySection}>
+          {showNewCategory ? (
+            <form onSubmit={handleAddCategory} className={styles.addCategoryForm}>
+              <input
+                type="text"
+                placeholder="Category name"
+                className={styles.addCategoryInput}
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setShowNewCategory(false);
+                    setNewCategoryName('');
+                  }
+                }}
+              />
+              <button type="submit" className={styles.btnPrimary}>
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setShowNewCategory(false);
                   setNewCategoryName('');
-                }
-              }}
-            />
-            <button type="submit" className={styles.btnPrimary}>
-              Add
-            </button>
+                }}
+                className={styles.btnSecondary}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
             <button
-              type="button"
-              onClick={() => {
-                setShowNewCategory(false);
-                setNewCategoryName('');
-              }}
-              className={styles.btnSecondary}
+              onClick={() => setShowNewCategory(true)}
+              className={styles.addCategoryBtn}
             >
-              Cancel
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Add Category
             </button>
-          </form>
-        ) : (
-          <button
-            onClick={() => setShowNewCategory(true)}
-            className={styles.addCategoryBtn}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            Add Category
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      {/* Post-Shopping Pantry Prompt */}
-      {showPantryPrompt && recentlyChecked.length > 0 && (
+      {/* Post-Shopping Pantry Prompt - Grocery lists only */}
+      {list.list_type === 'grocery' && showPantryPrompt && recentlyChecked.length > 0 && (
         <div className={styles.pantryPrompt}>
           <div className={styles.pantryPromptHeader}>
             <div>

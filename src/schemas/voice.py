@@ -40,10 +40,15 @@ class PendingConfirmationResponse(BaseModel):
 
 
 class ItemEdit(BaseModel):
-    """Edited item data."""
+    """Edited item data (supports both grocery and task items)."""
 
     name: str = Field(..., max_length=500)
+    # Grocery-specific
     category_id: int | None = None
+    # Task-specific
+    due_date: datetime | None = None
+    reminder_offset: str | None = Field(None, max_length=20)  # "1h", "1d", "30m"
+    recurrence_pattern: str | None = Field(None, max_length=10)  # daily/weekly/monthly
 
 
 class ConfirmationEdits(BaseModel):

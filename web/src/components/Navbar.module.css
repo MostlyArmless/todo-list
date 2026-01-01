@@ -137,6 +137,25 @@
   }
 }
 
+.settingsBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  padding: var(--space-2);
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.settingsBtn:hover {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
 .logoutBtn {
   display: flex;
   align-items: center;

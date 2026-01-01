@@ -151,6 +151,7 @@ def action_pending_confirmation(
         # Apply the proposed changes, with optional edits
         proposed = confirmation.proposed_changes
         action = proposed["action"]
+        list_type = proposed.get("list_type", "grocery")
 
         # Use edited list_id if provided, otherwise use proposed
         list_id = (
@@ -165,8 +166,6 @@ def action_pending_confirmation(
             raise HTTPException(status_code=400, detail="Invalid target list")
 
         if action == "add":
-            categorization_service = CategorizationService(db)
-
             # Use edited items if provided, otherwise use proposed
             items_to_add = proposed["items"]
             if action_data.edits and action_data.edits.items:
@@ -174,28 +173,61 @@ def action_pending_confirmation(
                     {
                         "name": edit.name,
                         "category_id": edit.category_id,
+                        "due_date": edit.due_date.isoformat() if edit.due_date else None,
+                        "reminder_offset": edit.reminder_offset,
+                        "recurrence_pattern": edit.recurrence_pattern,
                     }
                     for edit in action_data.edits.items
                 ]
 
-            for item_data in items_to_add:
-                # Create the item
-                item = Item(
-                    list_id=list_id,
-                    category_id=item_data.get("category_id"),
-                    name=item_data["name"],
-                    checked=False,
-                )
-                db.add(item)
+            if list_type == "task":
+                # Create task items with task-specific fields
+                for item_data in items_to_add:
+                    # Parse due_date from ISO string if provided
+                    due_date = None
+                    if item_data.get("due_date"):
+                        due_date_str = item_data["due_date"]
+                        if isinstance(due_date_str, str):
+                            try:
+                                due_date = datetime.fromisoformat(
+                                    due_date_str.replace("Z", "+00:00")
+                                )
+                            except ValueError:
+                                logger.warning(f"Invalid due_date format: {due_date_str}")
+                        else:
+                            due_date = due_date_str
 
-                # Record categorization to history if category was assigned
-                if item_data.get("category_id"):
-                    categorization_service.record_categorization(
-                        item_name=item_data["name"],
-                        category_id=item_data["category_id"],
+                    item = Item(
                         list_id=list_id,
-                        user_id=current_user.id,
+                        name=item_data["name"],
+                        checked=False,
+                        due_date=due_date,
+                        reminder_offset=item_data.get("reminder_offset"),
+                        recurrence_pattern=item_data.get("recurrence_pattern"),
                     )
+                    db.add(item)
+            else:
+                # Create grocery items with categorization
+                categorization_service = CategorizationService(db)
+
+                for item_data in items_to_add:
+                    # Create the item
+                    item = Item(
+                        list_id=list_id,
+                        category_id=item_data.get("category_id"),
+                        name=item_data["name"],
+                        checked=False,
+                    )
+                    db.add(item)
+
+                    # Record categorization to history if category was assigned
+                    if item_data.get("category_id"):
+                        categorization_service.record_categorization(
+                            item_name=item_data["name"],
+                            category_id=item_data["category_id"],
+                            list_id=list_id,
+                            user_id=current_user.id,
+                        )
 
         confirmation.status = "confirmed"
         confirmation.confirmed_at = datetime.now(UTC)

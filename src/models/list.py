@@ -1,10 +1,10 @@
 """List model."""
 
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from src.database import Base
-from src.models.enums import Permission
+from src.models.enums import ListType, Permission
 from src.models.mixins import SoftDeleteMixin, TimestampMixin
 
 
@@ -19,6 +19,12 @@ class List(Base, TimestampMixin, SoftDeleteMixin):
     description = Column(String, nullable=True)
     icon = Column(String(50), nullable=True)  # emoji or icon name
     sort_order = Column(Integer, default=0)
+    list_type = Column(
+        Enum(ListType, name="listtype", values_callable=lambda x: [e.value for e in x]),
+        default=ListType.GROCERY,
+        nullable=False,
+        server_default="grocery",
+    )
 
     # Relationships
     owner = relationship("User", backref="lists")

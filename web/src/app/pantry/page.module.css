@@ -517,19 +517,20 @@
   background: var(--surface-1);
   border: 1px solid var(--accent);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  padding: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 6px;
   box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
 .editInput {
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
+  padding: 4px 8px;
+  height: 32px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface-2);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--text-primary);
 }
 
@@ -540,35 +541,73 @@
 
 .editRow {
   display: flex;
-  gap: var(--space-2);
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .editSelect {
   flex: 1 1 80px;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-lg);
+  /*
+   * Browser select elements have stubborn default sizing.
+   * All three height constraints + !important are required for cross-browser consistency.
+   */
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 24px 0 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: var(--surface-2);
-  font-size: var(--text-sm);
+  background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 6px center;
+  font-size: var(--text-xs);
   color: var(--text-primary);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .editCategoryInput {
   composes: editInput;
   flex: 1 1 150px;
-  padding: var(--space-2) var(--space-3);
+  padding: 0 6px;
+}
+
+.editCategorySelect {
+  flex: 1 1 150px;
+  /*
+   * Browser select elements have stubborn default sizing.
+   * All three height constraints + !important are required for cross-browser consistency.
+   */
+  height: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  padding: 0 24px 0 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 6px center;
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.editCategorySelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-tertiary);
 }
 
 .editBtns {
   display: flex;
-  gap: var(--space-2);
+  gap: 6px;
 }
 
 .cancelBtn {
   flex: 1;
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
+  height: 32px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: transparent;
   font-size: var(--text-sm);
@@ -583,8 +622,8 @@
 
 .saveBtn {
   flex: 1;
-  padding: var(--space-3);
-  border-radius: var(--radius-lg);
+  height: 32px;
+  border-radius: var(--radius-md);
   background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
   color: white;
   font-size: var(--text-sm);
@@ -805,11 +844,8 @@
     flex-direction: column;
   }
 
-  .editSelect {
-    width: 100%;
-  }
-
-  .editCategoryInput {
+  .editSelect,
+  .editCategorySelect {
     width: 100%;
   }
 }

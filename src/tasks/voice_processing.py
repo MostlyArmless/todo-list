@@ -12,7 +12,12 @@ from src.models.pending_confirmation import PendingConfirmation
 from src.models.voice_input import VoiceInput
 from src.services.categorization import CategorizationService
 from src.services.llm import LLMService
-from src.services.llm_prompts import VOICE_PARSING_SYSTEM_PROMPT, get_voice_parsing_prompt
+from src.services.llm_prompts import (
+    TASK_VOICE_PARSING_SYSTEM_PROMPT,
+    VOICE_PARSING_SYSTEM_PROMPT,
+    get_task_voice_parsing_prompt,
+    get_voice_parsing_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +46,7 @@ def process_voice_input(self, voice_input_id: int) -> dict:
 
         logger.info(f"Processing voice input {voice_input_id}: '{voice_input.raw_text}'")
 
-        # Step 1: Parse voice input with LLM
+        # Step 1: Parse voice input with LLM (grocery-style first to get list name)
         llm_service = LLMService()
         parsed_data = _parse_voice_input(db, llm_service, voice_input)
 
@@ -60,33 +65,65 @@ def process_voice_input(self, voice_input_id: int) -> dict:
             db.commit()
             return {"error": f"List '{parsed_data['list_name']}' not found"}
 
-        # Step 3: Categorize items
-        categorization_service = CategorizationService(db, llm_service)
-        items_with_categories = []
+        # Step 3: Process based on list type
+        if target_list.list_type == "task":
+            # Task list: re-parse with task-aware prompt for dates/reminders
+            task_parsed = _parse_task_voice_input(db, llm_service, voice_input)
+            if task_parsed:
+                parsed_data = task_parsed
 
-        for item_name in parsed_data["items"]:
-            result = categorization_service.categorize_item(
-                item_name=item_name,
-                list_id=target_list.id,
-                user_id=voice_input.user_id,
-            )
-            items_with_categories.append(
-                {
-                    "name": item_name,
-                    "category_id": result["category_id"],
-                    "confidence": result["confidence"],
-                    "reasoning": result["reasoning"],
-                }
-            )
+            # Task items don't need categorization
+            items_with_task_fields = []
+            for item_data in parsed_data.get("items", []):
+                # Handle both formats: string items or dict items
+                if isinstance(item_data, str):
+                    items_with_task_fields.append({"name": item_data})
+                else:
+                    items_with_task_fields.append(
+                        {
+                            "name": item_data.get("name", ""),
+                            "due_date": item_data.get("due_date"),
+                            "reminder_offset": item_data.get("reminder_offset"),
+                            "recurrence_pattern": item_data.get("recurrence_pattern"),
+                        }
+                    )
+
+            proposed_changes = {
+                "action": parsed_data.get("action", "add"),
+                "list_id": target_list.id,
+                "list_name": target_list.name,
+                "list_type": "task",
+                "items": items_with_task_fields,
+            }
+        else:
+            # Grocery list: categorize items
+            categorization_service = CategorizationService(db, llm_service)
+            items_with_categories = []
+
+            for item_name in parsed_data["items"]:
+                result = categorization_service.categorize_item(
+                    item_name=item_name,
+                    list_id=target_list.id,
+                    user_id=voice_input.user_id,
+                )
+                items_with_categories.append(
+                    {
+                        "name": item_name,
+                        "category_id": result["category_id"],
+                        "confidence": result["confidence"],
+                        "reasoning": result["reasoning"],
+                    }
+                )
+
+            proposed_changes = {
+                "action": parsed_data["action"],
+                "list_id": target_list.id,
+                "list_name": target_list.name,
+                "list_type": "grocery",
+                "items": items_with_categories,
+            }
 
         # Step 4: Create pending confirmation
-        proposed_changes = {
-            "action": parsed_data["action"],
-            "list_id": target_list.id,
-            "list_name": target_list.name,
-            "items": items_with_categories,
-        }
-
         pending = PendingConfirmation(
             user_id=voice_input.user_id,
             voice_input_id=voice_input.id,
@@ -151,6 +188,47 @@ def _parse_voice_input(
 
     except Exception as e:
         logger.error(f"Error parsing voice input: {e}", exc_info=True)
+        return None
+
+
+def _parse_task_voice_input(
+    db: Session, llm_service: LLMService, voice_input: VoiceInput
+) -> dict | None:
+    """Parse voice input text into structured task data with dates/reminders."""
+    try:
+        # Get user's task lists only
+        lists = (
+            db.query(List)
+            .filter(
+                List.owner_id == voice_input.user_id,
+                List.list_type == "task",
+            )
+            .all()
+        )
+        list_names = [lst.name for lst in lists]
+
+        if not list_names:
+            list_names = ["todo"]
+
+        # Get current datetime for relative date parsing
+        current_datetime = datetime.now(UTC).isoformat()
+
+        prompt = get_task_voice_parsing_prompt(
+            voice_input.raw_text,
+            list_names,
+            current_datetime,
+        )
+        result = llm_service.generate_json(
+            prompt=prompt,
+            system_prompt=TASK_VOICE_PARSING_SYSTEM_PROMPT,
+            temperature=0.1,
+        )
+
+        logger.info(f"Parsed task voice input: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Error parsing task voice input: {e}", exc_info=True)
         return None
 
 
