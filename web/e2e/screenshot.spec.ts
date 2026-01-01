@@ -375,6 +375,10 @@ test('capture list with long names', async ({ page, request }, testInfo) => {
     headers,
     data: { name: 'Anotherlongtasknamethathasnospacesandshouldforcetexttobreakproperly' },
   });
+  await request.post(`${API_URL}/api/v1/lists/${taskList.id}/items`, {
+    headers,
+    data: { name: 'Check out this link https://example.com/some/path and do something' },
+  });
 
   // Screenshot grocery list
   await page.goto(`/list/${list.id}`);

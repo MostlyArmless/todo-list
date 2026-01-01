@@ -1,8 +1,49 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { api, type Item, type Category, type RecurrencePattern } from '@/lib/api';
 import styles from './TaskItem.module.css';
+
+// URL regex that matches http(s) URLs
+const URL_REGEX = /(https?:\/\/[^\s<>"\])}]+)/g;
+
+/**
+ * Parse text and convert URLs to clickable links.
+ * Returns an array of ReactNodes (strings and <a> elements).
+ */
+function renderTextWithLinks(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  URL_REGEX.lastIndex = 0; // Reset regex state
+  while ((match = URL_REGEX.exec(text)) !== null) {
+    // Add text before the URL
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    // Add the URL as a link
+    const url = match[1];
+    parts.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.link}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  // Add remaining text after last URL
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? parts : [text];
+}
 
 interface TaskItemProps {
   item: Item;
@@ -277,7 +318,7 @@ export default function TaskItem({
 
       <div className={styles.taskContent}>
         <div className={`${styles.taskName} ${item.checked ? styles.taskNameCompleted : ''}`}>
-          {item.name}
+          {renderTextWithLinks(item.name)}
         </div>
 
         <div className={styles.taskMeta}>
