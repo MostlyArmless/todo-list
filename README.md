@@ -5,11 +5,17 @@ Self-hosted shopping and meal planning app with voice input, recipe management, 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/images/login-mobile.png" alt="Mobile Login" width="280" />
-  <img src="docs/images/login-desktop.png" alt="Desktop Login" width="500" />
+  <img src="docs/images/lists-mobile.jpg" alt="Lists" width="220" />
+  <img src="docs/images/grocery-list-mobile.jpg" alt="Grocery List" width="220" />
+  <img src="docs/images/task-list-mobile.jpg" alt="Task List" width="220" />
+</p>
+<p align="center">
+  <img src="docs/images/recipes-mobile.jpg" alt="Recipes" width="220" />
+  <img src="docs/images/recipe-detail-mobile.jpg" alt="Recipe Detail" width="220" />
+  <img src="docs/images/pantry-mobile.jpg" alt="Pantry" width="220" />
 </p>
 
-*Dark theme with teal accents, mobile-first design*
+*Dark theme with teal accents, mobile-first PWA design*
 
 ## Features
 

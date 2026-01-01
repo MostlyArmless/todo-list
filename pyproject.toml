@@ -71,6 +71,11 @@ ignore = [
     "S101",   # Use of assert (that's what tests do)
     "S106",   # Hardcoded password - test fixtures use fake passwords intentionally
 ]
+"scripts/*" = [
+    "T201",   # print() is needed for CLI feedback
+    "S105",   # Hardcoded password - demo credentials are intentional
+    "N806",   # Variable naming - SQLAlchemy Session convention
+]
 
 [tool.ruff.format]
 quote-style = "double"

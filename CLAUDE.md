@@ -85,6 +85,12 @@ Located in `/web/e2e/`. Run: `npm run e2e` or `npx playwright test <file>`
 
 Screenshot utility: `npm run screenshot` (mobile) or `npm run screenshot:all` (all viewports)
 
+**README Screenshots**: Demo data persists in main DB (isolated by demo user). To regenerate:
+```bash
+uv run python scripts/seed_demo_data.py  # Seed/refresh demo data
+cd web && npx playwright test e2e/demo-screenshots.spec.ts --project=mobile
+```
+
 Device viewports configured for Pixel 6/6 Pro (the actual users' devices). See `web/playwright.config.ts`.
 
 ## Git Hooks
