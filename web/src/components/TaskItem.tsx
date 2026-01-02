@@ -60,6 +60,7 @@ interface TaskItemProps {
 
 const REMINDER_OFFSET_OPTIONS = [
   { value: '', label: 'No reminder' },
+  { value: '0m', label: 'At due time' },
   { value: '1m', label: '1 minute before' },
   { value: '15m', label: '15 minutes before' },
   { value: '30m', label: '30 minutes before' },
@@ -153,6 +154,20 @@ function parseOffsetMs(offset: string): number {
   }
 }
 
+/**
+ * Convert an ISO date string to local datetime-local input format.
+ * datetime-local inputs expect "YYYY-MM-DDTHH:mm" in local time.
+ */
+function toLocalDateTimeInput(isoString: string): string {
+  const date = new Date(isoString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 function getReminderTime(dueDate: string, offset: string): Date | null {
   if (!dueDate || !offset) return null;
   const due = new Date(dueDate);
@@ -169,7 +184,7 @@ export default function TaskItem({
 }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
-  const [editDueDate, setEditDueDate] = useState(item.due_date ? item.due_date.slice(0, 16) : '');
+  const [editDueDate, setEditDueDate] = useState(item.due_date ? toLocalDateTimeInput(item.due_date) : '');
   const [editReminderOffset, setEditReminderOffset] = useState(item.reminder_offset || '');
   const [editRecurrence, setEditRecurrence] = useState(item.recurrence_pattern || '');
   const [saving, setSaving] = useState(false);
@@ -188,8 +203,11 @@ export default function TaskItem({
 
   const handleStartEdit = () => {
     setEditName(item.name);
-    setEditDueDate(item.due_date ? item.due_date.slice(0, 16) : '');
-    setEditReminderOffset(item.reminder_offset || '');
+    setEditDueDate(item.due_date ? toLocalDateTimeInput(item.due_date) : '');
+    // If reminder_at is set but no offset, it's "at due time" (0m)
+    const effectiveOffset = item.reminder_offset
+      || (item.reminder_at && item.due_date ? '0m' : '');
+    setEditReminderOffset(effectiveOffset);
     setEditRecurrence(item.recurrence_pattern || '');
     setIsEditing(true);
   };
@@ -354,20 +372,25 @@ export default function TaskItem({
             </span>
           )}
 
-          {/* Reminder indicator */}
-          {item.reminder_offset && item.due_date && !item.checked && (() => {
-            const reminderTime = getReminderTime(item.due_date, item.reminder_offset);
-            if (!reminderTime) return null;
+          {/* Reminder indicator - show if reminder_at is set */}
+          {item.reminder_at && !item.checked && (() => {
+            const reminderTime = new Date(item.reminder_at);
+            const isAtDueTime = item.due_date && item.reminder_at === item.due_date;
+            const offsetLabel = item.reminder_offset
+              ? REMINDER_OFFSET_OPTIONS.find(o => o.value === item.reminder_offset)?.label || item.reminder_offset
+              : 'at due time';
             return (
-              <span className={styles.reminderBadge} title={`Reminder: ${REMINDER_OFFSET_OPTIONS.find(o => o.value === item.reminder_offset)?.label || item.reminder_offset}`}>
+              <span className={styles.reminderBadge} title={`Reminder: ${offsetLabel}`}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                {formatAbsoluteDateTime(reminderTime.toISOString())}
-                <span className={styles.countdown}>
-                  ({formatRelativeCountdown(reminderTime, now)})
-                </span>
+                {isAtDueTime ? 'at due time' : formatAbsoluteDateTime(reminderTime.toISOString())}
+                {!isAtDueTime && (
+                  <span className={styles.countdown}>
+                    ({formatRelativeCountdown(reminderTime, now)})
+                  </span>
+                )}
               </span>
             );
           })()}

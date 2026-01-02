@@ -60,10 +60,17 @@ def process_escalations() -> dict:
             # Get user notification settings
             user_settings = notification_service.get_user_settings(db, user_id)
 
-            # Check quiet hours
-            if user_settings and _is_in_quiet_hours(user_settings, now):
+            # Check quiet hours - only applies to SMS (level 1) and voice calls (level 2)
+            # Push notifications (level 0) should still go through during quiet hours
+            if (
+                reminder.current_escalation_level > 0
+                and user_settings
+                and _is_in_quiet_hours(user_settings, now)
+            ):
                 # Skip but don't escalate - will retry next minute
-                logger.info(f"Skipping reminder {reminder.id} - user in quiet hours")
+                logger.info(
+                    f"Skipping reminder {reminder.id} - user in quiet hours (SMS/voice blocked)"
+                )
                 continue
 
             # Get escalation timing

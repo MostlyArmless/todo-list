@@ -151,6 +151,67 @@
   color: var(--text-secondary);
 }
 
+/* Raw Text Section */
+.rawTextSection {
+  margin-bottom: var(--space-4);
+}
+
+.rawTextHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.rawTextInput {
+  width: 100%;
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+  font-style: italic;
+}
+
+.rawTextInput:hover {
+  border-color: var(--border-hover);
+}
+
+.rawTextInput:focus {
+  outline: none;
+  border-color: var(--accent);
+  color: var(--text-primary);
+  font-style: normal;
+}
+
+.reprocessBtn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.reprocessBtn:hover:not(:disabled) {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.reprocessBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Target List Section */
 .targetListSection {
   margin-bottom: var(--space-4);
@@ -196,10 +257,38 @@
   gap: var(--space-2);
 }
 
+.editableItemWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .editableItem {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.taskMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.taskMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--surface-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.taskMetaIcon {
+  font-size: 0.75rem;
 }
 
 .itemInput {

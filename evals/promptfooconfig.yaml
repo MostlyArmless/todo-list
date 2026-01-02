@@ -15,6 +15,158 @@ defaultTest:
     transform: "let text = output.trim();\nif (text.startsWith('```json')) {\n  text = text.slice(7);\n} else if (text.startsWith('```'))\
       \ {\n  text = text.slice(3);\n}\nif (text.endsWith('```')) {\n  text = text.slice(0, -3);\n}\nreturn text.trim();\n"
 tests:
+# =============================================================================
+# Stage 1: Classification Tests (grocery vs task)
+# =============================================================================
+- description: 'Classification: Grocery - add milk'
+  vars:
+    voice_text: add milk to costco
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n- \"bread and eggs\" → grocery\n\nTASK: Reminders, todos, actions\
+      \ with times/dates\n- \"remind me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n\nRespond with ONLY: {\"type\"\
+      : \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'grocery';
+- description: 'Classification: Grocery - bread and eggs'
+  vars:
+    voice_text: bread and eggs
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n- \"bread and eggs\" → grocery\n\nTASK: Reminders, todos, actions\
+      \ with times/dates\n- \"remind me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n\nRespond with ONLY: {\"type\"\
+      : \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'grocery';
+- description: 'Classification: Grocery - laundry detergent'
+  vars:
+    voice_text: pick up laundry detergent
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n- \"bread and eggs\" → grocery\n- \"pick up laundry detergent\"\
+      \ → grocery\n\nTASK: Reminders, todos, actions with times/dates\n- \"remind me in 30 minutes\" → task\n- \"call mom\
+      \ tomorrow\" → task\n\nRespond with ONLY: {\"type\": \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'grocery';
+- description: 'Classification: Task - remind me in 30 minutes'
+  vars:
+    voice_text: remind me in 30 minutes to check the oven
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n- \"bread and eggs\" → grocery\n\nTASK: Reminders, todos, actions\
+      \ with times/dates\n- \"remind me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n- \"don't forget to pay bills\"\
+      \ → task\n\nRespond with ONLY: {\"type\": \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'task';
+- description: 'Classification: Task - remind me in 45 minutes'
+  vars:
+    voice_text: remind me in 45 minutes to check Luna's room for cats
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n- \"bread and eggs\" → grocery\n\nTASK: Reminders, todos, actions\
+      \ with times/dates\n- \"remind me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n- \"don't forget to pay bills\"\
+      \ → task\n\nRespond with ONLY: {\"type\": \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'task';
+- description: 'Classification: Task - call mom tomorrow'
+  vars:
+    voice_text: call mom tomorrow
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n\nTASK: Reminders, todos, actions with times/dates\n- \"remind\
+      \ me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n- \"email the landlord\" → task\n\nRespond with ONLY:\
+      \ {\"type\": \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'task';
+- description: 'Classification: Task - don''t forget to pay bills'
+  vars:
+    voice_text: don't forget to pay the bills
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n\nTASK: Reminders, todos, actions with times/dates\n- \"remind\
+      \ me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n- \"don't forget to pay bills\" → task\n\nRespond with\
+      \ ONLY: {\"type\": \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'task';
+- description: 'Classification: Task - email landlord'
+  vars:
+    voice_text: email the landlord about the broken heater
+    prompt: "You classify voice input as either \"grocery\" or \"task\".\n\nGROCERY: Shopping items, food, household products,\
+      \ store-related\n- \"add milk to costco\" → grocery\n\nTASK: Reminders, todos, actions with times/dates\n- \"remind\
+      \ me in 30 minutes\" → task\n- \"call mom tomorrow\" → task\n- \"email the landlord\" → task\n\nRespond with ONLY:\
+      \ {\"type\": \"grocery\"} or {\"type\": \"task\"}\n\nClassify: \"{{voice_text}}\""
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.type === 'task';
+# =============================================================================
+# Stage 2b: Task Parsing Tests - remind me in X (no offset)
+# =============================================================================
+- description: 'Task: remind me in 5 minutes - no reminder_offset'
+  vars:
+    voice_text: remind me in 5 minutes to check Luna's room for cats
+    prompt: "You are a task list assistant. Parse voice input into structured task items with dates and reminders.\n\nExtract:\n\
+      - list_name: which task list\n- items: array of task objects with: name, due_date (ISO 8601), reminder_offset, recurrence_pattern\n\
+      - action: always \"add\"\n\nReminder parsing:\n- \"remind me in 5 minutes to X\" → due_date is now+5min, reminder_offset\
+      \ is NULL (due_date IS the reminder time)\n- \"remind me in 1 hour to X\" → due_date is now+1h, reminder_offset is NULL\n\
+      - reminder_offset is ONLY for \"remind me X before\" patterns\n\nRespond with JSON: {\"action\": \"add\", \"list_name\"\
+      : \"string\", \"items\": [{\"name\": \"string\", \"due_date\": \"ISO string\", \"reminder_offset\": null}]}\n\nParse:\
+      \ \"{{voice_text}}\"\nCurrent time: 2026-01-02T05:30:00Z\nAvailable lists: \"Mike\", \"Dev Tasks\"\nUser's name: \"Mike\"\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      // Check reminder_offset is null (not set) for "remind me in X" patterns
+      const items = json.items || [json];
+      const item = items[0];
+      const hasNullOffset = item.reminder_offset === null || item.reminder_offset === undefined;
+      return hasNullOffset;
+- description: 'Task: remind me in 45 minutes - no reminder_offset'
+  vars:
+    voice_text: remind me in 45 minutes to evict the cats
+    prompt: "You are a task list assistant. Parse voice input into structured task items with dates and reminders.\n\nExtract:\n\
+      - list_name: which task list\n- items: array of task objects with: name, due_date (ISO 8601), reminder_offset, recurrence_pattern\n\
+      - action: always \"add\"\n\nReminder parsing:\n- \"remind me in 5 minutes to X\" → due_date is now+5min, reminder_offset\
+      \ is NULL (due_date IS the reminder time)\n- \"remind me in 1 hour to X\" → due_date is now+1h, reminder_offset is NULL\n\
+      - reminder_offset is ONLY for \"remind me X before\" patterns\n\nRespond with JSON: {\"action\": \"add\", \"list_name\"\
+      : \"string\", \"items\": [{\"name\": \"string\", \"due_date\": \"ISO string\", \"reminder_offset\": null}]}\n\nParse:\
+      \ \"{{voice_text}}\"\nCurrent time: 2026-01-02T05:30:00Z\nAvailable lists: \"Mike\", \"Dev Tasks\"\nUser's name: \"Mike\"\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      const items = json.items || [json];
+      const item = items[0];
+      const hasNullOffset = item.reminder_offset === null || item.reminder_offset === undefined;
+      return hasNullOffset;
+# =============================================================================
+# Stage 2a: Grocery Parsing Tests
+# =============================================================================
 - description: 'Voice: Simple addition'
   vars:
     voice_text: add milk to costco
@@ -123,6 +275,233 @@ tests:
   - type: javascript
     value: "const json = JSON.parse(output);\nreturn json.action === 'add' &&\n       json.list_name.toLowerCase() === 'walmart'\
       \ &&\n       json.items.length >= 2;\n"
+# --- Reminder/Task Routing Tests (use updated prompt) ---
+- description: 'Voice: Reminder with time offset routes to task list'
+  vars:
+    voice_text: remind me in an hour to evict the cats from Luna's room
+    available_lists: '"Costco", "Walmart", "Todo", "Tasks"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nExamples:\n- \"add milk to costco list\" → {\"action\": \"add\", \"\
+      list_name\": \"costco\", \"items\": [\"milk\"]}\n- \"remind me in an hour to call mom\" → {\"action\": \"add\", \"list_name\"\
+      : \"todo\", \"items\": [\"call mom\"]}\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\"\
+      \ | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\
+      \n\nAvailable lists: {{available_lists}}\n\nRules:\n- If the list name doesn't match exactly, use fuzzy matching.\n\
+      - For reminders/tasks, prefer a task list like \"todo\", \"tasks\", or \"reminders\" over grocery/store lists.\n- If\
+      \ no list is mentioned and the input is a reminder/task, use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      const listName = json.list_name.toLowerCase();
+      const isTaskList = listName === 'todo' || listName === 'tasks' || listName === 'reminders';
+      const notGroceryList = listName !== 'costco' && listName !== 'walmart';
+      return json.action === 'add' && isTaskList && notGroceryList;
+- description: 'Voice: Reminder with tomorrow routes to task list'
+  vars:
+    voice_text: remind me tomorrow to call the dentist
+    available_lists: '"Grocery", "Costco", "Todo"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list like\
+      \ \"todo\", \"tasks\", or \"reminders\" over grocery/store lists.\n- If no list is mentioned and the input is a reminder/task,\
+      \ use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.action === 'add' &&
+             json.list_name.toLowerCase() === 'todo' &&
+             json.items.some(i => i.toLowerCase().includes('dentist') || i.toLowerCase().includes('call'));
+- description: 'Voice: Don''t forget to pattern routes to task list'
+  vars:
+    voice_text: don't forget to pick up the kids at 3
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list.\n\
+      - If no list is mentioned and the input is a reminder/task, use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.action === 'add' &&
+             json.list_name.toLowerCase() === 'todo' &&
+             json.items.some(i => i.toLowerCase().includes('pick up') || i.toLowerCase().includes('kids'));
+- description: 'Voice: Action verb (email) routes to task list'
+  vars:
+    voice_text: email the landlord about the broken heater
+    available_lists: '"Grocery", "Costco", "Todo", "Work Tasks"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list.\n\
+      - If no list is mentioned and the input is a reminder/task, use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      const listName = json.list_name.toLowerCase();
+      const isTaskList = listName === 'todo' || listName === 'work tasks' || listName === 'tasks';
+      return json.action === 'add' && isTaskList;
+- description: 'Voice: Grocery still routes to grocery list (regression)'
+  vars:
+    voice_text: add milk and eggs to costco
+    available_lists: '"Costco", "Walmart", "Todo"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- If the list name doesn't match exactly, use\
+      \ fuzzy matching.\n- For reminders/tasks, prefer a task list.\n- If no list is mentioned and the input is groceries,\
+      \ use \"grocery\" or the first available grocery list.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.action === 'add' &&
+             json.list_name.toLowerCase() === 'costco' &&
+             json.items.length >= 2;
+- description: 'Voice: Grocery without explicit list uses grocery default (regression)'
+  vars:
+    voice_text: add bread and cheese
+    available_lists: '"Grocery", "Todo"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list.\n\
+      - If no list is mentioned and the input is groceries, use \"grocery\" or the first available grocery list.\n\nRespond\
+      \ with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.action === 'add' &&
+             json.list_name.toLowerCase() === 'grocery' &&
+             json.items.length >= 2;
+- description: 'Voice: Reminder in X minutes routes to task list'
+  vars:
+    voice_text: remind me in 30 minutes to check the oven
+    available_lists: '"Costco", "Todo"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list.\n\
+      - If no list is mentioned and the input is a reminder/task, use \"todo\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      return json.action === 'add' &&
+             json.list_name.toLowerCase() === 'todo' &&
+             json.items.some(i => i.toLowerCase().includes('oven') || i.toLowerCase().includes('check'));
+- description: 'Voice: Ambiguous item without reminder goes to default'
+  vars:
+    voice_text: need to get laundry detergent
+    available_lists: '"Grocery", "Costco", "Todo"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list.\n\
+      - If no list is mentioned and the input is groceries/products, use \"grocery\" or the first available grocery list.\n\
+      \nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      const listName = json.list_name.toLowerCase();
+      const isGroceryList = listName === 'grocery' || listName === 'costco';
+      return json.action === 'add' &&
+             isGroceryList &&
+             json.items.some(i => i.toLowerCase().includes('detergent') || i.toLowerCase().includes('laundry'));
+- description: 'Voice: Set a reminder pattern routes to task list'
+  vars:
+    voice_text: set a reminder to water the plants
+    available_lists: '"Grocery", "Todo", "Reminders"'
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nWhen input contains task/reminder language, use a task list (e.g., \"todo\"\
+      , \"tasks\", \"reminders\") NOT a grocery list.\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\"\
+      : \"add\" | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input:\
+      \ \"{{voice_text}}\"\n\nAvailable lists: {{available_lists}}\n\nRules:\n- For reminders/tasks, prefer a task list like\
+      \ \"todo\", \"tasks\", or \"reminders\".\n- If no list is mentioned and the input is a reminder/task, use \"todo\" or\
+      \ \"reminders\" as default.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      const listName = json.list_name.toLowerCase();
+      const isTaskList = listName === 'todo' || listName === 'reminders' || listName === 'tasks';
+      return json.action === 'add' &&
+             isTaskList &&
+             json.items.some(i => i.toLowerCase().includes('water') || i.toLowerCase().includes('plants'));
+- description: 'Voice: User-named task list preferred for personal reminders'
+  vars:
+    voice_text: remind me in an hour to evict the cats
+    username: Mike
+    prompt: "You are a voice input assistant. Parse voice input into structured list items.\n\nExtract:\n- list_name: which\
+      \ list to use\n- items: array of item names\n- action: \"add\" or \"remove\"\n\nIMPORTANT - Distinguish between groceries\
+      \ and tasks/reminders:\n- GROCERY patterns: food items, household products, store names (costco, walmart, grocery, etc.)\n\
+      - TASK/REMINDER patterns: \"remind me\", \"reminder\", \"in X minutes/hours\", \"tomorrow\", \"don't forget to\", action\
+      \ verbs (call, email, pick up kids, etc.)\n\nRespond ONLY with valid JSON matching this schema:\n{\n  \"action\": \"add\"\
+      \ | \"remove\",\n  \"list_name\": \"string\",\n  \"items\": [\"string\", ...]\n}\n\nParse this voice input: \"{{voice_text}}\"\
+      \nUser's name: \"{{username}}\"\n\nAvailable TASK lists (for reminders, todos, tasks): \"Mike\", \"Dev Tasks\"\nAvailable\
+      \ GROCERY lists (for food, shopping items): \"Costco\", \"Walmart\"\n\nRules:\n- For reminders/tasks, you MUST use one\
+      \ of the TASK lists above.\n- For groceries/shopping items, use one of the GROCERY lists.\n- If a TASK list matches\
+      \ the user's name (e.g., user \"Mike\" has list \"Mike\"), prefer that list for personal reminders.\n- If no list is\
+      \ mentioned, use the first TASK list for reminders.\n\nRespond with JSON only.\n"
+  assert:
+  - type: is-json
+  - type: javascript
+    value: |
+      const json = JSON.parse(output);
+      // Must route to Mike list (user's personal task list), NOT Dev Tasks
+      return json.action === 'add' &&
+             json.list_name.toLowerCase() === 'mike' &&
+             json.items.some(i => i.toLowerCase().includes('cat') || i.toLowerCase().includes('evict'));
 - description: 'Category: Clear dairy (milk)'
   vars:
     item_name: milk

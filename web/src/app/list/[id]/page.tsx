@@ -594,6 +594,7 @@ export default function ListDetailPage() {
                 onChange={(e) => setNewItemReminderOffset(e.target.value)}
               >
                 <option value="">No reminder</option>
+                <option value="0m">At due time</option>
                 <option value="1m">1 min before</option>
                 <option value="15m">15 min before</option>
                 <option value="30m">30 min before</option>

@@ -922,12 +922,17 @@ export interface ProposedItem {
   category_id: number | null;
   confidence: number;
   reasoning: string;
+  // Task-specific fields
+  due_date?: string | null;
+  reminder_offset?: string | null;
+  recurrence_pattern?: string | null;
 }
 
 export interface ProposedChanges {
   action: string;
   list_id: number;
   list_name: string;
+  list_type?: string;
   items: ProposedItem[];
 }
 
@@ -935,6 +940,7 @@ export interface PendingConfirmation {
   id: number;
   user_id: number;
   voice_input_id: number;
+  raw_text: string;
   proposed_changes: ProposedChanges;
   status: string;
   created_at: string;

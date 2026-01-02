@@ -77,3 +77,6 @@ web/playwright-report/
 # TypeScript
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# Promptfoo
+evals/results/

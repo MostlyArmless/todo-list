@@ -1,35 +1,57 @@
 """LLM prompt templates for voice parsing and categorization."""
 
-VOICE_PARSING_SYSTEM_PROMPT = """You are a shopping list assistant. Parse voice input into structured todo items.
+# =============================================================================
+# Stage 1: Classification - Simple binary decision (grocery vs task)
+# =============================================================================
+
+VOICE_CLASSIFICATION_SYSTEM_PROMPT = """You classify voice input as either "grocery" or "task".
+
+GROCERY: Shopping items, food, household products, store-related
+- "add milk to costco" → grocery
+- "bread and eggs" → grocery
+- "pick up laundry detergent" → grocery
+
+TASK: Reminders, todos, actions with times/dates
+- "remind me in 30 minutes" → task
+- "call mom tomorrow" → task
+- "don't forget to pay bills" → task
+- "email the landlord" → task
+
+Respond with ONLY: {"type": "grocery"} or {"type": "task"}"""
+
+
+def get_voice_classification_prompt(voice_text: str) -> str:
+    """Generate prompt for classifying voice input as grocery or task."""
+    return f'Classify: "{voice_text}"'
+
+
+# =============================================================================
+# Stage 2a: Grocery-specific parsing
+# =============================================================================
+
+GROCERY_VOICE_PARSING_SYSTEM_PROMPT = """You parse grocery/shopping voice input.
 
 Extract:
-- list_name: which list (e.g., "costco", "walmart", "todo")
+- list_name: which grocery list
 - items: array of item names
 - action: "add" or "remove"
 
-Common patterns:
-- "add milk to costco list" → {"action": "add", "list_name": "costco", "items": ["milk"]}
-- "add apples and bananas to walmart" → {"action": "add", "list_name": "walmart", "items": ["apples", "bananas"]}
-- "remove eggs from todo list" → {"action": "remove", "list_name": "todo", "items": ["eggs"]}
+Examples:
+- "add milk to costco" → {"action": "add", "list_name": "costco", "items": ["milk"]}
+- "bread eggs and cheese" → {"action": "add", "list_name": "grocery", "items": ["bread", "eggs", "cheese"]}
+- "remove butter from walmart" → {"action": "remove", "list_name": "walmart", "items": ["butter"]}
 
-Respond ONLY with valid JSON matching this schema:
-{
-  "action": "add" | "remove",
-  "list_name": "string",
-  "items": ["string", ...]
-}"""
+Respond ONLY with JSON: {"action": "add"|"remove", "list_name": "string", "items": ["string"]}"""
 
 
-def get_voice_parsing_prompt(voice_text: str, available_lists: list[str]) -> str:
-    """Generate prompt for parsing voice input."""
-    lists_str = ", ".join(f'"{lst}"' for lst in available_lists)
-    return f"""Parse this voice input: "{voice_text}"
+def get_grocery_voice_parsing_prompt(voice_text: str, grocery_lists: list[str]) -> str:
+    """Generate prompt for parsing grocery voice input."""
+    lists_str = ", ".join(f'"{lst}"' for lst in grocery_lists) if grocery_lists else '"grocery"'
+    return f"""Parse: "{voice_text}"
 
-Available lists: {lists_str}
+Available grocery lists: {lists_str}
 
-If the list name doesn't match exactly, use fuzzy matching (e.g., "costco" matches "Costco").
-If no list is mentioned, use "todo" as default.
-
+Use fuzzy matching for list names. If no list mentioned, use the first available list.
 Respond with JSON only."""
 
 
@@ -211,10 +233,11 @@ Date parsing rules:
 - If no specific time mentioned, default to 09:00
 
 Reminder parsing:
-- "remind me 1 hour before" → reminder_offset: "1h"
-- "remind me 30 minutes before" → reminder_offset: "30m"
-- "remind me tomorrow morning" → reminder_offset: null (will use due date directly)
-- Default: no reminder (null)
+- "remind me in 5 minutes to X" → due_date is now+5min, reminder_offset is NULL (due_date IS the reminder time)
+- "remind me in 1 hour to X" → due_date is now+1h, reminder_offset is NULL
+- "do X tomorrow, remind me 1 hour before" → due_date is tomorrow, reminder_offset is "1h"
+- reminder_offset is ONLY for "remind me X before" patterns, NOT for "remind me in X" patterns
+- Default: no reminder_offset (null)
 
 Recurrence parsing:
 - "every day", "daily" → recurrence_pattern: "daily"
@@ -241,6 +264,7 @@ def get_task_voice_parsing_prompt(
     voice_text: str,
     available_lists: list[str],
     current_datetime: str,
+    username: str | None = None,
 ) -> str:
     """Generate prompt for parsing task voice input.
 
@@ -248,16 +272,23 @@ def get_task_voice_parsing_prompt(
         voice_text: The raw voice input text
         available_lists: List of available list names
         current_datetime: Current datetime in ISO format for relative date calculations
+        username: The user's name (for selecting personal lists)
     """
     lists_str = ", ".join(f'"{lst}"' for lst in available_lists)
-    return f"""Parse this voice input for a task list: "{voice_text}"
+    user_context = f'\nUser\'s name: "{username}"' if username else ""
+
+    return f"""Parse this voice input for a task list: "{voice_text}"{user_context}
 
 Current date/time: {current_datetime}
 Available task lists: {lists_str}
 
-If the list name doesn't match exactly, use fuzzy matching.
-If no list is mentioned, use the first available list or "todo" as default.
-Parse any dates/times relative to the current date/time.
+Rules:
+- If a list matches the user's name (e.g., user "Mike" has list "Mike"), prefer that for personal reminders.
+- If the list name doesn't match exactly, use fuzzy matching.
+- If no list is mentioned, use the user's personal list if available, otherwise the first list.
+- Parse any dates/times relative to the current date/time.
+- "in X minutes/hours" = current time + X
+- "remind me in 45 minutes to X" → due_date should be current time + 45 minutes
 
 Respond with JSON only."""
 

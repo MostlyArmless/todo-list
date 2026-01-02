@@ -8,11 +8,16 @@ import styles from './page.module.css';
 interface EditableItem {
   name: string;
   category_id: number | null;
+  // Task-specific fields
+  due_date?: string | null;
+  reminder_offset?: string | null;
+  recurrence_pattern?: string | null;
 }
 
 interface EditState {
   listId: number;
   items: EditableItem[];
+  rawText: string;
 }
 
 export default function ConfirmPage() {
@@ -63,7 +68,11 @@ export default function ConfirmPage() {
                 items: conf.proposed_changes.items.map(item => ({
                   name: item.name,
                   category_id: item.category_id,
+                  due_date: item.due_date,
+                  reminder_offset: item.reminder_offset,
+                  recurrence_pattern: item.recurrence_pattern,
                 })),
+                rawText: conf.raw_text,
               };
             }
             return newStates;
@@ -113,7 +122,11 @@ export default function ConfirmPage() {
           items: conf.proposed_changes.items.map(item => ({
             name: item.name,
             category_id: item.category_id,
+            due_date: item.due_date,
+            reminder_offset: item.reminder_offset,
+            recurrence_pattern: item.recurrence_pattern,
           })),
+          rawText: conf.raw_text,
         };
       }
       setEditStates(initialEditStates);
@@ -163,6 +176,38 @@ export default function ConfirmPage() {
         items: prev[confirmationId].items.filter((_, idx) => idx !== itemIndex),
       },
     }));
+  }
+
+  function updateRawText(confirmationId: number, newText: string) {
+    setEditStates(prev => ({
+      ...prev,
+      [confirmationId]: {
+        ...prev[confirmationId],
+        rawText: newText,
+      },
+    }));
+  }
+
+  async function handleRetryConfirmation(confirmation: PendingConfirmation) {
+    const editState = editStates[confirmation.id];
+    const textToRetry = editState?.rawText?.trim();
+    if (!textToRetry) {
+      setError('Please enter text to process');
+      return;
+    }
+
+    try {
+      setProcessing(confirmation.id);
+      // Reject current confirmation and retry the voice input
+      await api.rejectPendingConfirmation(confirmation.id);
+      await api.retryVoiceInput(confirmation.voice_input_id, textToRetry);
+      // Remove from confirmations - it will reappear after processing
+      setConfirmations(prev => prev.filter(c => c.id !== confirmation.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to retry');
+    } finally {
+      setProcessing(null);
+    }
   }
 
   async function handleConfirm(confirmation: PendingConfirmation) {
@@ -293,6 +338,43 @@ export default function ConfirmPage() {
     return `${diffDays}d${remainingHours}h${remainingMins}m ago`;
   }
 
+  function formatDueDate(dateStr: string | null | undefined): string {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+      const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      if (isToday) {
+        return `Today at ${timeStr}`;
+      } else if (isTomorrow) {
+        return `Tomorrow at ${timeStr}`;
+      } else {
+        const dateStrFormatted = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        return `${dateStrFormatted} at ${timeStr}`;
+      }
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function formatReminderOffset(offset: string | null | undefined): string {
+    if (!offset) return '';
+    const unit = offset.slice(-1).toLowerCase();
+    const value = offset.slice(0, -1);
+    switch (unit) {
+      case 'm': return `${value} min before`;
+      case 'h': return `${value} hour${value !== '1' ? 's' : ''} before`;
+      case 'd': return `${value} day${value !== '1' ? 's' : ''} before`;
+      default: return offset;
+    }
+  }
+
   return (
     <div className={`container ${styles.pageContainer}`}>
       <button
@@ -415,6 +497,27 @@ export default function ConfirmPage() {
                 </div>
               </div>
 
+              <div className={styles.rawTextSection}>
+                <div className={styles.rawTextHeader}>
+                  <label className={styles.fieldLabel}>Transcribed text:</label>
+                  <button
+                    className={styles.reprocessBtn}
+                    onClick={() => handleRetryConfirmation(confirmation)}
+                    disabled={processing === confirmation.id}
+                    title="Re-process with LLM"
+                  >
+                    {processing === confirmation.id ? 'Processing...' : 'Re-process'}
+                  </button>
+                </div>
+                <textarea
+                  className={styles.rawTextInput}
+                  value={editState.rawText}
+                  onChange={(e) => updateRawText(confirmation.id, e.target.value)}
+                  disabled={processing === confirmation.id}
+                  rows={2}
+                />
+              </div>
+
               <div className={styles.targetListSection}>
                 <label className={styles.fieldLabel}>Add to list:</label>
                 <select
@@ -435,23 +538,53 @@ export default function ConfirmPage() {
                 <label className={styles.fieldLabel}>Items to add:</label>
                 <div className={styles.itemsList}>
                   {editState.items.map((item, idx) => (
-                    <div key={idx} className={styles.editableItem}>
-                      <input
-                        type="text"
-                        className={styles.itemInput}
-                        value={item.name}
-                        onChange={(e) => updateItemName(confirmation.id, idx, e.target.value)}
-                        disabled={processing === confirmation.id}
-                        placeholder="Item name"
-                      />
-                      <button
-                        className={styles.removeItemBtn}
-                        onClick={() => removeItem(confirmation.id, idx)}
-                        disabled={processing === confirmation.id}
-                        title="Remove item"
-                      >
-                        ×
-                      </button>
+                    <div key={idx} className={styles.editableItemWrapper}>
+                      <div className={styles.editableItem}>
+                        <input
+                          type="text"
+                          className={styles.itemInput}
+                          value={item.name}
+                          onChange={(e) => updateItemName(confirmation.id, idx, e.target.value)}
+                          disabled={processing === confirmation.id}
+                          placeholder="Item name"
+                        />
+                        <button
+                          className={styles.removeItemBtn}
+                          onClick={() => removeItem(confirmation.id, idx)}
+                          disabled={processing === confirmation.id}
+                          title="Remove item"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      {(item.due_date || item.reminder_offset || item.recurrence_pattern) && (
+                        <div className={styles.taskMeta}>
+                          {item.due_date && (
+                            <span className={styles.taskMetaItem}>
+                              <span className={styles.taskMetaIcon}>📅</span>
+                              {formatDueDate(item.due_date)}
+                            </span>
+                          )}
+                          {item.reminder_offset && (
+                            <span className={styles.taskMetaItem}>
+                              <span className={styles.taskMetaIcon}>🔔</span>
+                              {formatReminderOffset(item.reminder_offset)}
+                            </span>
+                          )}
+                          {!item.reminder_offset && item.due_date && (
+                            <span className={styles.taskMetaItem}>
+                              <span className={styles.taskMetaIcon}>🔔</span>
+                              at due time
+                            </span>
+                          )}
+                          {item.recurrence_pattern && (
+                            <span className={styles.taskMetaItem}>
+                              <span className={styles.taskMetaIcon}>🔁</span>
+                              {item.recurrence_pattern}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

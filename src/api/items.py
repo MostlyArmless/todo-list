@@ -1,6 +1,6 @@
 """Item API endpoints."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,6 +18,38 @@ from src.schemas.item import ItemCreate, ItemResponse, ItemUpdate
 from src.tasks.reminders import schedule_reminder
 
 router = APIRouter(prefix="/api/v1", tags=["items"])
+
+
+def _calculate_reminder_at(due_date: datetime | None, offset: str | None) -> datetime | None:
+    """Calculate reminder_at from due_date and optional offset.
+
+    Args:
+        due_date: The due datetime
+        offset: Offset string like "1h", "30m", "1d", "0m" or None
+
+    Returns:
+        Reminder datetime: due_date - offset if offset provided, else None
+    """
+    if not due_date or not offset:
+        return None
+
+    # Parse offset string
+    unit = offset[-1].lower()
+    try:
+        value = int(offset[:-1])
+    except ValueError:
+        return due_date
+
+    if unit == "m":
+        delta = timedelta(minutes=value)
+    elif unit == "h":
+        delta = timedelta(hours=value)
+    elif unit == "d":
+        delta = timedelta(days=value)
+    else:
+        return due_date
+
+    return due_date - delta
 
 
 def validate_item_fields_for_list_type(item_data: ItemCreate | ItemUpdate, list_obj: List) -> None:
@@ -197,6 +229,11 @@ def create_item(
     else:
         # Create new item
         if is_task_list:
+            # Calculate reminder_at from due_date and offset if not explicitly provided
+            reminder_at = item_data.reminder_at
+            if reminder_at is None and item_data.due_date and item_data.reminder_offset:
+                reminder_at = _calculate_reminder_at(item_data.due_date, item_data.reminder_offset)
+
             # Task list item - no category, no quantity
             item = Item(
                 list_id=list_id,
@@ -205,7 +242,7 @@ def create_item(
                 sort_order=item_data.sort_order,
                 created_by=current_user.id,
                 due_date=item_data.due_date,
-                reminder_at=item_data.reminder_at,
+                reminder_at=reminder_at,
                 reminder_offset=item_data.reminder_offset,
                 recurrence_pattern=item_data.recurrence_pattern,
             )
@@ -274,6 +311,20 @@ def update_item(
             item.reminder_offset = item_data.reminder_offset or None
         if item_data.recurrence_pattern is not None:
             item.recurrence_pattern = item_data.recurrence_pattern
+
+        # Recalculate reminder_at if due_date or reminder_offset changed
+        if item_data.due_date is not None or item_data.reminder_offset is not None:
+            effective_offset = (
+                item_data.reminder_offset
+                if item_data.reminder_offset is not None
+                else item.reminder_offset
+            )
+            effective_due = item_data.due_date if item_data.due_date is not None else item.due_date
+            if effective_offset and effective_due:
+                item.reminder_at = _calculate_reminder_at(effective_due, effective_offset)
+            elif effective_offset == "" and effective_due:
+                # Empty string means "no reminder" - clear reminder_at
+                item.reminder_at = None
     else:
         # Grocery-specific fields
         if item_data.quantity is not None:

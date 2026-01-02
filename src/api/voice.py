@@ -1,7 +1,7 @@
 """Voice input API endpoints."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,11 +22,48 @@ from src.schemas.voice import (
     VoiceInputRetry,
     VoiceQueueResponse,
 )
+from src.tasks.reminders import schedule_reminder
 from src.tasks.voice_processing import process_voice_input
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
+
+
+def _calculate_reminder_at(due_date: datetime | None, offset: str | None) -> datetime | None:
+    """Calculate reminder_at from due_date and optional offset.
+
+    Args:
+        due_date: The due datetime
+        offset: Offset string like "1h", "30m", "1d" or None
+
+    Returns:
+        Reminder datetime: due_date - offset if offset provided, else due_date
+    """
+    if not due_date:
+        return None
+
+    if not offset:
+        # No offset means remind at the due time
+        return due_date
+
+    # Parse offset string
+    unit = offset[-1].lower()
+    try:
+        value = int(offset[:-1])
+    except ValueError:
+        return due_date
+
+    if unit == "m":
+        delta = timedelta(minutes=value)
+    elif unit == "h":
+        delta = timedelta(hours=value)
+    elif unit == "d":
+        delta = timedelta(days=value)
+    else:
+        return due_date
+
+    return due_date - delta
 
 
 @router.post("", response_model=VoiceInputResponse, status_code=status.HTTP_201_CREATED)
@@ -88,7 +125,7 @@ def list_pending_confirmations(
         .all()
     )
 
-    # Get pending confirmations
+    # Get pending confirmations with their voice input raw_text
     confirmations = (
         db.query(PendingConfirmation)
         .filter(
@@ -99,9 +136,26 @@ def list_pending_confirmations(
         .all()
     )
 
+    # Build confirmation responses with raw_text from linked VoiceInput
+    confirmation_responses = []
+    for conf in confirmations:
+        voice_input = db.query(VoiceInput).filter(VoiceInput.id == conf.voice_input_id).first()
+        raw_text = voice_input.raw_text if voice_input else ""
+        confirmation_responses.append(
+            PendingConfirmationResponse(
+                id=conf.id,
+                user_id=conf.user_id,
+                voice_input_id=conf.voice_input_id,
+                raw_text=raw_text,
+                proposed_changes=conf.proposed_changes,
+                status=conf.status,
+                created_at=conf.created_at,
+            )
+        )
+
     return VoiceQueueResponse(
         in_progress=[InProgressVoiceJob.model_validate(vi) for vi in in_progress],
-        pending_confirmations=confirmations,
+        pending_confirmations=confirmation_responses,
     )
 
 
@@ -121,7 +175,19 @@ def get_pending_confirmation(
     if confirmation.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    return confirmation
+    # Fetch raw_text from VoiceInput
+    voice_input = db.query(VoiceInput).filter(VoiceInput.id == confirmation.voice_input_id).first()
+    raw_text = voice_input.raw_text if voice_input else ""
+
+    return PendingConfirmationResponse(
+        id=confirmation.id,
+        user_id=confirmation.user_id,
+        voice_input_id=confirmation.voice_input_id,
+        raw_text=raw_text,
+        proposed_changes=confirmation.proposed_changes,
+        status=confirmation.status,
+        created_at=confirmation.created_at,
+    )
 
 
 @router.post("/pending/{confirmation_id}/action", response_model=PendingConfirmationResponse)
@@ -180,6 +246,8 @@ def action_pending_confirmation(
                     for edit in action_data.edits.items
                 ]
 
+            items_needing_reminders: list[Item] = []
+
             if list_type == "task":
                 # Create task items with task-specific fields
                 for item_data in items_to_add:
@@ -197,15 +265,24 @@ def action_pending_confirmation(
                         else:
                             due_date = due_date_str
 
+                    # Calculate reminder_at from due_date and offset
+                    reminder_offset = item_data.get("reminder_offset")
+                    reminder_at = _calculate_reminder_at(due_date, reminder_offset)
+
                     item = Item(
                         list_id=list_id,
                         name=item_data["name"],
                         checked=False,
                         due_date=due_date,
-                        reminder_offset=item_data.get("reminder_offset"),
+                        reminder_at=reminder_at,
+                        reminder_offset=reminder_offset,
                         recurrence_pattern=item_data.get("recurrence_pattern"),
                     )
                     db.add(item)
+
+                    # Track items that need reminders scheduled
+                    if reminder_at:
+                        items_needing_reminders.append(item)
             else:
                 # Create grocery items with categorization
                 categorization_service = CategorizationService(db)
@@ -234,6 +311,10 @@ def action_pending_confirmation(
         db.commit()
         db.refresh(confirmation)
 
+        # Schedule reminders AFTER commit so items exist in DB
+        for item in items_needing_reminders:
+            schedule_reminder.delay(item.id)
+
         logger.info(f"Confirmed pending confirmation {confirmation_id}")
 
     elif action_data.action == "reject":
@@ -247,7 +328,19 @@ def action_pending_confirmation(
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
 
-    return confirmation
+    # Fetch raw_text from VoiceInput for response
+    voice_input = db.query(VoiceInput).filter(VoiceInput.id == confirmation.voice_input_id).first()
+    raw_text = voice_input.raw_text if voice_input else ""
+
+    return PendingConfirmationResponse(
+        id=confirmation.id,
+        user_id=confirmation.user_id,
+        voice_input_id=confirmation.voice_input_id,
+        raw_text=raw_text,
+        proposed_changes=confirmation.proposed_changes,
+        status=confirmation.status,
+        created_at=confirmation.created_at,
+    )
 
 
 @router.delete("/{voice_input_id}", status_code=status.HTTP_204_NO_CONTENT)

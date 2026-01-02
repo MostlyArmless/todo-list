@@ -77,21 +77,16 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const url = event.notification.data?.url || '/';
-  const itemId = event.notification.data?.item_id;
 
   // Handle action buttons
+  // The url already contains the list ID (e.g., /list/85?respond=326)
   if (event.action === 'done') {
-    // Mark as done - open app to response modal with pre-filled "done"
-    const respondUrl = itemId ? `/list?respond=${itemId}&action=done` : url;
-    event.waitUntil(openWindow(respondUrl));
-  } else if (event.action === 'respond') {
-    // Open response modal
-    const respondUrl = itemId ? `/list?respond=${itemId}` : url;
-    event.waitUntil(openWindow(respondUrl));
+    // Mark as done - add action=done to the URL
+    const doneUrl = url.includes('?') ? `${url}&action=done` : `${url}?action=done`;
+    event.waitUntil(openWindow(doneUrl));
   } else {
-    // Default click - open the URL
-    const targetUrl = itemId ? `/list?respond=${itemId}` : url;
-    event.waitUntil(openWindow(targetUrl));
+    // Default click or respond action - use the URL as-is
+    event.waitUntil(openWindow(url));
   }
 });
 

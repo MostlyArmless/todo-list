@@ -34,6 +34,7 @@ class PendingConfirmationResponse(BaseModel):
     id: int
     user_id: int
     voice_input_id: int
+    raw_text: str  # Original transcribed text
     proposed_changes: dict
     status: str
     created_at: datetime

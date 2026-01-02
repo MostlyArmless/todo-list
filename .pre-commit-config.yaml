@@ -61,3 +61,11 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-commit]
+
+      - id: promptfoo
+        name: promptfoo evals
+        entry: bash -c 'cd evals && npx promptfoo@latest eval --no-progress-bar'
+        language: system
+        files: ^(src/services/llm_prompts\.py|evals/promptfooconfig\.yaml)$
+        pass_filenames: false
+        stages: [pre-commit]
