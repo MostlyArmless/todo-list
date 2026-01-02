@@ -159,25 +159,26 @@ async function recordScrollVideo(
   const steps = 60; // ~2 seconds at 30fps
   const stepSize = scrollDistance / steps;
 
-  // Pause at top
-  await page.waitForTimeout(500);
+  // Pause at top so viewers can see the initial state
+  await page.waitForTimeout(1200);
 
+  // Smooth scroll to bottom (~2 seconds)
   for (let i = 0; i < steps; i++) {
     await page.evaluate((y) => window.scrollTo(0, y), stepSize * (i + 1));
-    await page.waitForTimeout(33); // ~30fps
+    await page.waitForTimeout(35);
   }
 
-  // Pause at bottom
-  await page.waitForTimeout(800);
+  // Pause at bottom so viewers can see the end
+  await page.waitForTimeout(1200);
 
-  // Scroll back to top (faster)
+  // Scroll back to top
   for (let i = steps; i >= 0; i--) {
     await page.evaluate((y) => window.scrollTo(0, y), stepSize * i);
-    await page.waitForTimeout(20);
+    await page.waitForTimeout(25);
   }
 
-  // Pause at top again
-  await page.waitForTimeout(500);
+  // Pause at top again before loop restarts
+  await page.waitForTimeout(800);
 
   // Close to save video
   await page.close();
@@ -234,9 +235,9 @@ test.describe('README Media Generation', () => {
       await page.waitForLoadState('networkidle');
       await page.waitForTimeout(500);
 
-      // Take full-page screenshot
+      // Take viewport-sized screenshot (412x892) for consistent dimensions
       const screenshotPath = path.join(OUTPUT_DIR, `${pageConfig.name}-mobile.jpg`);
-      await page.screenshot({ path: screenshotPath, fullPage: true });
+      await page.screenshot({ path: screenshotPath, fullPage: false });
 
       // Check if page needs scroll video
       const pageHeight = await page.evaluate(() => document.body.scrollHeight);

@@ -4,13 +4,28 @@ Self-hosted shopping and meal planning app with voice input, recipe management, 
 
 ## Screenshots
 
-| Lists | Grocery List | Task List |
-|:---:|:---:|:---:|
-| ![Lists](docs/images/lists-mobile.jpg) | ![Grocery List](docs/images/grocery-list-mobile.gif) | ![Task List](docs/images/task-list-mobile.gif) |
-
-| Recipes | Recipe Detail | Pantry |
-|:---:|:---:|:---:|
-| ![Recipes](docs/images/recipes-mobile.gif) | ![Recipe Detail](docs/images/recipe-detail-mobile.gif) | ![Pantry](docs/images/pantry-mobile.gif) |
+<table>
+  <tr>
+    <td align="center"><strong>Lists</strong></td>
+    <td align="center"><strong>Grocery List</strong></td>
+    <td align="center"><strong>Task List</strong></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/lists-mobile.jpg" width="250"></td>
+    <td><img src="docs/images/grocery-list-mobile.gif" width="250"></td>
+    <td><img src="docs/images/task-list-mobile.gif" width="250"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Recipes</strong></td>
+    <td align="center"><strong>Recipe Detail</strong></td>
+    <td align="center"><strong>Pantry</strong></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/recipes-mobile.gif" width="250"></td>
+    <td><img src="docs/images/recipe-detail-mobile.gif" width="250"></td>
+    <td><img src="docs/images/pantry-mobile.gif" width="250"></td>
+  </tr>
+</table>
 
 *Dark theme, mobile-first PWA*
 

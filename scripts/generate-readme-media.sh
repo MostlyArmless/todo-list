@@ -57,14 +57,14 @@ for marker in "$VIDEOS_DIR"/*.needs-gif; do
     if [ -f "$webm" ]; then
         echo "  Converting $name.webm -> $name.gif"
 
-        # Two-pass encoding optimized for size (<1MB target)
-        # Scale to 240px width, 8fps, 64 colors for aggressive compression
+        # Two-pass encoding for good quality GIFs
+        # Scale to 480px width, 10fps - balances quality and file size
         ffmpeg -y -i "$webm" \
-            -vf "fps=8,scale=240:-1:flags=lanczos,palettegen=max_colors=64:stats_mode=diff" \
+            -vf "fps=10,scale=480:-1:flags=lanczos,palettegen=max_colors=192:stats_mode=diff" \
             "$palette" 2>/dev/null
 
         ffmpeg -y -i "$webm" -i "$palette" \
-            -lavfi "fps=8,scale=240:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
+            -lavfi "fps=10,scale=480:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
             "$gif" 2>/dev/null
 
         # Clean up
@@ -77,24 +77,6 @@ for marker in "$VIDEOS_DIR"/*.needs-gif; do
             gif_size=$(stat -f%z "$gif" 2>/dev/null || stat -c%s "$gif")
             echo "    JPG: $(numfmt --to=iec $jpg_size), GIF: $(numfmt --to=iec $gif_size)"
         fi
-    fi
-done
-
-# Step 4: Update README.md
-echo ""
-echo "Step 4: Updating README.md..."
-
-# For each GIF that was generated, update README to use it instead of JPG
-for gif in "$IMAGES_DIR"/*-mobile.gif; do
-    [ -f "$gif" ] || continue
-
-    name=$(basename "$gif" .gif)
-    jpg_ref="docs/images/$name.jpg"
-    gif_ref="docs/images/$name.gif"
-
-    if grep -q "$jpg_ref" "$README"; then
-        echo "  Updating $name.jpg -> $name.gif in README"
-        sed -i "s|$jpg_ref|$gif_ref|g" "$README"
     fi
 done
 
