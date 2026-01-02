@@ -6,11 +6,11 @@ Self-hosted shopping and meal planning app with voice input, recipe management, 
 
 | Lists | Grocery List | Task List |
 |:---:|:---:|:---:|
-| ![Lists](docs/images/lists-mobile.jpg) | ![Grocery List](docs/images/grocery-list-mobile.jpg) | ![Task List](docs/images/task-list-mobile.jpg) |
+| ![Lists](docs/images/lists-mobile.jpg) | ![Grocery List](docs/images/grocery-list-mobile.gif) | ![Task List](docs/images/task-list-mobile.gif) |
 
 | Recipes | Recipe Detail | Pantry |
 |:---:|:---:|:---:|
-| ![Recipes](docs/images/recipes-mobile.jpg) | ![Recipe Detail](docs/images/recipe-detail-mobile.jpg) | ![Pantry](docs/images/pantry-mobile.jpg) |
+| ![Recipes](docs/images/recipes-mobile.gif) | ![Recipe Detail](docs/images/recipe-detail-mobile.gif) | ![Pantry](docs/images/pantry-mobile.gif) |
 
 *Dark theme, mobile-first PWA*
 

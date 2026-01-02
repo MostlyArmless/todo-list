@@ -90,11 +90,17 @@ Located in `/web/e2e/`. Run: `npm run e2e` or `npx playwright test <file>`
 
 Screenshot utility: `npm run screenshot` (mobile) or `npm run screenshot:all` (all viewports)
 
-**README Screenshots**: Demo data persists in main DB (isolated by demo user). To regenerate:
+**README Media**: Demo data persists in main DB (isolated by demo user). To regenerate all README screenshots and GIFs:
 ```bash
-uv run python scripts/seed_demo_data.py  # Seed/refresh demo data
-cd web && npx playwright test e2e/demo-screenshots.spec.ts --project=mobile
+cd web && npm run readme-media
 ```
+
+This script:
+1. Seeds/refreshes demo data idempotently
+2. Captures screenshots of each page
+3. For pages taller than viewport (892px), records scroll videos
+4. Converts scroll videos to GIFs with ffmpeg
+5. Updates README.md to use GIFs where appropriate
 
 Device viewports configured for Pixel 6/6 Pro (the actual users' devices). See `web/playwright.config.ts`.
 
