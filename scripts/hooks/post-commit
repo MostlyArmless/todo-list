@@ -1,0 +1,40 @@
+#!/bin/bash
+# Post-commit hook
+
+REPO_ROOT="/home/mike/dev/todo-list"
+
+# --- Sync voice page to nginx location ---
+VOICE_SOURCE="$REPO_ROOT/web/public/voice/index.html"
+VOICE_DEST="/var/www/todolist/voice.html"
+
+if [ -f "$VOICE_SOURCE" ]; then
+    if cp "$VOICE_SOURCE" "$VOICE_DEST" 2>/dev/null; then
+        echo "✓ Synced voice page to $VOICE_DEST"
+    else
+        echo "⚠ Failed to sync voice page (run: sudo chown -R mike:mike /var/www/todolist/)"
+    fi
+fi
+
+# --- Regenerate README media if frontend changed ---
+# Check if any web/src/ files were modified in this commit
+if git diff-tree --no-commit-id --name-only -r HEAD | grep -q "^web/src/"; then
+    echo ""
+    echo "Frontend files changed - regenerating README media..."
+
+    # Check if PWA container is running
+    if docker compose ps pwa 2>/dev/null | grep -q "running"; then
+        cd "$REPO_ROOT/web" && npm run readme-media
+
+        # If media was regenerated, amend the commit to include it
+        if [ -n "$(git status --porcelain docs/images/)" ]; then
+            echo ""
+            echo "Adding updated media to commit..."
+            git add "$REPO_ROOT/docs/images/"
+            git commit --amend --no-edit --no-verify
+            echo "✓ README media updated and included in commit"
+        fi
+    else
+        echo "⚠ PWA container not running - skipping media generation"
+        echo "  Run 'docker compose up -d pwa' then 'cd web && npm run readme-media' manually"
+    fi
+fi

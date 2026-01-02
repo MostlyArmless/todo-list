@@ -108,7 +108,14 @@ Device viewports configured for Pixel 6/6 Pro (the actual users' devices). See `
 
 Uses pre-commit framework. Config in `.pre-commit-config.yaml`. Install: `uv run pre-commit install`
 
-Post-commit syncs voice page to `/var/www/todolist/voice.html`.
+**Post-commit hook** - install with:
+```bash
+cp scripts/hooks/post-commit .git/hooks/post-commit
+```
+
+The post-commit hook:
+- Syncs voice page to `/var/www/todolist/voice.html`
+- If `web/src/` files changed: regenerates README media and amends commit (requires PWA container running)
 
 ## Code Quality
 
