@@ -122,17 +122,16 @@ services:
     working_dir: /app
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-      - NODE_ENV=development
-      - WATCHPACK_POLLING=true  # Enable polling for file changes in Docker
+      - NODE_ENV=production
     ports:
       - "3002:3000"
     volumes:
       - ./web:/app
       - /app/node_modules
-      - /app/.next  # Keep Turbopack cache inside container to avoid permission/corruption issues
+      - /app/.next
     depends_on:
       - api
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "npm install && npm run build && npm start"
 
 volumes:
   postgres_data:

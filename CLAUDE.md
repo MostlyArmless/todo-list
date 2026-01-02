@@ -51,6 +51,11 @@ uv run ruff check . --fix
 
 Located in `/web/` with App Router. Routes: `/lists`, `/list/[id]`, `/recipes`, `/recipes/[id]`, `/pantry`, `/voice`, `/confirm`
 
+**Production Build**: The PWA runs in production mode (not dev). After making frontend changes, rebuild the container:
+```bash
+docker compose up -d pwa --force-recreate  # Rebuilds and restarts (~15-20s)
+```
+
 **Voice Page**: Uses Web Speech API. Brave Desktop blocks Google's speech servers (privacy); code shows warning banner. Other browsers work fine.
 
 **API Client** (`/web/src/lib/api.ts`): Handles auth tokens, 30s cache for GETs, mutations auto-invalidate cache.

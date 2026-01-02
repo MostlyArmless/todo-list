@@ -88,7 +88,7 @@ test.describe('README Demo Screenshots', () => {
 
     const project = testInfo.project.name;
     await page.screenshot({
-      path: `../docs/images/lists-${project}.png`,
+      path: `../docs/images/lists-${project}.jpg`,
       fullPage: true,
     });
   });
@@ -113,7 +113,7 @@ test.describe('README Demo Screenshots', () => {
 
     const project = testInfo.project.name;
     await page.screenshot({
-      path: `../docs/images/grocery-list-${project}.png`,
+      path: `../docs/images/grocery-list-${project}.jpg`,
       fullPage: true,
     });
   });
@@ -138,7 +138,7 @@ test.describe('README Demo Screenshots', () => {
 
     const project = testInfo.project.name;
     await page.screenshot({
-      path: `../docs/images/task-list-${project}.png`,
+      path: `../docs/images/task-list-${project}.jpg`,
       fullPage: true,
     });
   });
@@ -151,7 +151,7 @@ test.describe('README Demo Screenshots', () => {
 
     const project = testInfo.project.name;
     await page.screenshot({
-      path: `../docs/images/recipes-${project}.png`,
+      path: `../docs/images/recipes-${project}.jpg`,
       fullPage: true,
     });
   });
@@ -176,7 +176,7 @@ test.describe('README Demo Screenshots', () => {
 
     const project = testInfo.project.name;
     await page.screenshot({
-      path: `../docs/images/recipe-detail-${project}.png`,
+      path: `../docs/images/recipe-detail-${project}.jpg`,
       fullPage: true,
     });
   });
@@ -189,7 +189,7 @@ test.describe('README Demo Screenshots', () => {
 
     const project = testInfo.project.name;
     await page.screenshot({
-      path: `../docs/images/pantry-${project}.png`,
+      path: `../docs/images/pantry-${project}.jpg`,
       fullPage: true,
     });
   });
