@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = Field(default=None)
     vapid_email: str | None = Field(default=None)
 
+    # Feature toggles
+    twilio_sms_enabled: bool = Field(default=True)
+    twilio_calls_enabled: bool = Field(default=False)  # Disabled by default
+
     # API
     environment: str = Field(default="development")
 

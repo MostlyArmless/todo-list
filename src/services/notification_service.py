@@ -131,6 +131,10 @@ class NotificationService:
 
         Returns True if the SMS was sent successfully.
         """
+        if not self.settings.twilio_sms_enabled:
+            logger.info("SMS disabled via TWILIO_SMS_ENABLED setting")
+            return False
+
         if not self._twilio_client:
             logger.warning("Twilio not available, cannot send SMS")
             return False
@@ -160,6 +164,10 @@ class NotificationService:
 
         Returns True if the call was initiated successfully.
         """
+        if not self.settings.twilio_calls_enabled:
+            logger.info("Voice calls disabled via TWILIO_CALLS_ENABLED setting")
+            return False
+
         if not self._twilio_client:
             logger.warning("Twilio not available, cannot initiate call")
             return False
