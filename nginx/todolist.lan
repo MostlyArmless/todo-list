@@ -1,0 +1,81 @@
+# DEV server - todolist.lan -> pwa-dev (port 3003) with hot reload
+server {
+    listen 80;
+    server_name todolist.lan;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name todolist.lan;
+
+    ssl_certificate /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    # Serve the standalone voice page directly
+    location = /voice {
+        alias /var/www/todolist/voice.html;
+        add_header Cache-Control "no-cache";
+        add_header Content-Type "text/html; charset=utf-8";
+    }
+
+    # Serve uploaded recipe images
+    location /uploads/ {
+        alias /home/mike/dev/todo-list/uploads/;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Next.js static assets - NO caching in dev for faster iteration
+    location /_next/static/ {
+        proxy_pass http://192.168.0.150:3003;
+        proxy_set_header Host $host;
+        # Dev: don't cache
+    }
+
+    # Static files - minimal caching in dev
+    location ~* \.(ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$ {
+        proxy_pass http://192.168.0.150:3003;
+        proxy_set_header Host $host;
+    }
+
+    # Proxy to Next.js DEV server (port 3003)
+    location / {
+        proxy_pass http://192.168.0.150:3003;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Websocket support (needed for Next.js hot reload)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+    }
+
+    # API endpoints
+    location /api/ {
+        proxy_pass http://192.168.0.150:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # SSE endpoint
+    location /api/v1/sync/events {
+        proxy_pass http://192.168.0.150:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400;
+    }
+}

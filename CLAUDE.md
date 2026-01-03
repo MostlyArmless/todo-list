@@ -51,10 +51,16 @@ uv run ruff check . --fix
 
 Located in `/web/` with App Router. Routes: `/lists`, `/list/[id]`, `/recipes`, `/recipes/[id]`, `/pantry`, `/voice`, `/confirm`
 
-**Production Build**: The PWA runs in production mode (not dev). After making frontend changes, rebuild the container:
+**Production Build**: The PWA runs in production mode. After making frontend changes, restart to rebuild:
 ```bash
-docker compose up -d pwa --force-recreate  # Rebuilds and restarts (~15-20s)
+docker compose up -d pwa --force-recreate  # Rebuilds Next.js (~15-20s)
 ```
+
+**Development Mode** (hot reloading): For faster iteration during development:
+```bash
+docker compose --profile dev up pwa-dev    # Runs on port 3003 with hot reload
+```
+Dev hot-reloads on `todolist.lan`; prod on `thiemnet.ca` needs manual rebuild (`docker compose up -d pwa --force-recreate`) - do this before committing frontend changes.
 
 **Voice Page**: Uses Web Speech API. Brave Desktop blocks Google's speech servers (privacy); code shows warning banner. Other browsers work fine.
 

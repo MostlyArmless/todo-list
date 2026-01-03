@@ -15,14 +15,34 @@ if [ -f "$VOICE_SOURCE" ]; then
     fi
 fi
 
-# --- Regenerate README media if frontend changed ---
+# --- Rebuild prod PWA and regenerate README media if frontend changed ---
 # Check if any web/src/ files were modified in this commit
 if git diff-tree --no-commit-id --name-only -r HEAD | grep -q "^web/src/"; then
     echo ""
-    echo "Frontend files changed - regenerating README media..."
+    echo "Frontend files changed - rebuilding prod PWA..."
+
+    # Rebuild prod PWA container
+    cd "$REPO_ROOT"
+    if docker compose up -d pwa --force-recreate >/dev/null 2>&1; then
+        echo "✓ Prod PWA container started"
+        # Wait for PWA to actually respond (polls every 2s, max 60s)
+        echo -n "Waiting for PWA to be ready"
+        for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/ 2>/dev/null | grep -q "200"; then
+                echo " ready!"
+                break
+            fi
+            echo -n "."
+            sleep 2
+        done
+    else
+        echo "⚠ Failed to rebuild prod PWA"
+    fi
+
+    echo "Regenerating README media..."
 
     # Check if PWA container is running
-    if docker compose ps pwa 2>/dev/null | grep -q "running"; then
+    if docker compose ps pwa 2>/dev/null | grep -q "Up"; then
         cd "$REPO_ROOT/web" && npm run readme-media
 
         # If media was regenerated, amend the commit to include it
