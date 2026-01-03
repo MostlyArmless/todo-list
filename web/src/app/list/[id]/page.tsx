@@ -104,9 +104,13 @@ export default function ListDetailPage() {
   const [newItemRecurrence, setNewItemRecurrence] = useState<RecurrencePattern | ''>('');
   // Optimistically reordered categories
   const [localCategories, setLocalCategories] = useState<CategoryResponse[] | null>(null);
+  // Track if component is mounted (for hydration safety)
+  const [mounted, setMounted] = useState(false);
 
-  // Auth check
+  // Auth check and hydration safety
   useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional for hydration safety */
+    setMounted(true);
     if (!getCurrentUser()) {
       router.push('/login');
     }
@@ -145,7 +149,7 @@ export default function ListDetailPage() {
   }, [categoriesData]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const loading = listLoading;
+  const loading = !mounted || listLoading;
 
   // Invalidation helper
   const invalidateListData = useCallback(() => {
