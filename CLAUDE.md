@@ -116,14 +116,12 @@ Located in `/web/e2e/`. Run: `npm run e2e` or `npx playwright test <file>`
 
 Screenshot utility: `npm run screenshot` (mobile) or `npm run screenshot:all` (all viewports)
 
-**README Media**: Demo data persists in main DB (isolated by demo user). To manually regenerate:
+**README Media**: Demo data persists in main DB (isolated by demo user). Regenerate with:
 ```bash
 cd web && npm run readme-media
 ```
 
-This script seeds demo data, captures viewport-sized screenshots, records scroll videos for tall pages, and converts to GIFs with ffmpeg. Runs automatically via post-commit hook when `web/src/` files change.
-
-Device viewports configured for Pixel 6/6 Pro (the actual users' devices). See `web/playwright.config.ts`.
+This script seeds demo data, captures viewport-sized screenshots, records scroll videos for tall pages, and converts to GIFs with ffmpeg. Device viewports configured for Pixel 6/6 Pro (the actual users' devices). See `web/playwright.config.ts`.
 
 ## Git Hooks
 
@@ -134,9 +132,7 @@ Uses pre-commit framework. Config in `.pre-commit-config.yaml`. Install: `uv run
 cp scripts/hooks/post-commit .git/hooks/post-commit
 ```
 
-The post-commit hook:
-- Syncs voice page to `/var/www/todolist/voice.html`
-- If `web/src/` files changed: regenerates README media and amends commit (requires PWA container running)
+The post-commit hook syncs the voice page to `/var/www/todolist/voice.html`.
 
 ## Code Quality
 
@@ -159,4 +155,6 @@ The post-commit hook:
 
 ## Commit Hygiene
 
-**Before each commit**: Read `ROADMAP.md` and remove completed tasks (`[x]`). Include cleanup in the same commit.
+**Before each commit**:
+- Read `ROADMAP.md` and remove completed tasks (`[x]`). Include cleanup in the same commit.
+- If visual UI changed, regenerate README media: `cd web && npm run readme-media`
