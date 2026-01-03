@@ -2,7 +2,33 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { api, type List, type Category, type Item, type PantryItem, type RecurrencePattern } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { getCurrentUser } from '@/lib/auth';
+import {
+  useGetListApiV1ListsListIdGet,
+  useGetCategoriesApiV1ListsListIdCategoriesGet,
+  useGetItemsApiV1ListsListIdItemsGet,
+  useCreateItemApiV1ListsListIdItemsPost,
+  useCheckItemApiV1ItemsItemIdCheckPost,
+  useUncheckItemApiV1ItemsItemIdUncheckPost,
+  useCompleteTaskItemApiV1ItemsItemIdCompletePost,
+  useUpdateItemApiV1ItemsItemIdPut,
+  useDeleteItemApiV1ItemsItemIdDelete,
+  useCreateCategoryApiV1ListsListIdCategoriesPost,
+  useUpdateCategoryApiV1CategoriesCategoryIdPut,
+  useDeleteCategoryApiV1CategoriesCategoryIdDelete,
+  useBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost,
+  useAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost,
+  useListPantryItemsApiV1PantryGet,
+  useBulkAddPantryItemsApiV1PantryBulkPost,
+  getGetListApiV1ListsListIdGetQueryKey,
+  getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey,
+  getGetItemsApiV1ListsListIdItemsGetQueryKey,
+  type CategoryResponse,
+  type ItemResponse,
+  type PantryItemResponse,
+  type ItemCreateRecurrencePattern,
+} from '@/generated/api';
 import TaskItem from '@/components/TaskItem';
 import { formatQuantityTotal } from '@/lib/formatQuantity';
 import IconButton from '@/components/IconButton';
@@ -25,6 +51,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import styles from './page.module.css';
+
+type RecurrencePattern = 'daily' | 'weekly' | 'monthly';
 
 /**
  * Calculate whether text should be dark or light based on background color luminance.
@@ -49,11 +77,8 @@ export default function ListDetailPage() {
   const params = useParams();
   const listId = parseInt(params.id as string);
   const { confirm, alert } = useConfirmDialog();
+  const queryClient = useQueryClient();
 
-  const [list, setList] = useState<List | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showChecked, setShowChecked] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState<number | null>(null);
@@ -65,7 +90,6 @@ export default function ListDetailPage() {
   const [autoCategorizing, setAutoCategorizing] = useState(false);
   const [recentlyChecked, setRecentlyChecked] = useState<string[]>([]);
   const [showPantryPrompt, setShowPantryPrompt] = useState(false);
-  const [existingPantryItems, setExistingPantryItems] = useState<PantryItem[]>([]);
   const [addingToPantry, setAddingToPantry] = useState(false);
   const [addedItemMessage, setAddedItemMessage] = useState<string | null>(null);
   const [inlineAddCategory, setInlineAddCategory] = useState<number | null | 'uncategorized'>(null);
@@ -74,145 +98,199 @@ export default function ListDetailPage() {
   const [newItemDueDate, setNewItemDueDate] = useState('');
   const [newItemReminderOffset, setNewItemReminderOffset] = useState('');
   const [newItemRecurrence, setNewItemRecurrence] = useState<RecurrencePattern | ''>('');
+  // Optimistically reordered categories
+  const [localCategories, setLocalCategories] = useState<CategoryResponse[] | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      const [listData, categoriesData, itemsData] = await Promise.all([
-        api.getList(listId),
-        api.getCategories(listId),
-        api.getItems(listId, showChecked),
-      ]);
-      setList(listData);
-      setCategories(categoriesData.sort((a, b) => a.sort_order - b.sort_order));
-      setItems(itemsData);
-    } catch {
-      // Failed to load data
-    } finally {
-      setLoading(false);
-    }
-  }, [listId, showChecked]);
-
+  // Auth check
   useEffect(() => {
-    if (!api.getCurrentUser()) {
+    if (!getCurrentUser()) {
       router.push('/login');
-      return;
     }
-    loadData();
-  }, [router, loadData]);
+  }, [router]);
 
+  // Queries
+  const { data: list, isLoading: listLoading } = useGetListApiV1ListsListIdGet(listId, {
+    query: {
+      enabled: !!listId && !!getCurrentUser(),
+    },
+  });
+
+  const { data: categoriesData = [] } = useGetCategoriesApiV1ListsListIdCategoriesGet(listId, {
+    query: {
+      enabled: !!listId && !!getCurrentUser(),
+    },
+  });
+
+  const { data: items = [] } = useGetItemsApiV1ListsListIdItemsGet(listId, { include_checked: showChecked }, {
+    query: {
+      enabled: !!listId && !!getCurrentUser(),
+    },
+  });
+
+  const { data: pantryItems = [] } = useListPantryItemsApiV1PantryGet({
+    query: {
+      enabled: !!getCurrentUser(),
+    },
+  });
+
+  // Sync server categories to local state for optimistic updates
+  const categories = localCategories ?? [...categoriesData].sort((a, b) => a.sort_order - b.sort_order);
+  /* eslint-disable react-hooks/set-state-in-effect -- Resetting optimistic state when server data changes */
+  useEffect(() => {
+    setLocalCategories(null);
+  }, [categoriesData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const loading = listLoading;
+
+  // Invalidation helper
+  const invalidateListData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: getGetListApiV1ListsListIdGetQueryKey(listId) });
+    queryClient.invalidateQueries({ queryKey: getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey(listId) });
+    queryClient.invalidateQueries({ queryKey: getGetItemsApiV1ListsListIdItemsGetQueryKey(listId, { include_checked: showChecked }) });
+  }, [queryClient, listId, showChecked]);
+
+  // Mutations
+  const createItemMutation = useCreateItemApiV1ListsListIdItemsPost();
+  const checkItemMutation = useCheckItemApiV1ItemsItemIdCheckPost();
+  const uncheckItemMutation = useUncheckItemApiV1ItemsItemIdUncheckPost();
+  const completeItemMutation = useCompleteTaskItemApiV1ItemsItemIdCompletePost();
+  const updateItemMutation = useUpdateItemApiV1ItemsItemIdPut();
+  const deleteItemMutation = useDeleteItemApiV1ItemsItemIdDelete();
+  const createCategoryMutation = useCreateCategoryApiV1ListsListIdCategoriesPost();
+  const updateCategoryMutation = useUpdateCategoryApiV1CategoriesCategoryIdPut();
+  const deleteCategoryMutation = useDeleteCategoryApiV1CategoriesCategoryIdDelete();
+  const bulkDeleteMutation = useBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost();
+  const autoCategorizeItemsMutation = useAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost();
+  const bulkAddPantryMutation = useBulkAddPantryItemsApiV1PantryBulkPost();
+
+  // Handlers
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName.trim()) return;
 
     const isTaskList = list?.list_type === 'task';
 
-    try {
-      // Check if item with same name already exists (for merge detection) - grocery only
-      const existingItem = !isTaskList ? items.find(
-        i => i.name.toLowerCase().trim() === newItemName.toLowerCase().trim() && !i.checked
-      ) : null;
+    // Check if item with same name already exists (for merge detection) - grocery only
+    const existingItem = !isTaskList ? items.find(
+      i => i.name.toLowerCase().trim() === newItemName.toLowerCase().trim() && !i.checked
+    ) : null;
 
-      const createdItem = await api.createItem(listId, {
-        name: newItemName,
-        // Grocery-specific fields
-        category_id: !isTaskList ? (newItemCategory || undefined) : undefined,
-        // Task-specific fields
-        due_date: isTaskList && newItemDueDate ? new Date(newItemDueDate).toISOString() : undefined,
-        reminder_offset: isTaskList && newItemReminderOffset ? newItemReminderOffset : undefined,
-        recurrence_pattern: isTaskList && newItemRecurrence ? newItemRecurrence : undefined,
-      });
+    createItemMutation.mutate(
+      {
+        listId,
+        data: {
+          name: newItemName,
+          // Grocery-specific fields
+          category_id: !isTaskList ? (newItemCategory || undefined) : undefined,
+          // Task-specific fields
+          due_date: isTaskList && newItemDueDate ? new Date(newItemDueDate).toISOString() : undefined,
+          reminder_offset: isTaskList && newItemReminderOffset ? newItemReminderOffset : undefined,
+          recurrence_pattern: isTaskList && newItemRecurrence ? newItemRecurrence as ItemCreateRecurrencePattern : undefined,
+        },
+      },
+      {
+        onSuccess: (createdItem) => {
+          // Reset form
+          setNewItemName('');
+          setNewItemCategory(null);
+          setNewItemDueDate('');
+          setNewItemReminderOffset('');
+          setNewItemRecurrence('');
 
-      // Reset form
-      setNewItemName('');
-      setNewItemCategory(null);
-      setNewItemDueDate('');
-      setNewItemReminderOffset('');
-      setNewItemRecurrence('');
+          // Show ghost message indicating what happened
+          if (!isTaskList) {
+            const wasMerged = existingItem && existingItem.id === createdItem.id;
+            const categoryName = createdItem.category_id
+              ? categories.find(c => c.id === createdItem.category_id)?.name || 'Unknown'
+              : 'Uncategorized';
 
-      // Show ghost message indicating what happened
-      if (!isTaskList) {
-        const wasMerged = existingItem && existingItem.id === createdItem.id;
-        const categoryName = createdItem.category_id
-          ? categories.find(c => c.id === createdItem.category_id)?.name || 'Unknown'
-          : 'Uncategorized';
+            if (wasMerged) {
+              setAddedItemMessage(`Merged with existing in ${categoryName}`);
+            } else {
+              setAddedItemMessage(`Added to ${categoryName}`);
+            }
+            setTimeout(() => setAddedItemMessage(null), 3000);
+          } else {
+            setAddedItemMessage('Task added');
+            setTimeout(() => setAddedItemMessage(null), 2000);
+          }
 
-        if (wasMerged) {
-          setAddedItemMessage(`Merged with existing in ${categoryName}`);
-        } else {
-          setAddedItemMessage(`Added to ${categoryName}`);
-        }
-        setTimeout(() => setAddedItemMessage(null), 3000);
-      } else {
-        setAddedItemMessage('Task added');
-        setTimeout(() => setAddedItemMessage(null), 2000);
+          invalidateListData();
+        },
       }
-
-      loadData();
-    } catch {
-      // Failed to create item
-    }
+    );
   };
 
-  const handleInlineAdd = async (categoryId: number | null) => {
+  const handleInlineAdd = (categoryId: number | null) => {
     if (!inlineItemName.trim()) return;
 
-    try {
-      await api.createItem(listId, {
-        name: inlineItemName,
-        category_id: categoryId || undefined,
-      });
-      setInlineItemName('');
-      setInlineAddCategory(null);
-      loadData();
-    } catch {
-      // Failed to create item
-    }
+    createItemMutation.mutate(
+      {
+        listId,
+        data: {
+          name: inlineItemName,
+          category_id: categoryId || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setInlineItemName('');
+          setInlineAddCategory(null);
+          invalidateListData();
+        },
+      }
+    );
   };
 
-  const handleToggleCheck = async (item: Item) => {
-    try {
-      if (item.checked) {
-        await api.uncheckItem(item.id);
-        // Remove from recently checked if unchecking
-        setRecentlyChecked((prev) => prev.filter((name) => name !== item.name));
-      } else {
-        await api.checkItem(item.id);
-        // Track the checked item name for pantry prompt
-        setRecentlyChecked((prev) => {
-          // Avoid duplicates
-          if (prev.includes(item.name)) return prev;
-          const updated = [...prev, item.name];
-          // Show prompt after 2+ items checked
-          if (updated.length >= 2 && !showPantryPrompt) {
-            // Load pantry items to check for existing
-            loadPantryForPrompt();
-          }
-          return updated;
-        });
-      }
-      loadData();
-    } catch {
-      // Failed to toggle item
+  const handleToggleCheck = (item: ItemResponse) => {
+    if (item.checked) {
+      uncheckItemMutation.mutate(
+        { itemId: item.id },
+        {
+          onSuccess: () => {
+            // Remove from recently checked if unchecking
+            setRecentlyChecked((prev) => prev.filter((name) => name !== item.name));
+            invalidateListData();
+          },
+        }
+      );
+    } else {
+      checkItemMutation.mutate(
+        { itemId: item.id },
+        {
+          onSuccess: () => {
+            // Track the checked item name for pantry prompt
+            setRecentlyChecked((prev) => {
+              // Avoid duplicates
+              if (prev.includes(item.name)) return prev;
+              const updated = [...prev, item.name];
+              // Show prompt after 2+ items checked
+              if (updated.length >= 2 && !showPantryPrompt) {
+                setShowPantryPrompt(true);
+              }
+              return updated;
+            });
+            invalidateListData();
+          },
+        }
+      );
     }
   };
 
   // Task-specific handlers
-  const handleCompleteTask = async (item: Item) => {
-    try {
-      await api.completeItem(item.id);
-      loadData();
-    } catch {
-      // Failed to complete task
-    }
+  const handleCompleteTask = (item: ItemResponse) => {
+    completeItemMutation.mutate(
+      { itemId: item.id },
+      { onSuccess: () => invalidateListData() }
+    );
   };
 
-  const handleUncheckTask = async (item: Item) => {
-    try {
-      await api.uncheckItem(item.id);
-      loadData();
-    } catch {
-      // Failed to uncheck task
-    }
+  const handleUncheckTask = (item: ItemResponse) => {
+    uncheckItemMutation.mutate(
+      { itemId: item.id },
+      { onSuccess: () => invalidateListData() }
+    );
   };
 
   const handleUpdateTask = async (id: number, data: {
@@ -221,43 +299,45 @@ export default function ListDetailPage() {
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
   }) => {
-    try {
-      await api.updateItem(id, data);
-      loadData();
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const loadPantryForPrompt = async () => {
-    try {
-      const pantryItems = await api.getPantryItems();
-      setExistingPantryItems(pantryItems);
-      setShowPantryPrompt(true);
-    } catch {
-      // Failed to load pantry
-    }
-  };
-
-  const handleAddToPantry = async () => {
-    setAddingToPantry(true);
-    try {
-      // Filter out items that are already in pantry
-      const existingNames = new Set(existingPantryItems.map((p) => p.normalized_name));
-      const newItems = recentlyChecked.filter(
-        (name) => !existingNames.has(name.toLowerCase().trim())
+    return new Promise<void>((resolve, reject) => {
+      updateItemMutation.mutate(
+        { itemId: id, data },
+        {
+          onSuccess: () => {
+            invalidateListData();
+            resolve();
+          },
+          onError: (error) => reject(error),
+        }
       );
+    });
+  };
 
-      if (newItems.length > 0) {
-        await api.bulkAddPantryItems(newItems.map((name) => ({ name, status: 'have' })));
-      }
+  const handleAddToPantry = () => {
+    setAddingToPantry(true);
+    // Filter out items that are already in pantry
+    const existingNames = new Set(pantryItems.map((p) => p.normalized_name));
+    const newItems = recentlyChecked.filter(
+      (name) => !existingNames.has(name.toLowerCase().trim())
+    );
 
-      // Clear and close
+    if (newItems.length > 0) {
+      bulkAddPantryMutation.mutate(
+        { data: { items: newItems.map((name) => ({ name, status: 'have' as const })) } },
+        {
+          onSuccess: () => {
+            setRecentlyChecked([]);
+            setShowPantryPrompt(false);
+            setAddingToPantry(false);
+          },
+          onError: () => {
+            setAddingToPantry(false);
+          },
+        }
+      );
+    } else {
       setRecentlyChecked([]);
       setShowPantryPrompt(false);
-    } catch {
-      // Failed to add to pantry
-    } finally {
       setAddingToPantry(false);
     }
   };
@@ -275,38 +355,47 @@ export default function ListDetailPage() {
       variant: 'danger',
     });
     if (!confirmed) return;
-    try {
-      await api.deleteItem(id);
-      loadData();
-    } catch {
-      // Failed to delete item
-    }
+    deleteItemMutation.mutate(
+      { itemId: id },
+      { onSuccess: () => invalidateListData() }
+    );
   };
 
   const handleUpdateItem = async (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => {
-    try {
-      await api.updateItem(id, data);
-      loadData();
-    } catch (error) {
-      throw error;
-    }
+    return new Promise<void>((resolve, reject) => {
+      updateItemMutation.mutate(
+        { itemId: id, data },
+        {
+          onSuccess: () => {
+            invalidateListData();
+            resolve();
+          },
+          onError: (error) => reject(error),
+        }
+      );
+    });
   };
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
 
-    try {
-      await api.createCategory(listId, {
-        name: newCategoryName,
-        sort_order: categories.length,
-      });
-      setNewCategoryName('');
-      setShowNewCategory(false);
-      loadData();
-    } catch {
-      // Failed to create category
-    }
+    createCategoryMutation.mutate(
+      {
+        listId,
+        data: {
+          name: newCategoryName,
+          sort_order: categories.length,
+        },
+      },
+      {
+        onSuccess: () => {
+          setNewCategoryName('');
+          setShowNewCategory(false);
+          invalidateListData();
+        },
+      }
+    );
   };
 
   const handleDeleteCategory = async (id: number) => {
@@ -317,15 +406,13 @@ export default function ListDetailPage() {
       variant: 'danger',
     });
     if (!confirmed) return;
-    try {
-      await api.deleteCategory(id);
-      loadData();
-    } catch {
-      // Failed to delete category
-    }
+    deleteCategoryMutation.mutate(
+      { categoryId: id },
+      { onSuccess: () => invalidateListData() }
+    );
   };
 
-  const handleStartEditCategory = (category: Category) => {
+  const handleStartEditCategory = (category: CategoryResponse) => {
     setEditingCategoryId(category.id);
     setEditCategoryName(category.name);
   };
@@ -335,16 +422,18 @@ export default function ListDetailPage() {
     setEditCategoryName('');
   };
 
-  const handleSaveEditCategory = async (id: number) => {
+  const handleSaveEditCategory = (id: number) => {
     if (!editCategoryName.trim()) return;
-    try {
-      await api.updateCategory(id, { name: editCategoryName });
-      setEditingCategoryId(null);
-      setEditCategoryName('');
-      loadData();
-    } catch {
-      // Failed to update category
-    }
+    updateCategoryMutation.mutate(
+      { categoryId: id, data: { name: editCategoryName } },
+      {
+        onSuccess: () => {
+          setEditingCategoryId(null);
+          setEditCategoryName('');
+          invalidateListData();
+        },
+      }
+    );
   };
 
   // dnd-kit sensors for pointer and keyboard
@@ -379,17 +468,22 @@ export default function ListDetailPage() {
     }));
 
     // Optimistically update UI
-    setCategories(updates);
+    setLocalCategories(updates);
 
     // Save to backend
     try {
       await Promise.all(
         updates.map((cat) =>
-          api.updateCategory(cat.id, { sort_order: cat.sort_order })
+          new Promise<void>((resolve, reject) => {
+            updateCategoryMutation.mutate(
+              { categoryId: cat.id, data: { sort_order: cat.sort_order } },
+              { onSuccess: () => resolve(), onError: reject }
+            );
+          })
         )
       );
     } catch {
-      loadData(); // Reload on error
+      invalidateListData(); // Reload on error
     }
   };
 
@@ -435,39 +529,47 @@ export default function ListDetailPage() {
     });
     if (!confirmed) return;
 
-    try {
-      await api.bulkDeleteItems(listId, Array.from(selectedItems));
-      setSelectedItems(new Set());
-      loadData();
-    } catch {
-      // Failed to bulk delete
-    }
+    bulkDeleteMutation.mutate(
+      { listId, data: Array.from(selectedItems) },
+      {
+        onSuccess: () => {
+          setSelectedItems(new Set());
+          invalidateListData();
+        },
+      }
+    );
   };
 
   const handleAutoCategorize = async () => {
     setAutoCategorizing(true);
-    try {
-      const result = await api.autoCategorizeItems(listId);
-      if (result.categorized > 0) {
-        await alert({
-          title: 'Auto-Categorize Complete',
-          message: `Categorized ${result.categorized} item${result.categorized > 1 ? 's' : ''}${result.failed > 0 ? ` (${result.failed} could not be categorized)` : ''}`,
-        });
-        loadData();
-      } else if (result.failed > 0) {
-        await alert({
-          title: 'Auto-Categorize',
-          message: `Could not categorize any items. ${result.failed} item${result.failed > 1 ? 's' : ''} remain uncategorized.`,
-        });
+    autoCategorizeItemsMutation.mutate(
+      { listId },
+      {
+        onSuccess: async (data) => {
+          const result = data as { categorized: number; failed: number };
+          if (result.categorized > 0) {
+            await alert({
+              title: 'Auto-Categorize Complete',
+              message: `Categorized ${result.categorized} item${result.categorized > 1 ? 's' : ''}${result.failed > 0 ? ` (${result.failed} could not be categorized)` : ''}`,
+            });
+            invalidateListData();
+          } else if (result.failed > 0) {
+            await alert({
+              title: 'Auto-Categorize',
+              message: `Could not categorize any items. ${result.failed} item${result.failed > 1 ? 's' : ''} remain uncategorized.`,
+            });
+          }
+          setAutoCategorizing(false);
+        },
+        onError: async () => {
+          await alert({
+            title: 'Error',
+            message: 'Failed to auto-categorize items. Please try again.',
+          });
+          setAutoCategorizing(false);
+        },
       }
-    } catch {
-      await alert({
-        title: 'Error',
-        message: 'Failed to auto-categorize items. Please try again.',
-      });
-    } finally {
-      setAutoCategorizing(false);
-    }
+    );
   };
 
   const isCategoryFullySelected = (categoryId: number | null) => {
@@ -526,7 +628,6 @@ export default function ListDetailPage() {
               checked={showChecked}
               onChange={(e) => {
                 setShowChecked(e.target.checked);
-                api.getItems(listId, e.target.checked).then(setItems);
               }}
               className={styles.showCheckedCheckbox}
             />
@@ -944,8 +1045,8 @@ function SortableCategory({
   onCancelInlineAdd,
   onSubmitInlineAdd,
 }: {
-  category: Category;
-  items: Item[];
+  category: CategoryResponse;
+  items: ItemResponse[];
   isFullySelected: boolean;
   isPartiallySelected: boolean;
   onToggleCategorySelection: () => void;
@@ -956,10 +1057,10 @@ function SortableCategory({
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onDelete: () => void;
-  onToggleItemCheck: (item: Item) => void;
+  onToggleItemCheck: (item: ItemResponse) => void;
   onDeleteItem: (id: number) => void;
   onUpdateItem: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
-  allCategories: Category[];
+  allCategories: CategoryResponse[];
   isInlineAdding: boolean;
   inlineItemName: string;
   onInlineItemNameChange: (name: string) => void;
@@ -1194,17 +1295,17 @@ function ItemRow({
   onUpdate,
   categories,
 }: {
-  item: Item;
-  onToggle: (item: Item) => void;
+  item: ItemResponse;
+  onToggle: (item: ItemResponse) => void;
   onDelete: (id: number) => void;
   onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
-  categories: Category[];
+  categories: CategoryResponse[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editQuantity, setEditQuantity] = useState(item.quantity || '');
   const [editDescription, setEditDescription] = useState(item.description || '');
-  const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id);
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id ?? null);
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1225,7 +1326,7 @@ function ItemRow({
     setEditName(item.name);
     setEditQuantity(item.quantity || '');
     setEditDescription(item.description || '');
-    setEditCategoryId(item.category_id);
+    setEditCategoryId(item.category_id ?? null);
     setIsEditing(true);
   };
 
@@ -1359,18 +1460,19 @@ function ItemRow({
           {item.recipe_sources && item.recipe_sources.length > 0 && (
             <span className={styles.recipeBadges}>
               {item.recipe_sources.map((source, idx) => {
-                const bgColor = source.label_color || (source.recipe_id ? '#e6194b' : '#666666');
+                const sourceObj = source as { recipe_id?: number; recipe_name?: string; label_color?: string };
+                const bgColor = sourceObj.label_color || (sourceObj.recipe_id ? '#e6194b' : '#666666');
                 return (
                   <span
-                    key={source.recipe_id ?? `adhoc-${idx}`}
+                    key={sourceObj.recipe_id ?? `adhoc-${idx}`}
                     className={styles.recipeBadge}
                     style={{
                       backgroundColor: bgColor,
                       color: getContrastTextColor(bgColor),
                     }}
-                    title={source.recipe_id ? `From recipe: ${source.recipe_name}` : 'Manually added'}
+                    title={sourceObj.recipe_id ? `From recipe: ${sourceObj.recipe_name}` : 'Manually added'}
                   >
-                    {source.recipe_name}
+                    {sourceObj.recipe_name}
                   </span>
                 );
               })}

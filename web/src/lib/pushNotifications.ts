@@ -2,7 +2,11 @@
  * Push notification utilities for web push subscription management.
  */
 
-import { api } from './api';
+import {
+  getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet,
+  subscribePushApiV1NotificationsSubscribePost,
+  unsubscribePushApiV1NotificationsSubscribeDelete,
+} from '@/generated/api';
 
 /**
  * Convert a base64 string to Uint8Array for VAPID key.
@@ -88,7 +92,7 @@ export async function subscribeToPush(): Promise<boolean> {
     }
 
     // Get VAPID public key from server
-    const { public_key } = await api.getVapidPublicKey();
+    const { public_key } = await getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet();
     if (!public_key) {
       console.warn('VAPID public key not configured on server');
       return false;
@@ -129,7 +133,7 @@ export async function subscribeToPush(): Promise<boolean> {
     const authKey = btoa(String.fromCharCode(...new Uint8Array(auth)));
 
     // Send subscription to server
-    await api.subscribePush({
+    await subscribePushApiV1NotificationsSubscribePost({
       endpoint: subscription.endpoint,
       p256dh_key: p256dhKey,
       auth_key: authKey,
@@ -159,7 +163,7 @@ export async function unsubscribeFromPush(): Promise<boolean> {
       await subscription.unsubscribe();
 
       // Remove from server
-      await api.unsubscribePush(subscription.endpoint);
+      await unsubscribePushApiV1NotificationsSubscribeDelete({ endpoint: subscription.endpoint });
     }
 
     return true;

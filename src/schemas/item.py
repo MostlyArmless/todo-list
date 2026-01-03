@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ItemCreate(BaseModel):
@@ -24,6 +24,14 @@ class ItemCreate(BaseModel):
     reminder_at: datetime | None = None
     reminder_offset: str | None = Field(None, max_length=20)  # "1h", "1d", "30m"
     recurrence_pattern: Literal["daily", "weekly", "monthly"] | None = None
+
+    @field_validator("recurrence_pattern", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: str | None) -> str | None:
+        """Convert empty string to None for recurrence_pattern."""
+        if v == "":
+            return None
+        return v
 
 
 class TaskItemCreate(BaseModel):
@@ -56,6 +64,14 @@ class ItemUpdate(BaseModel):
     reminder_at: datetime | None = None
     reminder_offset: str | None = Field(None, max_length=20)
     recurrence_pattern: Literal["daily", "weekly", "monthly"] | None = None
+
+    @field_validator("recurrence_pattern", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v: str | None) -> str | None:
+        """Convert empty string to None for recurrence_pattern."""
+        if v == "":
+            return None
+        return v
 
 
 class TaskItemUpdate(BaseModel):

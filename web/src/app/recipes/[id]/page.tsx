@@ -2,7 +2,34 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { api, type Recipe, type RecipeIngredient, type AddToListResult, type CheckPantryIngredient, type PantryItem } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { getCurrentUser } from '@/lib/auth';
+import {
+  useGetRecipeApiV1RecipesRecipeIdGet,
+  useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet,
+  useListPantryItemsApiV1PantryGet,
+  useToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost,
+  useResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete,
+  useComputeNutritionApiV1RecipesRecipeIdComputeNutritionPost,
+  useUploadRecipeImageApiV1RecipesRecipeIdImagePost,
+  useDeleteImageApiV1RecipesRecipeIdImageDelete,
+  useCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPost,
+  useAddRecipesToListApiV1RecipesAddToListPost,
+  useUndoAddEventApiV1RecipesAddEventsEventIdUndoPost,
+  useUpdateRecipeApiV1RecipesRecipeIdPut,
+  useUpdateIngredientApiV1RecipesIngredientsIngredientIdPut,
+  useDeleteIngredientApiV1RecipesIngredientsIngredientIdDelete,
+  useAddIngredientApiV1RecipesRecipeIdIngredientsPost,
+  useDeletePantryItemApiV1PantryItemIdDelete,
+  useUpdatePantryItemApiV1PantryItemIdPut,
+  useCreatePantryItemApiV1PantryPost,
+  getGetRecipeApiV1RecipesRecipeIdGetQueryKey,
+  getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryKey,
+  getListPantryItemsApiV1PantryGetQueryKey,
+  type RecipeIngredientResponse,
+  type CheckPantryIngredient,
+  type PantryItemResponse,
+} from '@/generated/api';
 import { useIngredientKeyboard } from '@/hooks/useIngredientKeyboard';
 import PantryCheckModal from '@/components/PantryCheckModal';
 import IconButton from '@/components/IconButton';
@@ -40,9 +67,8 @@ export default function RecipeDetailPage() {
   const params = useParams();
   const recipeId = parseInt(params.id as string, 10);
   const { confirm } = useConfirmDialog();
+  const queryClient = useQueryClient();
 
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [checkingPantry, setCheckingPantry] = useState(false);
   const [calculatingNutrition, setCalculatingNutrition] = useState(false);
@@ -84,9 +110,8 @@ export default function RecipeDetailPage() {
   const [editingLastCooked, setEditingLastCooked] = useState(false);
   const [lastCookedDate, setLastCookedDate] = useState('');
 
-  // Pantry state - maps normalized ingredient name to pantry item
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
-  const [pantryByName, setPantryByName] = useState<Map<string, PantryItem>>(new Map());
+  // Pantry lookup map
+  const [pantryByName, setPantryByName] = useState<Map<string, PantryItemResponse>>(new Map());
 
   const newNameRef = useRef<HTMLInputElement>(null);
   const ingredientsContainerRef = useRef<HTMLDivElement>(null);
@@ -98,55 +123,54 @@ export default function RecipeDetailPage() {
 
   const { isMac } = useIngredientKeyboard(openNewRow);
 
-  const loadRecipe = useCallback(async () => {
-    try {
-      setRecipe(await api.getRecipe(recipeId));
-    } catch {
-      router.push('/recipes');
-    } finally {
-      setLoading(false);
-    }
-  }, [recipeId, router]);
-
+  // Auth check
   useEffect(() => {
-    if (!api.getCurrentUser()) {
+    if (!getCurrentUser()) {
       router.push('/login');
-      return;
     }
-    loadRecipe();
-  }, [router, loadRecipe]);
+  }, [router]);
 
-  // Fetch step completions when recipe loads
+  // Queries
+  const { data: recipe, isLoading: loading, error: recipeError } = useGetRecipeApiV1RecipesRecipeIdGet(recipeId, {
+    query: {
+      enabled: !!recipeId && !!getCurrentUser(),
+    },
+  });
+
+  const { data: stepCompletionsData } = useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet(recipeId, {
+    query: {
+      enabled: !!recipeId && !!recipe,
+    },
+  });
+
+  const { data: pantryItems = [] } = useListPantryItemsApiV1PantryGet({
+    query: {
+      enabled: !!getCurrentUser(),
+    },
+  });
+
+  // Sync step completions to local state
   useEffect(() => {
-    if (recipe?.id) {
-      api.getStepCompletions(recipe.id).then(data => {
-        setCompletedSteps(data.completed_steps);
-      }).catch(() => {
-        // If endpoint not available yet, just use empty array
-        setCompletedSteps([]);
-      });
+    if (stepCompletionsData) {
+      setCompletedSteps(stepCompletionsData.completed_steps);
     }
-  }, [recipe?.id]);
+  }, [stepCompletionsData]);
 
-  // Fetch pantry items to display pantry status for ingredients
-  const loadPantryItems = useCallback(async () => {
-    try {
-      const items = await api.getPantryItems();
-      setPantryItems(items);
-      // Build lookup map by normalized name
-      const byName = new Map<string, PantryItem>();
-      for (const item of items) {
-        byName.set(item.normalized_name, item);
-      }
-      setPantryByName(byName);
-    } catch {
-      // Failed to load pantry items
-    }
-  }, []);
-
+  // Build pantry lookup map
   useEffect(() => {
-    loadPantryItems();
-  }, [loadPantryItems]);
+    const byName = new Map<string, PantryItemResponse>();
+    for (const item of pantryItems) {
+      byName.set(item.normalized_name, item);
+    }
+    setPantryByName(byName);
+  }, [pantryItems]);
+
+  // Redirect on recipe error
+  useEffect(() => {
+    if (recipeError) {
+      router.push('/recipes');
+    }
+  }, [recipeError, router]);
 
   // Click-outside handler to cancel editing
   useEffect(() => {
@@ -164,136 +188,250 @@ export default function RecipeDetailPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [editingId]);
 
-  const handleToggleStep = async (stepIndex: number) => {
+  // Mutations
+  const toggleStepMutation = useToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost();
+
+  const resetStepsMutation = useResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete({
+    mutation: {
+      onSuccess: () => {
+        setCompletedSteps([]);
+      },
+    },
+  });
+
+  const computeNutritionMutation = useComputeNutritionApiV1RecipesRecipeIdComputeNutritionPost({
+    mutation: {
+      onSuccess: () => {
+        // Poll for updated recipe with nutrition data
+        let attempts = 0;
+        const pollForNutrition = async () => {
+          await queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+          const updated = queryClient.getQueryData(getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId)) as typeof recipe;
+          if (updated?.nutrition_computed_at || attempts >= 10) {
+            if (updated?.calories_per_serving != null) {
+              setToast({ message: 'Nutrition calculated successfully', eventId: null, type: 'success' });
+            } else {
+              setToast({ message: 'Could not calculate nutrition for these ingredients', eventId: null, type: 'error' });
+            }
+            setCalculatingNutrition(false);
+          } else {
+            attempts++;
+            setTimeout(pollForNutrition, 1000);
+          }
+        };
+        setTimeout(pollForNutrition, 1000);
+      },
+      onError: () => {
+        setToast({ message: 'Failed to calculate nutrition', eventId: null, type: 'error' });
+        setCalculatingNutrition(false);
+      },
+    },
+  });
+
+  const uploadImageMutation = useUploadRecipeImageApiV1RecipesRecipeIdImagePost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+        setToast({ message: 'Image uploaded', eventId: null, type: 'success' });
+        setUploadingImage(false);
+        if (imageInputRef.current) {
+          imageInputRef.current.value = '';
+        }
+      },
+      onError: (err) => {
+        setToast({
+          message: err instanceof Error ? err.message : 'Failed to upload image',
+          eventId: null,
+          type: 'error',
+        });
+        setUploadingImage(false);
+        if (imageInputRef.current) {
+          imageInputRef.current.value = '';
+        }
+      },
+    },
+  });
+
+  const deleteImageMutation = useDeleteImageApiV1RecipesRecipeIdImageDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+        setToast({ message: 'Image deleted', eventId: null, type: 'success' });
+      },
+      onError: () => {
+        setToast({ message: 'Failed to delete image', eventId: null, type: 'error' });
+      },
+    },
+  });
+
+  const checkPantryMutation = useCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPost({
+    mutation: {
+      onSuccess: (data) => {
+        setPantryCheck({ isOpen: true, ingredients: data.ingredients });
+        setCheckingPantry(false);
+      },
+      onError: async () => {
+        // If pantry check fails, fall back to direct add
+        setCheckingPantry(false);
+        await directAddToList([]);
+      },
+    },
+  });
+
+  const addToListMutation = useAddRecipesToListApiV1RecipesAddToListPost({
+    mutation: {
+      onSuccess: (result) => {
+        const total = result.grocery_items_added + result.costco_items_added + result.items_merged;
+        let msg = `Added ${total} item${total !== 1 ? 's' : ''} to shopping list`;
+        if (result.items_merged > 0) msg += ` (${result.items_merged} merged)`;
+        if ((result.items_skipped ?? 0) > 0) msg += ` (${result.items_skipped} skipped)`;
+        setToast({ message: msg, eventId: result.event_id ?? null, type: 'success' });
+        setPantryCheck({ isOpen: false, ingredients: [] });
+        setAdding(false);
+      },
+      onError: () => {
+        setToast({ message: 'Failed to add to list', eventId: null, type: 'error' });
+        setAdding(false);
+      },
+    },
+  });
+
+  const undoAddMutation = useUndoAddEventApiV1RecipesAddEventsEventIdUndoPost({
+    mutation: {
+      onSuccess: () => {
+        setToast({ message: 'Undone! Items removed.', eventId: null, type: 'success' });
+        setTimeout(() => setToast(null), 3000);
+      },
+      onError: () => {
+        setToast({ message: 'Failed to undo', eventId: null, type: 'error' });
+      },
+    },
+  });
+
+  const updateRecipeMutation = useUpdateRecipeApiV1RecipesRecipeIdPut({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+      },
+    },
+  });
+
+  const updateIngredientMutation = useUpdateIngredientApiV1RecipesIngredientsIngredientIdPut({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+        setEditingId(null);
+      },
+    },
+  });
+
+  const deleteIngredientMutation = useDeleteIngredientApiV1RecipesIngredientsIngredientIdDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+      },
+    },
+  });
+
+  const addIngredientMutation = useAddIngredientApiV1RecipesRecipeIdIngredientsPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId) });
+      },
+    },
+  });
+
+  const deletePantryItemMutation = useDeletePantryItemApiV1PantryItemIdDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPantryItemsApiV1PantryGetQueryKey() });
+      },
+    },
+  });
+
+  const updatePantryItemMutation = useUpdatePantryItemApiV1PantryItemIdPut({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPantryItemsApiV1PantryGetQueryKey() });
+      },
+    },
+  });
+
+  const createPantryItemMutation = useCreatePantryItemApiV1PantryPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPantryItemsApiV1PantryGetQueryKey() });
+      },
+    },
+  });
+
+  // Handlers
+  const handleToggleStep = (stepIndex: number) => {
     if (!recipe) return;
-    try {
-      const result = await api.toggleStep(recipe.id, stepIndex);
-      if (result.completed) {
-        setCompletedSteps(prev => [...prev, stepIndex]);
-      } else {
-        setCompletedSteps(prev => prev.filter(i => i !== stepIndex));
+    toggleStepMutation.mutate(
+      { recipeId: recipe.id, stepIndex },
+      {
+        onSuccess: (data) => {
+          if (data.completed) {
+            setCompletedSteps(prev => [...prev, stepIndex]);
+          } else {
+            setCompletedSteps(prev => prev.filter(i => i !== stepIndex));
+          }
+        },
       }
-    } catch {
-      // Failed to toggle step
-    }
+    );
   };
 
-  const handleResetProgress = async () => {
+  const handleResetProgress = () => {
     if (!recipe) return;
-    try {
-      await api.resetStepCompletions(recipe.id);
-      setCompletedSteps([]);
-    } catch {
-      // Failed to reset progress
-    }
+    resetStepsMutation.mutate({ recipeId: recipe.id });
   };
 
-  const handleCalculateNutrition = async () => {
+  const handleCalculateNutrition = () => {
     if (!recipe) return;
     setCalculatingNutrition(true);
-    try {
-      await api.computeRecipeNutrition(recipe.id);
-      // Poll for updated recipe with nutrition data
-      let attempts = 0;
-      const pollForNutrition = async () => {
-        const updated = await api.getRecipe(recipe.id);
-        if (updated.nutrition_computed_at || attempts >= 10) {
-          setRecipe(updated);
-          if (updated.calories_per_serving != null) {
-            setToast({ message: 'Nutrition calculated successfully', eventId: null, type: 'success' });
-          } else {
-            setToast({ message: 'Could not calculate nutrition for these ingredients', eventId: null, type: 'error' });
-          }
-        } else {
-          attempts++;
-          setTimeout(pollForNutrition, 1000);
-        }
-      };
-      setTimeout(pollForNutrition, 1000);
-    } catch {
-      setToast({ message: 'Failed to calculate nutrition', eventId: null, type: 'error' });
-    } finally {
-      setCalculatingNutrition(false);
-    }
+    computeNutritionMutation.mutate({ recipeId: recipe.id });
   };
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !recipe) return;
 
     setUploadingImage(true);
-    try {
-      const updated = await api.uploadRecipeImage(recipe.id, file);
-      setRecipe(updated);
-      setToast({ message: 'Image uploaded', eventId: null, type: 'success' });
-    } catch (err) {
-      setToast({
-        message: err instanceof Error ? err.message : 'Failed to upload image',
-        eventId: null,
-        type: 'error',
-      });
-    } finally {
-      setUploadingImage(false);
-      // Reset file input so same file can be re-selected
-      if (imageInputRef.current) {
-        imageInputRef.current.value = '';
-      }
-    }
+    uploadImageMutation.mutate({
+      recipeId: recipe.id,
+      data: { file },
+    });
   };
 
-  const handleDeleteImage = async () => {
+  const handleDeleteImage = () => {
     if (!recipe) return;
-    try {
-      await api.deleteRecipeImage(recipe.id);
-      setRecipe({ ...recipe, image_url: null, thumbnail_url: null });
-      setToast({ message: 'Image deleted', eventId: null, type: 'success' });
-    } catch {
-      setToast({ message: 'Failed to delete image', eventId: null, type: 'error' });
-    }
+    deleteImageMutation.mutate({ recipeId: recipe.id });
   };
 
-  const handleAddToList = async () => {
+  const handleAddToList = () => {
     if (!recipe) return;
     setCheckingPantry(true);
-    try {
-      // First check pantry
-      const result = await api.checkRecipePantry(recipe.id);
-      setPantryCheck({ isOpen: true, ingredients: result.ingredients });
-    } catch {
-      // If pantry check fails, fall back to direct add
-      await directAddToList([]);
-    } finally {
-      setCheckingPantry(false);
-    }
+    checkPantryMutation.mutate({ recipeId: recipe.id });
   };
 
   const directAddToList = async (overrides: { name: string; add_to_list: boolean }[]) => {
     if (!recipe) return;
     setAdding(true);
-    try {
-      const result: AddToListResult = await api.addRecipesToListWithOverrides([recipe.id], overrides);
-      const total = result.grocery_items_added + result.costco_items_added + result.items_merged;
-      let msg = `Added ${total} item${total !== 1 ? 's' : ''} to shopping list`;
-      if (result.items_merged > 0) msg += ` (${result.items_merged} merged)`;
-      if (result.items_skipped > 0) msg += ` (${result.items_skipped} skipped)`;
-      setToast({ message: msg, eventId: result.event_id, type: 'success' });
-      setPantryCheck({ isOpen: false, ingredients: [] });
-    } catch {
-      setToast({ message: 'Failed to add to list', eventId: null, type: 'error' });
-    } finally {
-      setAdding(false);
-    }
+    addToListMutation.mutate({
+      data: {
+        recipe_ids: [recipe.id],
+        ingredient_overrides: overrides.map(o => ({
+          name: o.name,
+          add_to_list: o.add_to_list,
+        })),
+      },
+    });
   };
 
-  const handleUndo = async () => {
+  const handleUndo = () => {
     if (!toast?.eventId) return;
-    try {
-      await api.undoAddToList(toast.eventId);
-      setToast({ message: 'Undone! Items removed.', eventId: null, type: 'success' });
-      setTimeout(() => setToast(null), 3000);
-    } catch {
-      setToast({ message: 'Failed to undo', eventId: null, type: 'error' });
-    }
+    undoAddMutation.mutate({ eventId: toast.eventId });
   };
 
   const startEditTitle = () => {
@@ -301,15 +439,12 @@ export default function RecipeDetailPage() {
     setTitleText(recipe?.name || '');
   };
 
-  const saveTitle = async () => {
+  const saveTitle = () => {
     if (!recipe || !titleText.trim()) return;
-    try {
-      await api.updateRecipe(recipe.id, { name: titleText.trim() });
-      setRecipe({ ...recipe, name: titleText.trim() });
-      setEditingTitle(false);
-    } catch {
-      // Failed to update title
-    }
+    updateRecipeMutation.mutate(
+      { recipeId: recipe.id, data: { name: titleText.trim() } },
+      { onSuccess: () => setEditingTitle(false) }
+    );
   };
 
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
@@ -328,24 +463,14 @@ export default function RecipeDetailPage() {
     setMetaServings(recipe?.servings?.toString() || '');
   };
 
-  const saveMeta = async () => {
+  const saveMeta = () => {
     if (!recipe) return;
-    try {
-      const servingsNum = metaServings.trim() ? parseInt(metaServings, 10) : undefined;
-      const descriptionVal = metaDescription.trim() || undefined;
-      await api.updateRecipe(recipe.id, {
-        description: descriptionVal,
-        servings: servingsNum,
-      });
-      setRecipe({
-        ...recipe,
-        description: descriptionVal || null,
-        servings: servingsNum ?? null,
-      });
-      setEditingMeta(false);
-    } catch {
-      // Failed to update metadata
-    }
+    const servingsNum = metaServings.trim() ? parseInt(metaServings, 10) : undefined;
+    const descriptionVal = metaDescription.trim() || undefined;
+    updateRecipeMutation.mutate(
+      { recipeId: recipe.id, data: { description: descriptionVal, servings: servingsNum } },
+      { onSuccess: () => setEditingMeta(false) }
+    );
   };
 
   const handleMetaKeyDown = (e: React.KeyboardEvent) => {
@@ -370,28 +495,22 @@ export default function RecipeDetailPage() {
     }
   };
 
-  const saveLastCooked = async () => {
+  const saveLastCooked = () => {
     if (!recipe) return;
-    try {
-      // Convert date input to ISO string with time
-      const isoDate = lastCookedDate ? new Date(lastCookedDate + 'T12:00:00').toISOString() : null;
-      await api.updateRecipe(recipe.id, { last_cooked_at: isoDate });
-      setRecipe({ ...recipe, last_cooked_at: isoDate });
-      setEditingLastCooked(false);
-    } catch {
-      // Failed to update last cooked date
-    }
+    // Convert date input to ISO string with time
+    const isoDate = lastCookedDate ? new Date(lastCookedDate + 'T12:00:00').toISOString() : null;
+    updateRecipeMutation.mutate(
+      { recipeId: recipe.id, data: { last_cooked_at: isoDate } },
+      { onSuccess: () => setEditingLastCooked(false) }
+    );
   };
 
-  const clearLastCooked = async () => {
+  const clearLastCooked = () => {
     if (!recipe) return;
-    try {
-      await api.updateRecipe(recipe.id, { last_cooked_at: null });
-      setRecipe({ ...recipe, last_cooked_at: null });
-      setEditingLastCooked(false);
-    } catch {
-      // Failed to clear last cooked date
-    }
+    updateRecipeMutation.mutate(
+      { recipeId: recipe.id, data: { last_cooked_at: null } },
+      { onSuccess: () => setEditingLastCooked(false) }
+    );
   };
 
   const handleLastCookedKeyDown = (e: React.KeyboardEvent) => {
@@ -424,7 +543,7 @@ export default function RecipeDetailPage() {
     return date.toLocaleDateString();
   };
 
-  const startEdit = (ing: RecipeIngredient) => {
+  const startEdit = (ing: RecipeIngredientResponse) => {
     setEditingId(ing.id);
     setEditName(ing.name);
     setEditQty(ing.quantity || '');
@@ -432,20 +551,17 @@ export default function RecipeDetailPage() {
     setEditStore(ing.store_preference || '');
   };
 
-  const saveEdit = async () => {
+  const saveEdit = () => {
     if (!editingId || !editName.trim()) return;
-    try {
-      await api.updateIngredient(editingId, {
+    updateIngredientMutation.mutate({
+      ingredientId: editingId,
+      data: {
         name: editName.trim(),
         quantity: editQty.trim() || undefined,
         description: editNotes.trim() || undefined,
         store_preference: editStore || undefined,
-      });
-      setEditingId(null);
-      loadRecipe();
-    } catch {
-      // Failed to update
-    }
+      },
+    });
   };
 
   const deleteIngredient = async (id: number) => {
@@ -456,32 +572,31 @@ export default function RecipeDetailPage() {
       variant: 'danger',
     });
     if (!confirmed) return;
-    try {
-      await api.deleteIngredient(id);
-      loadRecipe();
-    } catch {
-      // Failed to delete
-    }
+    deleteIngredientMutation.mutate({ ingredientId: id });
   };
 
-  const addIngredient = async () => {
+  const addIngredient = () => {
     if (!newName.trim()) return;
-    try {
-      await api.addIngredient(recipeId, {
-        name: newName.trim(),
-        quantity: newQty.trim() || undefined,
-        description: newNotes.trim() || undefined,
-        store_preference: newStore || undefined,
-      });
-      setNewName('');
-      setNewQty('');
-      setNewNotes('');
-      setNewStore('');
-      setShowNewRow(false);
-      loadRecipe();
-    } catch {
-      // Failed to add
-    }
+    addIngredientMutation.mutate(
+      {
+        recipeId,
+        data: {
+          name: newName.trim(),
+          quantity: newQty.trim() || undefined,
+          description: newNotes.trim() || undefined,
+          store_preference: newStore || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setNewName('');
+          setNewQty('');
+          setNewNotes('');
+          setNewStore('');
+          setShowNewRow(false);
+        },
+      }
+    );
   };
 
   const handleEditRowKeyDown = (e: React.KeyboardEvent) => {
@@ -508,30 +623,34 @@ export default function RecipeDetailPage() {
     }
   };
 
-  const addIngredientAndContinue = async () => {
+  const addIngredientAndContinue = () => {
     if (!newName.trim()) return;
-    try {
-      await api.addIngredient(recipeId, {
-        name: newName.trim(),
-        quantity: newQty.trim() || undefined,
-        description: newNotes.trim() || undefined,
-        store_preference: newStore || undefined,
-      });
-      // Clear fields but keep the row open for next ingredient
-      setNewName('');
-      setNewQty('');
-      setNewNotes('');
-      setNewStore('');
-      loadRecipe();
-      // Re-focus the name field
-      setTimeout(() => newNameRef.current?.focus(), 0);
-    } catch {
-      // Failed to add
-    }
+    addIngredientMutation.mutate(
+      {
+        recipeId,
+        data: {
+          name: newName.trim(),
+          quantity: newQty.trim() || undefined,
+          description: newNotes.trim() || undefined,
+          store_preference: newStore || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          // Clear fields but keep the row open for next ingredient
+          setNewName('');
+          setNewQty('');
+          setNewNotes('');
+          setNewStore('');
+          // Re-focus the name field
+          setTimeout(() => newNameRef.current?.focus(), 0);
+        },
+      }
+    );
   };
 
   // Find pantry item for an ingredient (by normalized name match)
-  const findPantryItem = (ingredientName: string): PantryItem | undefined => {
+  const findPantryItem = (ingredientName: string): PantryItemResponse | undefined => {
     const normalized = ingredientName.toLowerCase().trim();
     // Try exact match first
     if (pantryByName.has(normalized)) {
@@ -553,7 +672,7 @@ export default function RecipeDetailPage() {
 
   // Update pantry status for an ingredient
   // Uses EXACT matching only - we want to modify this specific ingredient, not a fuzzy match
-  const handlePantryStatusChange = async (
+  const handlePantryStatusChange = (
     ingredientName: string,
     newStatus: 'have' | 'low' | 'out' | ''
   ) => {
@@ -561,25 +680,33 @@ export default function RecipeDetailPage() {
     // Only look for exact match when modifying - don't accidentally modify a different item
     const exactMatch = pantryByName.get(normalized);
 
-    try {
-      if (newStatus === '') {
-        // Remove from pantry - only if there's an exact match for this ingredient
-        if (exactMatch) {
-          await api.deletePantryItem(exactMatch.id);
-        }
-        // If no exact match, nothing to delete (fuzzy match doesn't count)
-      } else if (exactMatch) {
-        // Update existing exact match
-        await api.updatePantryItem(exactMatch.id, { status: newStatus });
-      } else {
-        // Create new pantry item for this specific ingredient
-        await api.createPantryItem({ name: ingredientName, status: newStatus });
+    if (newStatus === '') {
+      // Remove from pantry - only if there's an exact match for this ingredient
+      if (exactMatch) {
+        deletePantryItemMutation.mutate({ itemId: exactMatch.id });
       }
-      // Reload pantry items to reflect changes
-      await loadPantryItems();
-    } catch {
-      // Failed to update pantry status
+      // If no exact match, nothing to delete (fuzzy match doesn't count)
+    } else if (exactMatch) {
+      // Update existing exact match
+      updatePantryItemMutation.mutate({ itemId: exactMatch.id, data: { status: newStatus } });
+    } else {
+      // Create new pantry item for this specific ingredient
+      createPantryItemMutation.mutate({ data: { name: ingredientName, status: newStatus } });
     }
+  };
+
+  const handleSaveInstructions = () => {
+    if (!recipe) return;
+    updateRecipeMutation.mutate(
+      { recipeId: recipe.id, data: { instructions: instructionsText } },
+      {
+        onSuccess: () => {
+          setEditingInstructions(false);
+          // Reset completions when instructions change
+          resetStepsMutation.mutate({ recipeId: recipe.id });
+        },
+      }
+    );
   };
 
   if (loading) {
@@ -1132,14 +1259,7 @@ export default function RecipeDetailPage() {
             />
             <div className={styles.instructionsBtns} style={{ marginTop: '0.5rem' }}>
               <button
-                onClick={async () => {
-                  await api.updateRecipe(recipe.id, { instructions: instructionsText });
-                  setRecipe({ ...recipe, instructions: instructionsText });
-                  setEditingInstructions(false);
-                  // Reset completions when instructions change
-                  await api.resetStepCompletions(recipe.id);
-                  setCompletedSteps([]);
-                }}
+                onClick={handleSaveInstructions}
                 className={styles.saveInstructionsBtn}
               >
                 Save Instructions

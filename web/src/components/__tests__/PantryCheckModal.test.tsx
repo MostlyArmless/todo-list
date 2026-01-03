@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import PantryCheckModal from '../PantryCheckModal';
-import type { CheckPantryIngredient } from '@/lib/api';
+import type { CheckPantryIngredient } from '@/generated/api';
 
 describe('PantryCheckModal', () => {
   const mockOnConfirm = jest.fn();

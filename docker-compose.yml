@@ -125,14 +125,15 @@ services:
     image: node:20-alpine
     container_name: todo-list-pwa
     working_dir: /app
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       - NODE_ENV=production
+      - npm_config_cache=/tmp/.npm
     ports:
       - "3002:3000"
     volumes:
       - ./web:/app
-      - /app/node_modules
     depends_on:
       - api
     command: sh -c "npm install && npm run build && npm start"
@@ -143,14 +144,15 @@ services:
     image: node:20-alpine
     container_name: todo-list-pwa-dev
     working_dir: /app
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
       - NODE_ENV=development
+      - npm_config_cache=/tmp/.npm
     ports:
       - "3003:3000"
     volumes:
       - ./web:/app
-      - /app/node_modules
     depends_on:
       - api
     command: sh -c "npm install && npm run dev"
