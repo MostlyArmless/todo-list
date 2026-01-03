@@ -249,7 +249,7 @@ For grocery lists: use quantity, category_id
 For task lists: use due_date, reminder_at, reminder_offset, recurrence_pattern
  */
 export interface ItemCreate {
-  /** @maxLength 255 */
+  /** @maxLength 500 */
   name: string;
   description?: ItemCreateDescription;
   sort_order?: number;

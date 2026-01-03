@@ -54,6 +54,10 @@ import styles from './page.module.css';
 
 type RecurrencePattern = 'daily' | 'weekly' | 'monthly';
 
+// Field length limits (must match backend schemas)
+const NAME_MAX_LENGTH = 500;
+const DESCRIPTION_MAX_LENGTH = 2000;
+
 /**
  * Calculate whether text should be dark or light based on background color luminance.
  * Uses relative luminance formula from WCAG 2.0.
@@ -295,6 +299,7 @@ export default function ListDetailPage() {
 
   const handleUpdateTask = async (id: number, data: {
     name?: string;
+    description?: string | null;
     due_date?: string | null;
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
@@ -656,6 +661,7 @@ export default function ListDetailPage() {
             className={styles.addItemInput}
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
+            maxLength={NAME_MAX_LENGTH}
           />
           {list.list_type === 'grocery' && (
             <select
@@ -827,6 +833,7 @@ export default function ListDetailPage() {
                   onChange={(e) => setInlineItemName(e.target.value)}
                   placeholder="Add item..."
                   autoFocus
+                  maxLength={NAME_MAX_LENGTH}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       setInlineAddCategory(null);
@@ -1256,6 +1263,7 @@ function SortableCategory({
               onChange={(e) => onInlineItemNameChange(e.target.value)}
               placeholder="Add item..."
               autoFocus
+              maxLength={NAME_MAX_LENGTH}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   onCancelInlineAdd();
@@ -1355,18 +1363,24 @@ function ItemRow({
   if (isEditing) {
     return (
       <div className={styles.itemEditCard}>
-        <input
-          type="text"
-          className={styles.itemEditInput}
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          placeholder="Item name"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSaveEdit();
-            if (e.key === 'Escape') handleCancelEdit();
-          }}
-        />
+        <div className={styles.inputWithCounter}>
+          <input
+            type="text"
+            className={styles.itemEditInput}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Item name"
+            autoFocus
+            maxLength={NAME_MAX_LENGTH}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+          <span className={`${styles.charCounter} ${editName.length >= NAME_MAX_LENGTH - 50 ? styles.charCounterWarning : ''} ${editName.length >= NAME_MAX_LENGTH ? styles.charCounterLimit : ''}`}>
+            {editName.length}/{NAME_MAX_LENGTH}
+          </span>
+        </div>
         <div className={styles.itemEditRow}>
           <input
             type="text"
@@ -1379,17 +1393,23 @@ function ItemRow({
               if (e.key === 'Escape') handleCancelEdit();
             }}
           />
-          <input
-            type="text"
-            className={`${styles.itemEditInput} ${styles.itemEditDesc}`}
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            placeholder="Description"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSaveEdit();
-              if (e.key === 'Escape') handleCancelEdit();
-            }}
-          />
+          <div className={styles.inputWithCounter}>
+            <input
+              type="text"
+              className={`${styles.itemEditInput} ${styles.itemEditDesc}`}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Description (notes, details...)"
+              maxLength={DESCRIPTION_MAX_LENGTH}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveEdit();
+                if (e.key === 'Escape') handleCancelEdit();
+              }}
+            />
+            <span className={`${styles.charCounter} ${editDescription.length >= DESCRIPTION_MAX_LENGTH - 100 ? styles.charCounterWarning : ''} ${editDescription.length >= DESCRIPTION_MAX_LENGTH ? styles.charCounterLimit : ''}`}>
+              {editDescription.length}/{DESCRIPTION_MAX_LENGTH}
+            </span>
+          </div>
           <select
             className={`${styles.itemEditInput} ${styles.itemEditCategory}`}
             value={editCategoryId || ''}

@@ -13,7 +13,7 @@ class ItemCreate(BaseModel):
     For task lists: use due_date, reminder_at, reminder_offset, recurrence_pattern
     """
 
-    name: str = Field(..., max_length=255)
+    name: str = Field(..., max_length=500)
     description: str | None = Field(None, max_length=2000)
     sort_order: int = 0
     # Grocery-specific fields
@@ -37,7 +37,7 @@ class ItemCreate(BaseModel):
 class TaskItemCreate(BaseModel):
     """Create a new task item (for task lists). Deprecated - use ItemCreate instead."""
 
-    name: str = Field(..., max_length=255)
+    name: str = Field(..., max_length=500)
     description: str | None = Field(None, max_length=2000)
     due_date: datetime | None = None
     reminder_at: datetime | None = None
@@ -53,7 +53,7 @@ class ItemUpdate(BaseModel):
     For task lists: use due_date, reminder_at, reminder_offset, recurrence_pattern
     """
 
-    name: str | None = Field(None, max_length=255)
+    name: str | None = Field(None, max_length=500)
     description: str | None = Field(None, max_length=2000)
     sort_order: int | None = None
     # Grocery-specific fields
@@ -77,7 +77,7 @@ class ItemUpdate(BaseModel):
 class TaskItemUpdate(BaseModel):
     """Update a task item. Deprecated - use ItemUpdate instead."""
 
-    name: str | None = Field(None, max_length=255)
+    name: str | None = Field(None, max_length=500)
     description: str | None = Field(None, max_length=2000)
     due_date: datetime | None = None
     reminder_at: datetime | None = None

@@ -10,6 +10,7 @@ type RecurrencePattern = NonNullable<ItemUpdateRecurrencePattern>;
 interface Item {
   id: number;
   name: string;
+  description?: string | null;
   checked: boolean;
   due_date?: string | null;
   reminder_at?: string | null;
@@ -66,11 +67,16 @@ interface TaskItemProps<T extends Item = Item> {
   onDelete: (id: number) => void;
   onUpdate: (id: number, data: {
     name?: string;
+    description?: string | null;
     due_date?: string | null;
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
   }) => Promise<void>;
 }
+
+// Field length limits for tasks (stricter than backend allows)
+const NAME_MAX_LENGTH = 100;
+const DESCRIPTION_MAX_LENGTH = 1000;
 
 const REMINDER_OFFSET_OPTIONS = [
   { value: '', label: 'No reminder' },
@@ -199,6 +205,7 @@ export default function TaskItem<T extends Item>({
 }: TaskItemProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
+  const [editDescription, setEditDescription] = useState(item.description || '');
   const [editDueDate, setEditDueDate] = useState(item.due_date ? toLocalDateTimeInput(item.due_date) : '');
   const [editReminderOffset, setEditReminderOffset] = useState(item.reminder_offset || '');
   const [editRecurrence, setEditRecurrence] = useState(item.recurrence_pattern || '');
@@ -218,6 +225,7 @@ export default function TaskItem<T extends Item>({
 
   const handleStartEdit = () => {
     setEditName(item.name);
+    setEditDescription(item.description || '');
     setEditDueDate(item.due_date ? toLocalDateTimeInput(item.due_date) : '');
     // If reminder_at is set but no offset, it's "at due time" (0m)
     const effectiveOffset = item.reminder_offset
@@ -237,6 +245,7 @@ export default function TaskItem<T extends Item>({
     try {
       await onUpdate(item.id, {
         name: editName.trim(),
+        description: editDescription.trim() || null,
         due_date: editDueDate ? new Date(editDueDate).toISOString() : null,
         reminder_offset: editReminderOffset || null,
         recurrence_pattern: (editRecurrence as RecurrencePattern) || null,
@@ -260,18 +269,39 @@ export default function TaskItem<T extends Item>({
   if (isEditing) {
     return (
       <div className={styles.editCard}>
-        <input
-          type="text"
-          className={styles.editInput}
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
-          placeholder="Task name"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSaveEdit();
-            if (e.key === 'Escape') handleCancelEdit();
-          }}
-        />
+        <div className={styles.inputWithCounter}>
+          <input
+            type="text"
+            className={styles.editInput}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Task name"
+            autoFocus
+            maxLength={NAME_MAX_LENGTH}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+          <span className={`${styles.charCounter} ${editName.length >= NAME_MAX_LENGTH - 20 ? styles.charCounterWarning : ''} ${editName.length >= NAME_MAX_LENGTH ? styles.charCounterLimit : ''}`}>
+            {editName.length}/{NAME_MAX_LENGTH}
+          </span>
+        </div>
+        <div className={styles.inputWithCounter}>
+          <textarea
+            className={styles.editTextarea}
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Description (optional)"
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            rows={3}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+          <span className={`${styles.charCounter} ${editDescription.length >= DESCRIPTION_MAX_LENGTH - 100 ? styles.charCounterWarning : ''} ${editDescription.length >= DESCRIPTION_MAX_LENGTH ? styles.charCounterLimit : ''}`}>
+            {editDescription.length}/{DESCRIPTION_MAX_LENGTH}
+          </span>
+        </div>
         <div className={styles.editRow}>
           <label className={styles.fieldLabel}>
             Due
@@ -357,6 +387,11 @@ export default function TaskItem<T extends Item>({
         <div className={`${styles.taskName} ${item.checked ? styles.taskNameCompleted : ''}`}>
           {renderTextWithLinks(item.name)}
         </div>
+        {item.description && (
+          <div className={`${styles.taskDescription} ${item.checked ? styles.taskDescriptionCompleted : ''}`}>
+            {renderTextWithLinks(item.description)}
+          </div>
+        )}
 
         <div className={styles.taskMeta}>
           {/* Due date */}
