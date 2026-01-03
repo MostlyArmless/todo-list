@@ -53,16 +53,18 @@ Frontend components
 - [x] `/web/src/components/TaskItem.tsx` - Uses types from generated API
 - [x] `/web/src/components/PantryCheckModal.tsx` - Uses types from generated API
 
-## Remaining Migration (2 large files + 2 test files)
+### Migrated Tests
+- [x] `/web/src/app/login/__tests__/page.test.tsx` - Updated to mock `@/lib/auth` instead of `@/lib/api`
+- [x] `/web/src/components/__tests__/PantryCheckModal.test.tsx` - Uses types from `@/generated/api`
+
+## Remaining Migration (2 large files)
 
 Files still importing from `@/lib/api`:
 
 1. `/web/src/app/recipes/[id]/page.tsx` - **LARGE** (1,204 lines) - Recipe detail page
 2. `/web/src/app/list/[id]/page.tsx` - **LARGEST** (1,433 lines) - List detail page
 
-Test files (update after source files complete):
-- `/web/src/app/login/__tests__/page.test.tsx`
-- `/web/src/components/__tests__/PantryCheckModal.test.tsx`
+The pre-commit hook currently excludes these two files. Once migrated, remove the exclusions from `.pre-commit-config.yaml` (the `grep -v` patterns for these files).
 
 ## Migration Pattern
 
@@ -167,3 +169,130 @@ grep -r "from '@/lib/api'" web/src --include="*.tsx" --include="*.ts"
 # TypeScript check
 cd web && npx tsc --noEmit
 ```
+
+## Lessons Learned & Gotchas
+
+### Type Casting for Optional Response Fields
+The generated types sometimes have optional fields that TypeScript complains about. Use nullish coalescing:
+```tsx
+// Before: TypeScript error - possibly undefined
+const count = status.have_count;
+
+// After: Safe with default
+const count = status.have_count ?? 0;
+```
+
+For responses with unknown shape (like colors endpoint), use type casting:
+```tsx
+const availableColors = (colorsData as { colors?: string[] } | undefined)?.colors ?? [];
+```
+
+### setState in useEffect Warnings
+When syncing React Query data to local editable state (e.g., forms), ESLint warns about setState in effects. This is intentional - add eslint-disable comments:
+```tsx
+/* eslint-disable react-hooks/set-state-in-effect -- Syncing external state to local form */
+useEffect(() => {
+  if (data) {
+    setFormValue(data.value);
+  }
+}, [data]);
+/* eslint-enable react-hooks/set-state-in-effect */
+```
+
+### Generic Components for Type Compatibility
+`TaskItem.tsx` was made generic to work with both old `Item` type and new `ItemResponse`:
+```tsx
+interface Item {
+  id: number;
+  name: string;
+  checked: boolean;
+  // ... minimal required fields
+}
+
+interface TaskItemProps<T extends Item = Item> {
+  item: T;
+  onComplete: (item: T) => void;
+  // ...
+}
+
+export default function TaskItem<T extends Item>({ item, ... }: TaskItemProps<T>) {
+```
+
+### Polling Pattern
+For real-time updates (voice confirmations, receipt scanning, recipe imports):
+```tsx
+const { data } = useGetSomethingApiV1SomethingGet(id, {
+  query: {
+    enabled: !!id && shouldPoll,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Stop polling when complete
+      if (data?.status === 'completed' || data?.status === 'failed') {
+        return false;
+      }
+      return 2000; // Poll every 2 seconds
+    },
+  },
+});
+```
+
+### Auth Function Signatures
+The new auth functions take objects, not separate parameters:
+```tsx
+// Old api.ts
+api.login(email, password);
+api.register(email, password, name);
+
+// New auth.ts
+login({ email, password });
+register({ email, password, name });
+```
+
+## Migrating the Remaining Large Files
+
+### Strategy for recipes/[id]/page.tsx (1,204 lines)
+This page has:
+- Recipe CRUD operations
+- Ingredient management (add/update/delete)
+- Image upload
+- "Add to shopping list" with pantry check modal
+- Step completion tracking
+
+Key hooks to use:
+- `useGetRecipeApiV1RecipesRecipeIdGet` - Get recipe details
+- `useUpdateRecipeApiV1RecipesRecipeIdPut` - Update recipe
+- `useDeleteRecipeApiV1RecipesRecipeIdDelete` - Delete recipe
+- `useUploadRecipeImageApiV1RecipesRecipeIdImagePost` - Upload image
+- `useCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPost` - Check pantry status
+- `useAddRecipeToListApiV1RecipesRecipeIdAddToListPost` - Add to shopping list
+
+### Strategy for list/[id]/page.tsx (1,433 lines)
+This is the most complex page with:
+- List items CRUD with categories
+- Drag-and-drop reordering
+- Voice input
+- Real-time updates
+- Bulk operations (check/uncheck all)
+
+Key hooks to use:
+- `useGetListApiV1ListsListIdGet` - Get list with items
+- `useUpdateListApiV1ListsListIdPut` - Update list metadata
+- `useCreateItemApiV1ListsListIdItemsPost` - Add items
+- `useUpdateItemApiV1ItemsItemIdPut` - Update items
+- `useDeleteItemApiV1ItemsItemIdDelete` - Delete items
+- `useCompleteItemApiV1ItemsItemIdCompletePost` - Complete items (handles recurrence)
+- Category hooks for category management
+
+Consider using `useQueryClient()` for optimistic updates on frequent operations like checking items.
+
+## Final Cleanup Checklist
+
+After migrating both files:
+1. Remove exclusions from `.pre-commit-config.yaml`:
+   - Remove `| grep -v "list/\[id\]/page.tsx"`
+   - Remove `| grep -v "recipes/\[id\]/page.tsx"`
+2. Delete `/web/src/lib/api.ts`
+3. Run full test suite: `cd web && npm test`
+4. Run TypeScript check: `cd web && npx tsc --noEmit`
+5. Test the app manually on both pages
+6. Commit with message noting migration completion
