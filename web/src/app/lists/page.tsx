@@ -1,54 +1,77 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type List, type ListType } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useGetListsApiV1ListsGet,
+  useCreateListApiV1ListsPost,
+  useDeleteListApiV1ListsListIdDelete,
+  getGetListsApiV1ListsGetQueryKey,
+  type ListResponse,
+  ListCreateListType,
+} from '@/generated/api';
+import { getCurrentUser } from '@/lib/auth';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
 export default function ListsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { confirm, alert } = useConfirmDialog();
-  const [lists, setLists] = useState<List[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showNewList, setShowNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [newListType, setNewListType] = useState<ListType>('grocery');
+  const [newListType, setNewListType] = useState<'grocery' | 'task'>('grocery');
 
+  // Check auth on mount
   useEffect(() => {
-    const currentUser = api.getCurrentUser();
+    const currentUser = getCurrentUser();
     if (!currentUser) {
       router.push('/login');
-      return;
     }
-    loadLists();
   }, [router]);
 
-  const loadLists = async () => {
-    try {
-      const data = await api.getLists();
-      const sorted = data.sort((a, b) => a.name.localeCompare(b.name));
-      setLists(sorted);
-    } catch {
-      // Failed to load lists
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch lists using React Query
+  const { data: lists = [], isLoading } = useGetListsApiV1ListsGet({
+    query: {
+      select: (data) => [...data].sort((a, b) => a.name.localeCompare(b.name)),
+    },
+  });
+
+  // Create list mutation
+  const createListMutation = useCreateListApiV1ListsPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey() });
+        setNewListName('');
+        setNewListType('grocery');
+        setShowNewList(false);
+      },
+    },
+  });
+
+  // Delete list mutation
+  const deleteListMutation = useDeleteListApiV1ListsListIdDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey() });
+      },
+      onError: async () => {
+        await alert({ message: 'Failed to delete list. Please try again.' });
+      },
+    },
+  });
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newListName.trim()) return;
 
-    try {
-      await api.createList({ name: newListName, list_type: newListType });
-      setNewListName('');
-      setNewListType('grocery');
-      setShowNewList(false);
-      loadLists();
-    } catch {
-      // Failed to create list
-    }
+    createListMutation.mutate({
+      data: {
+        name: newListName,
+        list_type: newListType === 'task' ? ListCreateListType.task : ListCreateListType.grocery,
+      },
+    });
   };
 
   const handleDeleteList = async (id: number, name: string) => {
@@ -59,15 +82,11 @@ export default function ListsPage() {
       variant: 'danger',
     });
     if (!confirmed) return;
-    try {
-      await api.deleteList(id);
-      loadLists();
-    } catch {
-      await alert({ message: 'Failed to delete list. Please try again.' });
-    }
+
+    deleteListMutation.mutate({ listId: id });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={styles.container}>
         <p className={styles.loading}>Loading...</p>
@@ -80,7 +99,7 @@ export default function ListsPage() {
       <h1 className={styles.title}>My Lists</h1>
 
       <div className={styles.listContainer}>
-        {lists.map((list) => (
+        {lists.map((list: ListResponse & { unchecked_count?: number }) => (
           <div
             key={list.id}
             className={styles.listCard}
@@ -90,12 +109,9 @@ export default function ListsPage() {
               <h2>
                 {list.icon && <span className={styles.listIcon}>{list.icon}</span>}
                 {list.name}
-                {(list as List & { unchecked_count?: number }).unchecked_count != null &&
-                  (list as List & { unchecked_count?: number }).unchecked_count! > 0 && (
-                    <span className={styles.countBadge}>
-                      {(list as List & { unchecked_count?: number }).unchecked_count}
-                    </span>
-                  )}
+                {list.unchecked_count != null && list.unchecked_count > 0 && (
+                  <span className={styles.countBadge}>{list.unchecked_count}</span>
+                )}
               </h2>
               <div className={styles.listMeta}>
                 <span className={`${styles.listTypeBadge} ${list.list_type === 'task' ? styles.taskType : styles.groceryType}`}>
@@ -174,8 +190,12 @@ export default function ListsPage() {
               </button>
             </div>
             <div className={styles.formButtons}>
-              <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`}>
-                Create
+              <button
+                type="submit"
+                className={`${styles.btn} ${styles.btnPrimary}`}
+                disabled={createListMutation.isPending}
+              >
+                {createListMutation.isPending ? 'Creating...' : 'Create'}
               </button>
               <button
                 type="button"

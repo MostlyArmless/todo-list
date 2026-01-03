@@ -1,8 +1,22 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import { type Item, type RecurrencePattern } from '@/lib/api';
+import { type ItemUpdateRecurrencePattern } from '@/generated/api';
 import styles from './TaskItem.module.css';
+
+type RecurrencePattern = NonNullable<ItemUpdateRecurrencePattern>;
+
+// Minimal interface for task items - compatible with both old api.ts Item and new ItemResponse
+interface Item {
+  id: number;
+  name: string;
+  checked: boolean;
+  due_date?: string | null;
+  reminder_at?: string | null;
+  reminder_offset?: string | null;
+  recurrence_pattern?: string | null;
+  completed_at?: string | null;
+}
 
 // URL regex that matches http(s) URLs
 const URL_REGEX = /(https?:\/\/[^\s<>"\])}]+)/g;
@@ -45,10 +59,10 @@ function renderTextWithLinks(text: string): ReactNode[] {
   return parts.length > 0 ? parts : [text];
 }
 
-interface TaskItemProps {
-  item: Item;
-  onComplete: (item: Item) => void;
-  onUncheck: (item: Item) => void;
+interface TaskItemProps<T extends Item = Item> {
+  item: T;
+  onComplete: (item: T) => void;
+  onUncheck: (item: T) => void;
   onDelete: (id: number) => void;
   onUpdate: (id: number, data: {
     name?: string;
@@ -133,11 +147,12 @@ function isOverdue(dueDate: string): boolean {
   return new Date(dueDate) < new Date();
 }
 
-function getRecurrenceIcon(pattern: RecurrencePattern): string {
+function getRecurrenceIcon(pattern: string): string {
   switch (pattern) {
     case 'daily': return '↻ Daily';
     case 'weekly': return '↻ Weekly';
     case 'monthly': return '↻ Monthly';
+    default: return `↻ ${pattern}`;
   }
 }
 
@@ -175,13 +190,13 @@ function getReminderTime(dueDate: string, offset: string): Date | null {
   return new Date(due.getTime() - offsetMs);
 }
 
-export default function TaskItem({
+export default function TaskItem<T extends Item>({
   item,
   onComplete,
   onUncheck,
   onDelete,
   onUpdate,
-}: TaskItemProps) {
+}: TaskItemProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editDueDate, setEditDueDate] = useState(item.due_date ? toLocalDateTimeInput(item.due_date) : '');

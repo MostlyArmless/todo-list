@@ -1,19 +1,17 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 import LoginPage from '../page';
-import { api } from '@/lib/api';
+import { login, register } from '@/lib/auth';
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }));
 
-// Mock the api module
-jest.mock('@/lib/api', () => ({
-  api: {
-    login: jest.fn(),
-    register: jest.fn(),
-  },
+// Mock the auth module
+jest.mock('@/lib/auth', () => ({
+  login: jest.fn(),
+  register: jest.fn(),
 }));
 
 // Helper to get submit button (type="submit")
@@ -125,8 +123,8 @@ describe('LoginPage', () => {
   });
 
   describe('login submission', () => {
-    it('should call api.login with correct credentials', async () => {
-      (api.login as jest.Mock).mockResolvedValue({});
+    it('should call login with correct credentials', async () => {
+      (login as jest.Mock).mockResolvedValue({});
 
       render(<LoginPage />);
 
@@ -140,12 +138,12 @@ describe('LoginPage', () => {
       fireEvent.click(getSubmitButton());
 
       await waitFor(() => {
-        expect(api.login).toHaveBeenCalledWith('test@example.com', 'password123');
+        expect(login).toHaveBeenCalledWith({ email: 'test@example.com', password: 'password123' });
       });
     });
 
     it('should redirect to /lists on successful login', async () => {
-      (api.login as jest.Mock).mockResolvedValue({});
+      (login as jest.Mock).mockResolvedValue({});
 
       render(<LoginPage />);
 
@@ -164,7 +162,7 @@ describe('LoginPage', () => {
     });
 
     it('should display error message on login failure', async () => {
-      (api.login as jest.Mock).mockRejectedValue(new Error('Invalid credentials'));
+      (login as jest.Mock).mockRejectedValue(new Error('Invalid credentials'));
 
       render(<LoginPage />);
 
@@ -183,7 +181,7 @@ describe('LoginPage', () => {
     });
 
     it('should show fallback error message when error has no message', async () => {
-      (api.login as jest.Mock).mockRejectedValue({});
+      (login as jest.Mock).mockRejectedValue({});
 
       render(<LoginPage />);
 
@@ -203,8 +201,8 @@ describe('LoginPage', () => {
   });
 
   describe('register submission', () => {
-    it('should call api.register with correct data', async () => {
-      (api.register as jest.Mock).mockResolvedValue({});
+    it('should call register with correct data', async () => {
+      (register as jest.Mock).mockResolvedValue({});
 
       render(<LoginPage />);
 
@@ -225,12 +223,12 @@ describe('LoginPage', () => {
       fireEvent.click(getSubmitButton());
 
       await waitFor(() => {
-        expect(api.register).toHaveBeenCalledWith('test@example.com', 'password123', 'Test User');
+        expect(register).toHaveBeenCalledWith({ email: 'test@example.com', password: 'password123', name: 'Test User' });
       });
     });
 
     it('should redirect to /lists on successful registration', async () => {
-      (api.register as jest.Mock).mockResolvedValue({});
+      (register as jest.Mock).mockResolvedValue({});
 
       render(<LoginPage />);
 
@@ -256,7 +254,7 @@ describe('LoginPage', () => {
     });
 
     it('should display error message on registration failure', async () => {
-      (api.register as jest.Mock).mockRejectedValue(new Error('Email already exists'));
+      (register as jest.Mock).mockRejectedValue(new Error('Email already exists'));
 
       render(<LoginPage />);
 
@@ -289,7 +287,7 @@ describe('LoginPage', () => {
       const loginPromise = new Promise((resolve) => {
         resolveLogin = resolve;
       });
-      (api.login as jest.Mock).mockReturnValue(loginPromise);
+      (login as jest.Mock).mockReturnValue(loginPromise);
 
       render(<LoginPage />);
 
@@ -316,7 +314,7 @@ describe('LoginPage', () => {
       const loginPromise = new Promise((resolve) => {
         resolveLogin = resolve;
       });
-      (api.login as jest.Mock).mockReturnValue(loginPromise);
+      (login as jest.Mock).mockReturnValue(loginPromise);
 
       render(<LoginPage />);
 
@@ -337,7 +335,7 @@ describe('LoginPage', () => {
     });
 
     it('should re-enable submit button after error', async () => {
-      (api.login as jest.Mock).mockRejectedValue(new Error('Failed'));
+      (login as jest.Mock).mockRejectedValue(new Error('Failed'));
 
       render(<LoginPage />);
 
@@ -362,7 +360,7 @@ describe('LoginPage', () => {
 
   describe('error clearing', () => {
     it('should clear error when form is resubmitted', async () => {
-      (api.login as jest.Mock)
+      (login as jest.Mock)
         .mockRejectedValueOnce(new Error('First error'))
         .mockResolvedValueOnce({});
 

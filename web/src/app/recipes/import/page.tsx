@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, RecipeImport } from '@/lib/api';
+import {
+  useGetRecipeImportApiV1RecipesImportImportIdGet,
+  useCreateRecipeImportApiV1RecipesImportPost,
+  useConfirmRecipeImportApiV1RecipesImportImportIdConfirmPost,
+  useDeleteRecipeImportApiV1RecipesImportImportIdDelete,
+  type RecipeImportResponse,
+} from '@/generated/api';
+import { getCurrentUser } from '@/lib/auth';
 import MarkdownInstructions from '@/components/MarkdownInstructions';
 import styles from './page.module.css';
 
@@ -14,7 +21,7 @@ export default function ImportRecipePage() {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>('loading');
   const [rawText, setRawText] = useState('');
-  const [importData, setImportData] = useState<RecipeImport | null>(null);
+  const [importId, setImportId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Editable fields for preview
@@ -23,80 +30,77 @@ export default function ImportRecipePage() {
   const [ingredients, setIngredients] = useState<{ name: string; quantity: string | null; description: string | null }[]>([]);
   const [instructions, setInstructions] = useState('');
 
-  // Check for pending import on mount
+  // Query for import status - only enabled when we have an import ID
+  const { data: importData } = useGetRecipeImportApiV1RecipesImportImportIdGet(
+    importId ?? 0,
+    {
+      query: {
+        enabled: !!importId && stage === 'processing',
+        refetchInterval: (query) => {
+          const data = query.state.data as RecipeImportResponse | undefined;
+          if (data && (data.status === 'completed' || data.status === 'failed')) {
+            return false;
+          }
+          return 2000;
+        },
+      },
+    }
+  );
+
+  // Mutations
+  const createImportMutation = useCreateRecipeImportApiV1RecipesImportPost();
+  const confirmImportMutation = useConfirmRecipeImportApiV1RecipesImportImportIdConfirmPost();
+  const deleteImportMutation = useDeleteRecipeImportApiV1RecipesImportImportIdDelete();
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Effects intentionally sync external state to local form state */
+  // Initialize state on mount
   useEffect(() => {
-    if (!api.getCurrentUser()) {
+    if (!getCurrentUser()) {
       router.push('/login');
       return;
     }
 
     const savedImportId = localStorage.getItem(STORAGE_KEY);
     if (savedImportId) {
-      // Resume pending import
-      api.getRecipeImport(parseInt(savedImportId, 10))
-        .then((data) => {
-          setImportData(data);
-          if (data.status === 'completed' && data.parsed_recipe) {
-            setName(data.parsed_recipe.name);
-            setServings(data.parsed_recipe.servings);
-            setIngredients(data.parsed_recipe.ingredients);
-            setInstructions(data.parsed_recipe.instructions);
-            setStage('preview');
-          } else if (data.status === 'failed') {
-            setError(data.error_message || 'Failed to parse recipe');
-            localStorage.removeItem(STORAGE_KEY);
-            setStage('input');
-          } else {
-            // Still pending or processing
-            setStage('processing');
-          }
-        })
-        .catch(() => {
-          // Import not found or error - clear and start fresh
-          localStorage.removeItem(STORAGE_KEY);
-          setStage('input');
-        });
+      setImportId(parseInt(savedImportId, 10));
+      setStage('processing');
     } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: set initial stage based on localStorage
       setStage('input');
     }
   }, [router]);
 
-  // Poll for completion
+  // Handle import status updates - sync React Query data to local editable state
   useEffect(() => {
-    if (stage !== 'processing' || !importData?.id) return;
+    if (!importData) return;
 
-    const pollInterval = setInterval(async () => {
-      try {
-        const updated = await api.getRecipeImport(importData.id);
-        setImportData(updated);
-
-        if (updated.status === 'completed' && updated.parsed_recipe) {
-          setName(updated.parsed_recipe.name);
-          setServings(updated.parsed_recipe.servings);
-          setIngredients(updated.parsed_recipe.ingredients);
-          setInstructions(updated.parsed_recipe.instructions);
-          setStage('preview');
-        } else if (updated.status === 'failed') {
-          setError(updated.error_message || 'Failed to parse recipe');
-          localStorage.removeItem(STORAGE_KEY);
-          setStage('input');
-        }
-      } catch {
-        // Poll error
-      }
-    }, 2000);
-
-    return () => clearInterval(pollInterval);
-  }, [stage, importData?.id]);
+    if (importData.status === 'completed' && importData.parsed_recipe) {
+      setName(importData.parsed_recipe.name);
+      setServings(importData.parsed_recipe.servings ?? null);
+      setIngredients(importData.parsed_recipe.ingredients.map(ing => ({
+        name: ing.name,
+        quantity: ing.quantity ?? null,
+        description: ing.description ?? null,
+      })));
+      setInstructions(importData.parsed_recipe.instructions);
+      setStage('preview');
+    } else if (importData.status === 'failed') {
+      setError(importData.error_message || 'Failed to parse recipe');
+      localStorage.removeItem(STORAGE_KEY);
+      setImportId(null);
+      setStage('input');
+    }
+  }, [importData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = async () => {
     if (!rawText.trim()) return;
     setError(null);
 
     try {
-      const result = await api.importRecipe(rawText);
-      setImportData(result);
+      const result = await createImportMutation.mutateAsync({
+        data: { raw_text: rawText },
+      });
+      setImportId(result.id);
       localStorage.setItem(STORAGE_KEY, result.id.toString());
       setStage('processing');
     } catch (e: unknown) {
@@ -106,19 +110,22 @@ export default function ImportRecipePage() {
   };
 
   const handleConfirm = async () => {
-    if (!importData?.id) return;
+    if (!importId) return;
     setStage('saving');
 
     try {
-      const recipe = await api.confirmRecipeImport(importData.id, {
-        name,
-        servings: servings || undefined,
-        ingredients: ingredients.map(i => ({
-          name: i.name,
-          quantity: i.quantity || undefined,
-          description: i.description || undefined,
-        })),
-        instructions,
+      const recipe = await confirmImportMutation.mutateAsync({
+        importId,
+        data: {
+          name,
+          servings: servings || undefined,
+          ingredients: ingredients.map(i => ({
+            name: i.name,
+            quantity: i.quantity || undefined,
+            description: i.description || undefined,
+          })),
+          instructions,
+        },
       });
       localStorage.removeItem(STORAGE_KEY);
       router.push(`/recipes/${recipe.id}`);
@@ -131,9 +138,9 @@ export default function ImportRecipePage() {
 
   const handleCancel = async () => {
     localStorage.removeItem(STORAGE_KEY);
-    if (importData?.id) {
+    if (importId) {
       try {
-        await api.deleteRecipeImport(importData.id);
+        await deleteImportMutation.mutateAsync({ importId });
       } catch {
         // Ignore errors on cleanup
       }

@@ -7,18 +7,19 @@ export default defineConfig({
       target: 'http://localhost:8000/openapi.json',
     },
     output: {
-      // Generate to a dedicated file (not in lib/ to avoid conflicts)
       target: './src/generated/api.ts',
-      // Use plain fetch client (not React Query) to align with existing api.ts
-      client: 'fetch',
-      // Generate as single file with all types and operations
+      // Use React Query for automatic caching, loading states, and type-safe hooks
+      client: 'react-query',
       mode: 'single',
-      // Override default options
       override: {
         mutator: {
           // Use custom fetch wrapper for auth handling
           path: './src/lib/api-fetcher.ts',
           name: 'customFetch',
+        },
+        query: {
+          // Signal support for request cancellation
+          signal: true,
         },
       },
     },

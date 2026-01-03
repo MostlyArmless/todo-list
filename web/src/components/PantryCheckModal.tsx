@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CheckPantryIngredient } from '@/lib/api';
+import type { CheckPantryIngredient } from '@/generated/api';
 import styles from './PantryCheckModal.module.css';
 
 interface PantryCheckModalProps {

@@ -1,8 +1,17 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { api, PendingConfirmation, InProgressVoiceJob, List } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useListPendingConfirmationsApiV1VoicePendingListGet,
+  useGetListsApiV1ListsGet,
+  useActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost,
+  useRetryVoiceInputApiV1VoiceVoiceInputIdRetryPost,
+  useDeleteVoiceInputApiV1VoiceVoiceInputIdDelete,
+  getListPendingConfirmationsApiV1VoicePendingListGetQueryKey,
+  type PendingConfirmationResponse,
+} from '@/generated/api';
 import styles from './page.module.css';
 
 interface EditableItem {
@@ -22,129 +31,105 @@ interface EditState {
 
 export default function ConfirmPage() {
   const router = useRouter();
-  const [inProgressJobs, setInProgressJobs] = useState<InProgressVoiceJob[]>([]);
-  const [confirmations, setConfirmations] = useState<PendingConfirmation[]>([]);
-  const [lists, setLists] = useState<List[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState<number | null>(null);
   const [editStates, setEditStates] = useState<Record<number, EditState>>({});
   const [failedJobEdits, setFailedJobEdits] = useState<Record<number, string>>({});
   const [now, setNow] = useState(Date.now());
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Poll for new confirmations without disrupting existing edit states
-  const pollForUpdates = useCallback(async () => {
-    try {
-      const data = await api.getPendingConfirmations();
+  // Queries with polling
+  const { data: queueData, isLoading: loadingQueue } = useListPendingConfirmationsApiV1VoicePendingListGet({
+    query: { refetchInterval: 1000 },
+  });
+  const { data: lists = [], isLoading: loadingLists } = useGetListsApiV1ListsGet();
 
-      // Update in-progress jobs (includes pending, processing, and failed)
-      setInProgressJobs(data.in_progress);
+  const inProgressJobs = queueData?.in_progress ?? [];
+  const confirmations = queueData?.pending_confirmations ?? [];
+  const loading = loadingQueue || loadingLists;
 
-      // Initialize edit text for failed jobs we haven't seen before
-      setFailedJobEdits(prev => {
-        const updated = { ...prev };
-        for (const job of data.in_progress.filter(j => j.status === 'failed')) {
-          if (!(job.id in updated)) {
-            updated[job.id] = job.raw_text;
-          }
-        }
-        return updated;
-      });
+  // Mutations
+  const actionMutation = useActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPendingConfirmationsApiV1VoicePendingListGetQueryKey() });
+      },
+    },
+  });
 
-      // Update confirmations
-      setConfirmations(prev => {
-        // Find truly new confirmations (IDs not in current list)
-        const existingIds = new Set(prev.map(c => c.id));
-        const newItems = data.pending_confirmations.filter(c => !existingIds.has(c.id));
+  const retryMutation = useRetryVoiceInputApiV1VoiceVoiceInputIdRetryPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPendingConfirmationsApiV1VoicePendingListGetQueryKey() });
+      },
+    },
+  });
 
-        if (newItems.length > 0) {
-          // Add edit states for new items
-          setEditStates(prevStates => {
-            const newStates = { ...prevStates };
-            for (const conf of newItems) {
-              newStates[conf.id] = {
-                listId: conf.proposed_changes.list_id,
-                items: conf.proposed_changes.items.map(item => ({
-                  name: item.name,
-                  category_id: item.category_id,
-                  due_date: item.due_date,
-                  reminder_offset: item.reminder_offset,
-                  recurrence_pattern: item.recurrence_pattern,
-                })),
-                rawText: conf.raw_text,
-              };
-            }
-            return newStates;
-          });
-          return [...prev, ...newItems];
-        }
-        return prev;
-      });
-    } catch {
-      // Silently ignore polling errors to avoid spamming the user
-    }
-  }, []);
+  const deleteMutation = useDeleteVoiceInputApiV1VoiceVoiceInputIdDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPendingConfirmationsApiV1VoicePendingListGetQueryKey() });
+      },
+    },
+  });
 
+  // Initialize edit states when confirmations load
   useEffect(() => {
-    loadData();
+    if (!queueData) return;
 
-    // Start polling every 1 second
-    pollIntervalRef.current = setInterval(pollForUpdates, 1000);
-
-    // Update "now" every second for elapsed time display
-    const nowInterval = setInterval(() => setNow(Date.now()), 1000);
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      clearInterval(nowInterval);
-    };
-  }, [pollForUpdates]);
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      const [queueData, listsData] = await Promise.all([
-        api.getPendingConfirmations(),
-        api.getLists(),
-      ]);
-      setInProgressJobs(queueData.in_progress);
-      setConfirmations(queueData.pending_confirmations);
-      setLists(listsData);
-
-      // Initialize edit states for confirmations
-      const initialEditStates: Record<number, EditState> = {};
+    // Initialize edit states for new confirmations
+    setEditStates(prev => {
+      const newStates = { ...prev };
       for (const conf of queueData.pending_confirmations) {
-        initialEditStates[conf.id] = {
-          listId: conf.proposed_changes.list_id,
-          items: conf.proposed_changes.items.map(item => ({
-            name: item.name,
-            category_id: item.category_id,
-            due_date: item.due_date,
-            reminder_offset: item.reminder_offset,
-            recurrence_pattern: item.recurrence_pattern,
-          })),
-          rawText: conf.raw_text,
-        };
+        if (!(conf.id in newStates)) {
+          const changes = conf.proposed_changes as { list_id: number; items: EditableItem[] };
+          newStates[conf.id] = {
+            listId: changes.list_id,
+            items: changes.items.map(item => ({
+              name: item.name,
+              category_id: item.category_id,
+              due_date: item.due_date,
+              reminder_offset: item.reminder_offset,
+              recurrence_pattern: item.recurrence_pattern,
+            })),
+            rawText: conf.raw_text,
+          };
+        }
       }
-      setEditStates(initialEditStates);
+      // Clean up states for confirmations that no longer exist
+      const existingIds = new Set(queueData.pending_confirmations.map(c => c.id));
+      for (const id of Object.keys(newStates)) {
+        if (!existingIds.has(Number(id))) {
+          delete newStates[Number(id)];
+        }
+      }
+      return newStates;
+    });
 
-      // Initialize edit text for failed jobs
-      const initialFailedEdits: Record<number, string> = {};
+    // Initialize edit text for failed jobs
+    setFailedJobEdits(prev => {
+      const updated = { ...prev };
       for (const job of queueData.in_progress.filter(j => j.status === 'failed')) {
-        initialFailedEdits[job.id] = job.raw_text;
+        if (!(job.id in updated)) {
+          updated[job.id] = job.raw_text;
+        }
       }
-      setFailedJobEdits(initialFailedEdits);
+      // Clean up states for jobs that no longer exist
+      const existingIds = new Set(queueData.in_progress.map(j => j.id));
+      for (const id of Object.keys(updated)) {
+        if (!existingIds.has(Number(id))) {
+          delete updated[Number(id)];
+        }
+      }
+      return updated;
+    });
+  }, [queueData]);
 
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Update "now" every second for elapsed time display
+  useEffect(() => {
+    const nowInterval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(nowInterval);
+  }, []);
 
   function updateItemName(confirmationId: number, itemIndex: number, newName: string) {
     setEditStates(prev => ({
@@ -188,7 +173,7 @@ export default function ConfirmPage() {
     }));
   }
 
-  async function handleRetryConfirmation(confirmation: PendingConfirmation) {
+  async function handleRetryConfirmation(confirmation: PendingConfirmationResponse) {
     const editState = editStates[confirmation.id];
     const textToRetry = editState?.rawText?.trim();
     if (!textToRetry) {
@@ -199,10 +184,14 @@ export default function ConfirmPage() {
     try {
       setProcessing(confirmation.id);
       // Reject current confirmation and retry the voice input
-      await api.rejectPendingConfirmation(confirmation.id);
-      await api.retryVoiceInput(confirmation.voice_input_id, textToRetry);
-      // Remove from confirmations - it will reappear after processing
-      setConfirmations(prev => prev.filter(c => c.id !== confirmation.id));
+      await actionMutation.mutateAsync({
+        confirmationId: confirmation.id,
+        data: { action: 'reject' },
+      });
+      await retryMutation.mutateAsync({
+        voiceInputId: confirmation.voice_input_id,
+        data: { raw_text: textToRetry },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retry');
     } finally {
@@ -210,7 +199,7 @@ export default function ConfirmPage() {
     }
   }
 
-  async function handleConfirm(confirmation: PendingConfirmation) {
+  async function handleConfirm(confirmation: PendingConfirmationResponse) {
     const editState = editStates[confirmation.id];
     if (!editState || editState.items.length === 0) {
       setError('No items to add');
@@ -219,17 +208,20 @@ export default function ConfirmPage() {
 
     try {
       setProcessing(confirmation.id);
+      const changes = confirmation.proposed_changes as { list_id: number; items: EditableItem[] };
       const hasEdits =
-        editState.listId !== confirmation.proposed_changes.list_id ||
+        editState.listId !== changes.list_id ||
         JSON.stringify(editState.items) !== JSON.stringify(
-          confirmation.proposed_changes.items.map(i => ({ name: i.name, category_id: i.category_id }))
+          changes.items.map(i => ({ name: i.name, category_id: i.category_id }))
         );
 
-      await api.confirmPendingConfirmation(
-        confirmation.id,
-        hasEdits ? { list_id: editState.listId, items: editState.items } : undefined
-      );
-      setConfirmations(prev => prev.filter(c => c.id !== confirmation.id));
+      await actionMutation.mutateAsync({
+        confirmationId: confirmation.id,
+        data: {
+          action: 'confirm',
+          edits: hasEdits ? { list_id: editState.listId, items: editState.items } : undefined,
+        },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to confirm');
     } finally {
@@ -240,8 +232,10 @@ export default function ConfirmPage() {
   async function handleReject(id: number) {
     try {
       setProcessing(id);
-      await api.rejectPendingConfirmation(id);
-      setConfirmations(prev => prev.filter(c => c.id !== id));
+      await actionMutation.mutateAsync({
+        confirmationId: id,
+        data: { action: 'reject' },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject');
     } finally {
@@ -252,13 +246,7 @@ export default function ConfirmPage() {
   async function handleDismissJob(id: number) {
     try {
       setProcessing(id);
-      await api.deleteVoiceInput(id);
-      setInProgressJobs(prev => prev.filter(j => j.id !== id));
-      setFailedJobEdits(prev => {
-        const updated = { ...prev };
-        delete updated[id];
-        return updated;
-      });
+      await deleteMutation.mutateAsync({ voiceInputId: id });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to dismiss');
     } finally {
@@ -275,8 +263,10 @@ export default function ConfirmPage() {
 
     try {
       setProcessing(id);
-      await api.retryVoiceInput(id, editedText);
-      // The job will now appear as 'pending' in the next poll
+      await retryMutation.mutateAsync({
+        voiceInputId: id,
+        data: { raw_text: editedText },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retry');
     } finally {

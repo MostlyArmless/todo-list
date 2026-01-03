@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, NotificationSettings } from '@/lib/api';
+import {
+  useGetNotificationSettingsApiV1NotificationsSettingsGet,
+  useUpdateNotificationSettingsApiV1NotificationsSettingsPut,
+  type NotificationSettingsUpdate,
+} from '@/generated/api';
+import { getCurrentUser } from '@/lib/auth';
 import { subscribeToPush, unsubscribeFromPush, isPushSupported, isPushSubscribed } from '@/lib/pushNotifications';
 import styles from './page.module.css';
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -23,42 +27,44 @@ export default function SettingsPage() {
   const [pushToSms, setPushToSms] = useState(5);
   const [smsToCall, setSmsToCall] = useState(15);
   const [callRepeat, setCallRepeat] = useState(30);
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Push notification state
   const [pushSupported, setPushSupported] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
 
+  // Query for settings
+  const { data: settings, isLoading } = useGetNotificationSettingsApiV1NotificationsSettingsGet();
+
+  // Mutation for updating
+  const updateMutation = useUpdateNotificationSettingsApiV1NotificationsSettingsPut();
+
   useEffect(() => {
-    const user = api.getCurrentUser();
+    const user = getCurrentUser();
     if (!user) {
       router.push('/login');
       return;
     }
-
-    loadSettings();
     checkPushStatus();
   }, [router]);
 
-  const loadSettings = async () => {
-    try {
-      const settings = await api.getNotificationSettings();
+  // Initialize form state from loaded settings
+  useEffect(() => {
+    if (settings && !formInitialized) {
       setPhoneNumber(settings.phone_number || '');
       setPartnerPhone(settings.accountability_partner_phone || '');
       setSafeWord(settings.escape_safe_word || 'abort');
       setQuietStart(settings.quiet_hours_start || '');
       setQuietEnd(settings.quiet_hours_end || '');
       setTimezone(settings.quiet_hours_timezone || 'America/Toronto');
-      setPushToSms(settings.escalation_timing?.push_to_sms || 5);
-      setSmsToCall(settings.escalation_timing?.sms_to_call || 15);
-      setCallRepeat(settings.escalation_timing?.call_repeat || 30);
-    } catch (err) {
-      console.warn('Failed to load settings:', err);
-      setError('Failed to load settings');
-    } finally {
-      setLoading(false);
+      const timing = settings.escalation_timing as { push_to_sms?: number; sms_to_call?: number; call_repeat?: number } | null;
+      setPushToSms(timing?.push_to_sms || 5);
+      setSmsToCall(timing?.sms_to_call || 15);
+      setCallRepeat(timing?.call_repeat || 30);
+      setFormInitialized(true);
     }
-  };
+  }, [settings, formInitialized]);
 
   const checkPushStatus = async () => {
     setPushSupported(isPushSupported());
@@ -75,7 +81,7 @@ export default function SettingsPage() {
     setSaving(true);
 
     try {
-      const update: Partial<NotificationSettings> = {
+      const update: NotificationSettingsUpdate = {
         phone_number: phoneNumber || null,
         accountability_partner_phone: partnerPhone || null,
         escape_safe_word: safeWord || 'abort',
@@ -89,7 +95,7 @@ export default function SettingsPage() {
         },
       };
 
-      await api.updateNotificationSettings(update);
+      await updateMutation.mutateAsync({ data: update });
       setSuccess('Settings saved successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -120,7 +126,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={styles.container}>
         <div className={styles.header}>

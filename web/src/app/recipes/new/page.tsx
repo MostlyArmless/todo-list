@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { useCreateRecipeApiV1RecipesPost } from '@/generated/api';
+import { getCurrentUser } from '@/lib/auth';
 import { useIngredientKeyboard } from '@/hooks/useIngredientKeyboard';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
@@ -27,6 +28,8 @@ export default function NewRecipePage() {
 
   const ingredientRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
+  const createRecipeMutation = useCreateRecipeApiV1RecipesPost();
+
   const addIngredient = useCallback(() => {
     const newId = crypto.randomUUID();
     setIngredients((prev) => [
@@ -39,7 +42,7 @@ export default function NewRecipePage() {
   const { isMac } = useIngredientKeyboard(addIngredient);
 
   useEffect(() => {
-    if (!api.getCurrentUser()) router.push('/login');
+    if (!getCurrentUser()) router.push('/login');
   }, [router]);
 
   const updateIngredient = (id: string, field: keyof IngredientDraft, value: string) => {
@@ -67,19 +70,21 @@ export default function NewRecipePage() {
 
     setSaving(true);
     try {
-      const recipe = await api.createRecipe({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        servings: servings ? parseInt(servings, 10) : undefined,
-        instructions: instructions.trim() || undefined,
-        ingredients: ingredients
-          .filter((ing) => ing.name.trim())
-          .map((ing) => ({
-            name: ing.name.trim(),
-            quantity: ing.quantity.trim() || undefined,
-            description: ing.description.trim() || undefined,
-            store_preference: ing.store_preference || undefined,
-          })),
+      const recipe = await createRecipeMutation.mutateAsync({
+        data: {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          servings: servings ? parseInt(servings, 10) : undefined,
+          instructions: instructions.trim() || undefined,
+          ingredients: ingredients
+            .filter((ing) => ing.name.trim())
+            .map((ing) => ({
+              name: ing.name.trim(),
+              quantity: ing.quantity.trim() || undefined,
+              description: ing.description.trim() || undefined,
+              store_preference: ing.store_preference || undefined,
+            })),
+        },
       });
       router.push(`/recipes/${recipe.id}`);
     } catch {

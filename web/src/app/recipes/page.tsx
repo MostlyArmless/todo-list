@@ -1,9 +1,21 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { api, type RecipeListItem, type RecipePantryStatus, type RecipeSortBy } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useListRecipesApiV1RecipesGet,
+  useGetLabelColorsApiV1RecipesColorsGet,
+  useBulkCheckPantryApiV1RecipesPantryStatusGet,
+  useUpdateRecipeApiV1RecipesRecipeIdPut,
+  useDeleteRecipeApiV1RecipesRecipeIdDelete,
+  getListRecipesApiV1RecipesGetQueryKey,
+  type RecipeListResponse,
+  type RecipePantryStatus,
+  RecipeSortBy,
+} from '@/generated/api';
+import { getCurrentUser } from '@/lib/auth';
 import IconButton from '@/components/IconButton';
 import Dropdown from '@/components/Dropdown';
 import ViewToggle, { type ViewMode } from '@/components/ViewToggle';
@@ -33,18 +45,55 @@ const VIEW_MODE_STORAGE_KEY = 'recipeViewMode';
 
 export default function RecipesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { confirm, alert } = useConfirmDialog();
-  const [recipes, setRecipes] = useState<RecipeListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [availableColors, setAvailableColors] = useState<string[]>([]);
   const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
-  const [pantryStatus, setPantryStatus] = useState<Map<number, RecipePantryStatus>>(new Map());
   const [sortBy, setSortBy] = useState<SortOption>('name_asc');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const colorPickerRef = useRef<HTMLDivElement>(null);
 
+  // For client-side sorts, fetch with default backend sort
+  const backendSort: RecipeSortBy = sortBy === 'pantry_coverage_desc' ? 'name_asc' : sortBy;
+
+  // Queries
+  const { data: recipes = [], isLoading } = useListRecipesApiV1RecipesGet({ sort_by: backendSort });
+  const { data: colorsData } = useGetLabelColorsApiV1RecipesColorsGet();
+  const { data: pantryData } = useBulkCheckPantryApiV1RecipesPantryStatusGet();
+
+  // Type cast since generated API doesn't have proper response type
+  const availableColors = (colorsData as { colors?: string[] } | undefined)?.colors ?? [];
+
+  // Build pantry status map
+  const pantryStatus = useMemo(() => {
+    const map = new Map<number, RecipePantryStatus>();
+    if (pantryData?.recipes) {
+      for (const status of pantryData.recipes) {
+        map.set(status.recipe_id, status);
+      }
+    }
+    return map;
+  }, [pantryData]);
+
+  // Mutations
+  const updateRecipeMutation = useUpdateRecipeApiV1RecipesRecipeIdPut({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListRecipesApiV1RecipesGetQueryKey({ sort_by: backendSort }) });
+      },
+    },
+  });
+
+  const deleteRecipeMutation = useDeleteRecipeApiV1RecipesRecipeIdDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListRecipesApiV1RecipesGetQueryKey({ sort_by: backendSort }) });
+      },
+    },
+  });
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Intentional: initialize state from localStorage on mount */
   useEffect(() => {
-    const currentUser = api.getCurrentUser();
+    const currentUser = getCurrentUser();
     if (!currentUser) {
       router.push('/login');
       return;
@@ -57,18 +106,13 @@ export default function RecipesPage() {
     if (savedViewMode && (savedViewMode === 'list' || savedViewMode === 'gallery')) {
       setViewMode(savedViewMode);
     }
-    loadColors();
-    loadPantryStatus();
   }, [router]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode);
     localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
   };
-
-  useEffect(() => {
-    loadRecipes(sortBy);
-  }, [sortBy]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -80,21 +124,8 @@ export default function RecipesPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const loadRecipes = async (sort: SortOption) => {
-    try {
-      // For client-side sorts, fetch with default backend sort
-      const backendSort: RecipeSortBy = sort === 'pantry_coverage_desc' ? 'name_asc' : sort;
-      const data = await api.getRecipes(backendSort);
-      setRecipes(data);
-    } catch {
-      // Failed to load recipes
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Apply client-side sorting when pantry data is available
-  const getSortedRecipes = (): RecipeListItem[] => {
+  const getSortedRecipes = (): RecipeListResponse[] => {
     if (sortBy !== 'pantry_coverage_desc' || pantryStatus.size === 0) {
       return recipes;
     }
@@ -105,10 +136,10 @@ export default function RecipesPage() {
 
       // Calculate coverage (have_count / total_ingredients)
       const coverageA = statusA && statusA.total_ingredients > 0
-        ? statusA.have_count / statusA.total_ingredients
+        ? (statusA.have_count ?? 0) / statusA.total_ingredients
         : 0;
       const coverageB = statusB && statusB.total_ingredients > 0
-        ? statusB.have_count / statusB.total_ingredients
+        ? (statusB.have_count ?? 0) / statusB.total_ingredients
         : 0;
 
       // Sort descending by coverage, then by name for ties
@@ -124,32 +155,12 @@ export default function RecipesPage() {
     localStorage.setItem(SORT_STORAGE_KEY, newSort);
   };
 
-  const loadColors = async () => {
-    try {
-      const data = await api.getRecipeLabelColors();
-      setAvailableColors(data.colors);
-    } catch {
-      // Failed to load colors
-    }
-  };
-
-  const loadPantryStatus = async () => {
-    try {
-      const data = await api.getRecipesPantryStatus();
-      const statusMap = new Map<number, RecipePantryStatus>();
-      for (const status of data.recipes) {
-        statusMap.set(status.recipe_id, status);
-      }
-      setPantryStatus(statusMap);
-    } catch {
-      // Failed to load pantry status
-    }
-  };
-
   const handleColorChange = async (recipeId: number, color: string) => {
     try {
-      await api.updateRecipe(recipeId, { label_color: color });
-      setRecipes(recipes.map((r) => (r.id === recipeId ? { ...r, label_color: color } : r)));
+      await updateRecipeMutation.mutateAsync({
+        recipeId,
+        data: { label_color: color },
+      });
       setColorPickerOpen(null);
     } catch {
       // Failed to update color
@@ -165,14 +176,13 @@ export default function RecipesPage() {
     });
     if (!confirmed) return;
     try {
-      await api.deleteRecipe(id);
-      loadRecipes(sortBy);
+      await deleteRecipeMutation.mutateAsync({ recipeId: id });
     } catch {
       await alert({ message: 'Failed to delete recipe. Please try again.' });
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={`${styles.container} ${styles.loading}`}>
         <p className={styles.loadingText}>Loading...</p>
@@ -257,11 +267,15 @@ export default function RecipesPage() {
                   const status = pantryStatus.get(recipe.id);
                   if (!status || status.total_ingredients === 0) return null;
                   const total = status.total_ingredients;
-                  const havePercent = (status.have_count / total) * 100;
-                  const lowPercent = (status.low_count / total) * 100;
-                  const outPercent = (status.out_count / total) * 100;
-                  const unmatchedPercent = (status.unmatched_count / total) * 100;
-                  const matchedCount = status.have_count + status.low_count + status.out_count;
+                  const haveCount = status.have_count ?? 0;
+                  const lowCount = status.low_count ?? 0;
+                  const outCount = status.out_count ?? 0;
+                  const unmatchedCount = status.unmatched_count ?? 0;
+                  const havePercent = (haveCount / total) * 100;
+                  const lowPercent = (lowCount / total) * 100;
+                  const outPercent = (outCount / total) * 100;
+                  const unmatchedPercent = (unmatchedCount / total) * 100;
+                  const matchedCount = haveCount + lowCount + outCount;
                   return (
                     <div className={styles.pantryProgress}>
                       <div className={styles.pantryProgressRow}>
@@ -305,7 +319,7 @@ export default function RecipesPage() {
                   />
                   {colorPickerOpen === recipe.id && (
                     <div className={styles.colorPicker} onClick={(e) => e.stopPropagation()}>
-                      {availableColors.map((color) => (
+                      {availableColors.map((color: string) => (
                         <button
                           key={color}
                           onClick={() => handleColorChange(recipe.id, color)}
@@ -410,7 +424,7 @@ export default function RecipesPage() {
                   />
                   {colorPickerOpen === recipe.id && (
                     <div className={styles.colorPicker} onClick={(e) => e.stopPropagation()}>
-                      {availableColors.map((color) => (
+                      {availableColors.map((color: string) => (
                         <button
                           key={color}
                           onClick={() => handleColorChange(recipe.id, color)}

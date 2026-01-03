@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { login, register } from '@/lib/auth';
 import styles from './page.module.css';
 
 export default function LoginPage() {
@@ -21,9 +21,9 @@ export default function LoginPage() {
 
     try {
       if (mode === 'login') {
-        await api.login(email, password);
+        await login({ email, password });
       } else {
-        await api.register(email, password, name);
+        await register({ email, password, name });
       }
       router.push('/lists');
     } catch (err: unknown) {

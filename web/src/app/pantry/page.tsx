@@ -2,7 +2,22 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, type PantryItemWithRecipes, type List, type ReceiptScanResponse, type Category } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useListPantryItemsWithRecipesApiV1PantryWithRecipesGet,
+  useGetListsApiV1ListsGet,
+  useGetCategoriesApiV1ListsListIdCategoriesGet,
+  useCreatePantryItemApiV1PantryPost,
+  useUpdatePantryItemApiV1PantryItemIdPut,
+  useDeletePantryItemApiV1PantryItemIdDelete,
+  useCreateItemApiV1ListsListIdItemsPost,
+  useCreateCategoryApiV1ListsListIdCategoriesPost,
+  useScanReceiptApiV1PantryScanReceiptPost,
+  useGetReceiptScanApiV1PantryScanReceiptScanIdGet,
+  getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey,
+  type PantryItemWithRecipesResponse,
+} from '@/generated/api';
+import { getCurrentUser } from '@/lib/auth';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
 
@@ -13,11 +28,6 @@ const STATUS_LABELS: Record<string, string> = {
   have: 'Have',
   low: 'Low',
   out: 'Out',
-};
-const STATUS_COLORS: Record<string, string> = {
-  have: '#22c55e', // green
-  low: '#eab308', // yellow
-  out: '#ef4444', // red
 };
 
 const SORT_OPTIONS = [
@@ -33,17 +43,15 @@ type SortOption = (typeof SORT_OPTIONS)[number]['value'];
 
 export default function PantryPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { confirm, alert } = useConfirmDialog();
-  const [items, setItems] = useState<PantryItemWithRecipes[]>([]);
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
-  const [lists, setLists] = useState<List[]>([]);
-  const [loading, setLoading] = useState(true);
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemStore, setNewItemStore] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [pendingScan, setPendingScan] = useState<ReceiptScanResponse | null>(null);
+  const [pendingScanId, setPendingScanId] = useState<number | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<SortOption>('category');
@@ -52,74 +60,101 @@ export default function PantryPage() {
   const [editStatus, setEditStatus] = useState<PantryStatus>('have');
   const [editCategory, setEditCategory] = useState('');
   const [editStore, setEditStore] = useState('');
-  const [storeCategories, setStoreCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [editStoreListId, setEditStoreListId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Queries
+  const { data: items = [], isLoading: loadingPantry } = useListPantryItemsWithRecipesApiV1PantryWithRecipesGet();
+  const { data: lists = [], isLoading: loadingLists } = useGetListsApiV1ListsGet();
+  const loading = loadingPantry || loadingLists;
+
+  // Categories for the selected store in edit mode
+  const { data: storeCategories = [], isLoading: loadingCategories } = useGetCategoriesApiV1ListsListIdCategoriesGet(
+    editStoreListId ?? 0,
+    { query: { enabled: !!editStoreListId } }
+  );
+
+  // Poll for receipt scan status
+  const { data: scanData } = useGetReceiptScanApiV1PantryScanReceiptScanIdGet(
+    pendingScanId ?? 0,
+    {
+      query: {
+        enabled: !!pendingScanId,
+        refetchInterval: (query) => {
+          const data = query.state.data;
+          if (data && (data.status === 'completed' || data.status === 'failed')) {
+            return false;
+          }
+          return 2000;
+        },
+      },
+    }
+  );
+
+  // Handle scan completion
   useEffect(() => {
-    const currentUser = api.getCurrentUser();
+    if (!scanData || !pendingScanId) return;
+
+    if (scanData.status === 'completed') {
+      queryClient.invalidateQueries({ queryKey: getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey() });
+      alert({
+        title: 'Receipt Scanned',
+        message: `Added ${scanData.items_added || 0} new items, updated ${scanData.items_updated || 0} existing items.`,
+      });
+      setPendingScanId(null);
+    } else if (scanData.status === 'failed') {
+      setScanError(scanData.error_message || 'Failed to process receipt');
+      setPendingScanId(null);
+    }
+  }, [scanData, pendingScanId, queryClient, alert]);
+
+  // Mutations
+  const createPantryMutation = useCreatePantryItemApiV1PantryPost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey() });
+      },
+    },
+  });
+
+  const updatePantryMutation = useUpdatePantryItemApiV1PantryItemIdPut({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey() });
+      },
+    },
+  });
+
+  const deletePantryMutation = useDeletePantryItemApiV1PantryItemIdDelete({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey() });
+      },
+    },
+  });
+
+  const createItemMutation = useCreateItemApiV1ListsListIdItemsPost();
+  const createCategoryMutation = useCreateCategoryApiV1ListsListIdCategoriesPost();
+  const scanReceiptMutation = useScanReceiptApiV1PantryScanReceiptPost();
+
+  useEffect(() => {
+    const currentUser = getCurrentUser();
     if (!currentUser) {
       router.push('/login');
       return;
     }
-    loadData();
   }, [router]);
 
-  // Load categories when store selection changes
+  // Update editStoreListId when editStore changes
   useEffect(() => {
-    const loadStoreCategories = async () => {
-      if (!editStore) {
-        setStoreCategories([]);
-        return;
-      }
-
-      // Find the list by name
-      const selectedList = lists.find(l => l.name === editStore);
-      if (!selectedList) {
-        setStoreCategories([]);
-        return;
-      }
-
-      setLoadingCategories(true);
-      try {
-        const categories = await api.getCategories(selectedList.id);
-        setStoreCategories(categories);
-      } catch {
-        setStoreCategories([]);
-      } finally {
-        setLoadingCategories(false);
-      }
-    };
-
-    loadStoreCategories();
+    if (!editStore) {
+      setEditStoreListId(null);
+      return;
+    }
+    const selectedList = lists.find(l => l.name === editStore);
+    setEditStoreListId(selectedList?.id ?? null);
   }, [editStore, lists]);
-
-  const loadData = async () => {
-    try {
-      const [pantryData, listsData] = await Promise.all([
-        api.getPantryItemsWithRecipes(),
-        api.getLists(),
-      ]);
-      setItems(pantryData);
-      setLists(listsData);
-    } catch {
-      // Failed to load data
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadPantry = async () => {
-    try {
-      const data = await api.getPantryItemsWithRecipes();
-      setItems(data);
-    } catch {
-      // Failed to load pantry
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toggleExpanded = (itemId: number) => {
     setExpandedItems((prev) => {
@@ -138,35 +173,38 @@ export default function PantryPage() {
     if (!newItemName.trim()) return;
 
     try {
-      await api.createPantryItem({
-        name: newItemName.trim(),
-        status: 'have',
-        category: newItemCategory.trim() || undefined,
-        preferred_store: newItemStore || undefined,
+      await createPantryMutation.mutateAsync({
+        data: {
+          name: newItemName.trim(),
+          status: 'have',
+          category: newItemCategory.trim() || undefined,
+          preferred_store: newItemStore || undefined,
+        },
       });
       setNewItemName('');
       setNewItemCategory('');
       setNewItemStore('');
       setShowAddForm(false);
-      loadPantry();
     } catch {
       await alert({ message: 'Failed to add item. It may already exist in your pantry.' });
     }
   };
 
-  const handleStatusChange = async (item: PantryItemWithRecipes) => {
-    const currentIndex = STATUS_ORDER.indexOf(item.status);
+  const handleStatusChange = async (item: PantryItemWithRecipesResponse) => {
+    const currentIndex = STATUS_ORDER.indexOf(item.status as PantryStatus);
     const nextStatus = STATUS_ORDER[(currentIndex + 1) % STATUS_ORDER.length];
 
     try {
-      await api.updatePantryItem(item.id, { status: nextStatus });
-      loadPantry();
+      await updatePantryMutation.mutateAsync({
+        itemId: item.id,
+        data: { status: nextStatus },
+      });
     } catch {
       // Failed to update status
     }
   };
 
-  const handleDeleteItem = async (item: PantryItemWithRecipes) => {
+  const handleDeleteItem = async (item: PantryItemWithRecipesResponse) => {
     const confirmed = await confirm({
       title: 'Remove from Pantry',
       message: `Remove "${item.name}" from pantry?`,
@@ -175,15 +213,13 @@ export default function PantryPage() {
     });
     if (!confirmed) return;
     try {
-      await api.deletePantryItem(item.id);
-      loadPantry();
+      await deletePantryMutation.mutateAsync({ itemId: item.id });
     } catch {
       // Failed to delete item
     }
   };
 
-  const handleAddToShoppingList = async (item: PantryItemWithRecipes) => {
-    // Find the Grocery list
+  const handleAddToShoppingList = async (item: PantryItemWithRecipesResponse) => {
     const groceryList = lists.find(l => l.name.toLowerCase() === 'grocery');
     if (!groceryList) {
       await alert({ message: 'No "Grocery" list found. Please create one first.' });
@@ -191,7 +227,10 @@ export default function PantryPage() {
     }
 
     try {
-      await api.createItem(groceryList.id, { name: item.name });
+      await createItemMutation.mutateAsync({
+        listId: groceryList.id,
+        data: { name: item.name },
+      });
       await alert({
         title: 'Added to List',
         message: `Added "${item.name}" to shopping list`,
@@ -204,48 +243,55 @@ export default function PantryPage() {
   const handleAddSelectedToShoppingList = async () => {
     if (selectedItems.size === 0) return;
 
-    // Find the Grocery list
     const groceryList = lists.find(l => l.name.toLowerCase() === 'grocery');
     if (!groceryList) {
       await alert({ message: 'No "Grocery" list found. Please create one first.' });
       return;
     }
 
-    // Get selected items data
     const itemsToAdd = items.filter(item => selectedItems.has(item.id));
     if (itemsToAdd.length === 0) return;
 
     try {
-      // Get existing categories in the grocery list
-      const existingCategories = await api.getCategories(groceryList.id);
-      const categoryMap = new Map(existingCategories.map(c => [c.name.toLowerCase(), c.id]));
+      const existingCategories = await queryClient.fetchQuery({
+        queryKey: ['categories', groceryList.id],
+        queryFn: async () => {
+          const response = await fetch(`/api/v1/lists/${groceryList.id}/categories`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          });
+          return response.json();
+        },
+      });
+      const categoryMap = new Map(existingCategories.map((c: { name: string; id: number }) => [c.name.toLowerCase(), c.id]));
 
-      // Add each item, creating categories as needed
       let addedCount = 0;
       for (const item of itemsToAdd) {
         let categoryId: number | undefined;
 
-        // If item has a category, find or create it in the list
         if (item.category) {
           const existingCategoryId = categoryMap.get(item.category.toLowerCase());
           if (existingCategoryId) {
-            categoryId = existingCategoryId;
+            categoryId = existingCategoryId as number;
           } else {
-            // Create new category
-            const newCategory = await api.createCategory(groceryList.id, { name: item.category });
+            const newCategory = await createCategoryMutation.mutateAsync({
+              listId: groceryList.id,
+              data: { name: item.category },
+            });
             categoryMap.set(item.category.toLowerCase(), newCategory.id);
             categoryId = newCategory.id;
           }
         }
 
-        await api.createItem(groceryList.id, {
-          name: item.name,
-          category_id: categoryId,
+        await createItemMutation.mutateAsync({
+          listId: groceryList.id,
+          data: {
+            name: item.name,
+            category_id: categoryId,
+          },
         });
         addedCount++;
       }
 
-      // Clear selection after adding
       setSelectedItems(new Set());
 
       await alert({
@@ -257,10 +303,10 @@ export default function PantryPage() {
     }
   };
 
-  const handleStartEdit = (item: PantryItemWithRecipes) => {
+  const handleStartEdit = (item: PantryItemWithRecipesResponse) => {
     setEditingItemId(item.id);
     setEditName(item.name);
-    setEditStatus(item.status);
+    setEditStatus(item.status as PantryStatus);
     setEditCategory(item.category || '');
     setEditStore(item.preferred_store || '');
   };
@@ -271,7 +317,7 @@ export default function PantryPage() {
     setEditStatus('have');
     setEditCategory('');
     setEditStore('');
-    setStoreCategories([]);
+    setEditStoreListId(null);
   };
 
   const handleSaveEdit = async () => {
@@ -279,19 +325,21 @@ export default function PantryPage() {
 
     setSaving(true);
     try {
-      await api.updatePantryItem(editingItemId, {
-        name: editName.trim(),
-        status: editStatus,
-        category: editCategory.trim() || undefined,
-        preferred_store: editStore || undefined,
+      await updatePantryMutation.mutateAsync({
+        itemId: editingItemId,
+        data: {
+          name: editName.trim(),
+          status: editStatus,
+          category: editCategory.trim() || undefined,
+          preferred_store: editStore || undefined,
+        },
       });
       setEditingItemId(null);
       setEditName('');
       setEditStatus('have');
       setEditCategory('');
       setEditStore('');
-      setStoreCategories([]);
-      loadPantry();
+      setEditStoreListId(null);
     } catch {
       await alert({ message: 'Failed to update item. The name may already exist in your pantry.' });
     } finally {
@@ -303,43 +351,16 @@ export default function PantryPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
 
     setScanError(null);
     try {
-      const result = await api.scanReceipt(file);
-      // Start polling for result
-      pollScanStatus(result.id);
+      const result = await scanReceiptMutation.mutateAsync({ data: { file } });
+      setPendingScanId(result.id);
     } catch (error) {
       setScanError(error instanceof Error ? error.message : 'Failed to upload receipt');
-    }
-  };
-
-  const pollScanStatus = async (scanId: number) => {
-    try {
-      const scan = await api.getReceiptScan(scanId);
-      setPendingScan(scan);
-
-      if (scan.status === 'pending' || scan.status === 'processing') {
-        // Continue polling
-        setTimeout(() => pollScanStatus(scanId), 2000);
-      } else if (scan.status === 'completed') {
-        // Reload pantry items
-        loadPantry();
-        await alert({
-          title: 'Receipt Scanned',
-          message: `Added ${scan.items_added || 0} new items, updated ${scan.items_updated || 0} existing items.`,
-        });
-        setPendingScan(null);
-      } else if (scan.status === 'failed') {
-        setScanError(scan.error_message || 'Failed to process receipt');
-        setPendingScan(null);
-      }
-    } catch {
-      setPendingScan(null);
     }
   };
 
@@ -375,10 +396,9 @@ export default function PantryPage() {
   };
 
   const allFilteredSelected = filteredItems.length > 0 && filteredItems.every((item) => selectedItems.has(item.id));
-  const someFilteredSelected = filteredItems.some((item) => selectedItems.has(item.id));
 
   // Sort items based on selected sort option
-  const sortItems = (items: PantryItemWithRecipes[]): PantryItemWithRecipes[] => {
+  const sortItems = (items: PantryItemWithRecipesResponse[]): PantryItemWithRecipesResponse[] => {
     const sorted = [...items];
     switch (sortBy) {
       case 'alphabetical':
@@ -386,7 +406,6 @@ export default function PantryPage() {
           a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
         );
       case 'status':
-        // Out first, then Low, then Have (urgency order)
         const statusPriority: Record<string, number> = { out: 0, low: 1, have: 2 };
         return sorted.sort((a, b) => {
           const statusDiff = statusPriority[a.status] - statusPriority[b.status];
@@ -394,18 +413,14 @@ export default function PantryPage() {
           return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         });
       case 'store':
-        // Group by store alphabetically, items without a store at the end
         return sorted.sort((a, b) => {
-          // Items with no store go last
           if (!a.preferred_store && b.preferred_store) return 1;
           if (a.preferred_store && !b.preferred_store) return -1;
-          // Sort by store name, then by item name
           const storeCompare = (a.preferred_store || '').localeCompare(b.preferred_store || '', undefined, { sensitivity: 'base' });
           if (storeCompare !== 0) return storeCompare;
           return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
         });
       case 'recipes':
-        // Most used in recipes first (highest recipe_count first)
         return sorted.sort((a, b) => {
           const countDiff = b.recipe_count - a.recipe_count;
           if (countDiff !== 0) return countDiff;
@@ -421,16 +436,13 @@ export default function PantryPage() {
         );
       case 'category':
       default:
-        // Keep original order for category grouping (sorted within groups below)
         return sorted;
     }
   };
 
-  // For non-category sorts, use a flat list
   const useCategoryGrouping = sortBy === 'category';
   const sortedFilteredItems = sortItems(filteredItems);
 
-  // Group items by category (only used when sortBy === 'category')
   const groupedItems = useCategoryGrouping
     ? filteredItems.reduce(
         (acc, item) => {
@@ -439,11 +451,10 @@ export default function PantryPage() {
           acc[category].push(item);
           return acc;
         },
-        {} as Record<string, PantryItemWithRecipes[]>
+        {} as Record<string, PantryItemWithRecipesResponse[]>
       )
     : { 'All Items': sortedFilteredItems };
 
-  // Sort categories (Uncategorized last, case-insensitive)
   const sortedCategories = useCategoryGrouping
     ? Object.keys(groupedItems).sort((a, b) => {
         if (a === 'Uncategorized') return 1;
@@ -452,7 +463,6 @@ export default function PantryPage() {
       })
     : ['All Items'];
 
-  // Sort items within each category alphabetically (only for category grouping)
   if (useCategoryGrouping) {
     for (const category of sortedCategories) {
       groupedItems[category].sort((a, b) =>
@@ -461,7 +471,6 @@ export default function PantryPage() {
     }
   }
 
-  // Get unique categories for autocomplete
   const existingCategories = [...new Set(items.map((i) => i.category).filter(Boolean))] as string[];
 
   if (loading) {
@@ -547,7 +556,6 @@ export default function PantryPage() {
 
       {/* Selection controls - pill buttons in a row */}
       {filteredItems.length > 0 && (() => {
-        // Determine which button should show the count based on selection
         const selectedItemsList = filteredItems.filter(item => selectedItems.has(item.id));
         const selectionCount = selectedItemsList.length;
         const allSelectedAreLow = selectionCount > 0 && selectedItemsList.every(item => item.status === 'low');
@@ -583,7 +591,6 @@ export default function PantryPage() {
             >
               {allSelectedAreOut ? `Out (${selectionCount})` : 'Out'}
             </button>
-            {/* Add to shopping list button - only shown when items are selected */}
             {selectionCount > 0 && (
               <button
                 onClick={handleAddSelectedToShoppingList}
@@ -621,10 +628,10 @@ export default function PantryPage() {
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          disabled={pendingScan !== null}
-          className={`${styles.receiptBtn} ${pendingScan ? styles.receiptBtnDisabled : ''}`}
+          disabled={pendingScanId !== null}
+          className={`${styles.receiptBtn} ${pendingScanId ? styles.receiptBtnDisabled : ''}`}
         >
-          {pendingScan ? (
+          {pendingScanId ? (
             <>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.spinner}>
                 <circle cx="12" cy="12" r="10" strokeDasharray="30 60" />
@@ -687,7 +694,7 @@ export default function PantryPage() {
                       value={editStore}
                       onChange={(e) => {
                         setEditStore(e.target.value);
-                        setEditCategory(''); // Reset category when store changes
+                        setEditCategory('');
                       }}
                       className={styles.editSelect}
                     >
@@ -754,7 +761,6 @@ export default function PantryPage() {
                       >
                         {item.name}
                       </span>
-                      {/* Recipe count badge */}
                       {item.recipe_count > 0 && (
                         <button
                           onClick={() => toggleExpanded(item.id)}
@@ -782,8 +788,10 @@ export default function PantryPage() {
                         onChange={async (e) => {
                           const newStore = e.target.value;
                           try {
-                            await api.updatePantryItem(item.id, { preferred_store: newStore || undefined });
-                            loadPantry();
+                            await updatePantryMutation.mutateAsync({
+                              itemId: item.id,
+                              data: { preferred_store: newStore || undefined },
+                            });
                           } catch {
                             // Failed to update store
                           }
@@ -805,7 +813,6 @@ export default function PantryPage() {
                       >
                         {STATUS_LABELS[item.status]}
                       </button>
-                      {/* Fixed width container for cart icon - prevents layout shift */}
                       <div className={styles.cartBtnWrapper}>
                         <button
                           onClick={() => handleAddToShoppingList(item)}
@@ -827,7 +834,6 @@ export default function PantryPage() {
                           </svg>
                         </button>
                       </div>
-                      {/* Edit button */}
                       <button
                         onClick={() => handleStartEdit(item)}
                         className={styles.iconBtn}
@@ -847,7 +853,6 @@ export default function PantryPage() {
                           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                         </svg>
                       </button>
-                      {/* Delete button */}
                       <button
                         onClick={() => handleDeleteItem(item)}
                         className={styles.iconBtn}
@@ -867,7 +872,6 @@ export default function PantryPage() {
                       </button>
                     </div>
                   </div>
-                  {/* Expandable recipe list */}
                   {expandedItems.has(item.id) && item.recipes.length > 0 && (
                     <div className={styles.recipeList}>
                       {item.recipes.map((recipe) => (

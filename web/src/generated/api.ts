@@ -5,6 +5,25 @@
  * Self-hosted todo list with voice input and LLM categorization
  * OpenAPI spec version: 0.1.0
  */
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
+import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
+  MutationFunction,
+  QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
+} from '@tanstack/react-query';
+
 import { customFetch } from '../lib/api-fetcher';
 export type AddToListRequestIngredientOverrides = IngredientOverride[] | null;
 
@@ -36,6 +55,37 @@ export interface AuthResponse {
   user: UserResponse;
 }
 
+export interface BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost {
+  From: string;
+  Body: string;
+}
+
+export interface BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost {
+  RecordingUrl?: string;
+  RecordingSid?: string;
+}
+
+export interface BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost {
+  CallSid?: string;
+  CallStatus?: string;
+  RecordingUrl?: string;
+  RecordingSid?: string;
+}
+
+export interface BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost {
+  TranscriptionText?: string;
+  RecordingSid?: string;
+}
+
+export interface BodyScanReceiptApiV1PantryScanReceiptPost {
+  /** Receipt image (JPEG, PNG, GIF, or WebP) */
+  file: Blob;
+}
+
+export interface BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost {
+  file: Blob;
+}
+
 /**
  * Response from bulk pantry check endpoint.
  */
@@ -49,6 +99,7 @@ export type CategoryCreateColor = string | null;
  * Create a new category.
  */
 export interface CategoryCreate {
+  /** @maxLength 255 */
   name: string;
   color?: CategoryCreateColor;
   sort_order?: number;
@@ -109,21 +160,51 @@ export interface CheckPantryResponse {
   ingredients: CheckPantryIngredient[];
 }
 
+export type ConfirmationActionEdits = ConfirmationEdits | null;
+
 /**
  * Action to take on a pending confirmation.
  */
 export interface ConfirmationAction {
+  /** @maxLength 50 */
   action: string;
+  edits?: ConfirmationActionEdits;
+}
+
+export type ConfirmationEditsListId = number | null;
+
+export type ConfirmationEditsItems = ItemEdit[] | null;
+
+/**
+ * Optional edits to apply when confirming.
+ */
+export interface ConfirmationEdits {
+  list_id?: ConfirmationEditsListId;
+  items?: ConfirmationEditsItems;
 }
 
 export interface HTTPValidationError {
   detail?: ValidationError[];
 }
 
+export type InProgressVoiceJobErrorMessage = string | null;
+
+/**
+ * In-progress or failed voice processing job.
+ */
+export interface InProgressVoiceJob {
+  id: number;
+  raw_text: string;
+  status: string;
+  error_message: InProgressVoiceJobErrorMessage;
+  created_at: string;
+}
+
 /**
  * Override for an ingredient when adding to list.
  */
 export interface IngredientOverride {
+  /** @maxLength 255 */
   name: string;
   add_to_list: boolean;
 }
@@ -132,7 +213,9 @@ export interface IngredientOverride {
  * Set default store for an ingredient.
  */
 export interface IngredientStoreDefaultCreate {
+  /** @maxLength 255 */
   ingredient_name: string;
+  /** @maxLength 50 */
   store_preference: string;
 }
 
@@ -151,15 +234,51 @@ export type ItemCreateQuantity = string | null;
 
 export type ItemCreateCategoryId = number | null;
 
+export type ItemCreateDueDate = string | null;
+
+export type ItemCreateReminderAt = string | null;
+
+export type ItemCreateReminderOffset = string | null;
+
+export type ItemCreateRecurrencePattern = 'daily' | 'weekly' | 'monthly' | null;
+
 /**
- * Create a new item.
+ * Create a new item (works for both grocery and task lists).
+
+For grocery lists: use quantity, category_id
+For task lists: use due_date, reminder_at, reminder_offset, recurrence_pattern
  */
 export interface ItemCreate {
+  /** @maxLength 255 */
   name: string;
   description?: ItemCreateDescription;
+  sort_order?: number;
   quantity?: ItemCreateQuantity;
   category_id?: ItemCreateCategoryId;
-  sort_order?: number;
+  due_date?: ItemCreateDueDate;
+  reminder_at?: ItemCreateReminderAt;
+  reminder_offset?: ItemCreateReminderOffset;
+  recurrence_pattern?: ItemCreateRecurrencePattern;
+}
+
+export type ItemEditCategoryId = number | null;
+
+export type ItemEditDueDate = string | null;
+
+export type ItemEditReminderOffset = string | null;
+
+export type ItemEditRecurrencePattern = string | null;
+
+/**
+ * Edited item data (supports both grocery and task items).
+ */
+export interface ItemEdit {
+  /** @maxLength 500 */
+  name: string;
+  category_id?: ItemEditCategoryId;
+  due_date?: ItemEditDueDate;
+  reminder_offset?: ItemEditReminderOffset;
+  recurrence_pattern?: ItemEditRecurrencePattern;
 }
 
 export type ItemResponseCategoryId = number | null;
@@ -174,8 +293,20 @@ export type ItemResponseRecipeSourcesAnyOfItem = { [key: string]: unknown };
 
 export type ItemResponseRecipeSources = ItemResponseRecipeSourcesAnyOfItem[] | null;
 
+export type ItemResponseDueDate = string | null;
+
+export type ItemResponseReminderAt = string | null;
+
+export type ItemResponseReminderOffset = string | null;
+
+export type ItemResponseRecurrencePattern = string | null;
+
+export type ItemResponseRecurrenceParentId = number | null;
+
+export type ItemResponseCompletedAt = string | null;
+
 /**
- * Item response.
+ * Item response (includes all fields, task fields will be null for grocery items).
  */
 export interface ItemResponse {
   id: number;
@@ -190,40 +321,72 @@ export interface ItemResponse {
   created_at: string;
   updated_at: string;
   recipe_sources?: ItemResponseRecipeSources;
+  due_date?: ItemResponseDueDate;
+  reminder_at?: ItemResponseReminderAt;
+  reminder_offset?: ItemResponseReminderOffset;
+  recurrence_pattern?: ItemResponseRecurrencePattern;
+  recurrence_parent_id?: ItemResponseRecurrenceParentId;
+  completed_at?: ItemResponseCompletedAt;
 }
 
 export type ItemUpdateName = string | null;
 
 export type ItemUpdateDescription = string | null;
 
+export type ItemUpdateSortOrder = number | null;
+
 export type ItemUpdateQuantity = string | null;
 
 export type ItemUpdateCategoryId = number | null;
 
-export type ItemUpdateSortOrder = number | null;
+export type ItemUpdateDueDate = string | null;
+
+export type ItemUpdateReminderAt = string | null;
+
+export type ItemUpdateReminderOffset = string | null;
+
+export type ItemUpdateRecurrencePattern = 'daily' | 'weekly' | 'monthly' | null;
 
 /**
- * Update an item.
+ * Update an item (works for both grocery and task lists).
+
+For grocery lists: use quantity, category_id
+For task lists: use due_date, reminder_at, reminder_offset, recurrence_pattern
  */
 export interface ItemUpdate {
   name?: ItemUpdateName;
   description?: ItemUpdateDescription;
+  sort_order?: ItemUpdateSortOrder;
   quantity?: ItemUpdateQuantity;
   category_id?: ItemUpdateCategoryId;
-  sort_order?: ItemUpdateSortOrder;
+  due_date?: ItemUpdateDueDate;
+  reminder_at?: ItemUpdateReminderAt;
+  reminder_offset?: ItemUpdateReminderOffset;
+  recurrence_pattern?: ItemUpdateRecurrencePattern;
 }
 
 export type ListCreateDescription = string | null;
 
 export type ListCreateIcon = string | null;
 
+export type ListCreateListType = typeof ListCreateListType[keyof typeof ListCreateListType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ListCreateListType = {
+  grocery: 'grocery',
+  task: 'task',
+} as const;
+
 /**
  * Create a new list.
  */
 export interface ListCreate {
+  /** @maxLength 255 */
   name: string;
   description?: ListCreateDescription;
   icon?: ListCreateIcon;
+  list_type?: ListCreateListType;
 }
 
 export type ListResponseDescription = string | null;
@@ -240,6 +403,7 @@ export interface ListResponse {
   icon: ListResponseIcon;
   sort_order: number;
   owner_id: number;
+  list_type: string;
   created_at: string;
   updated_at: string;
   unchecked_count?: number;
@@ -249,7 +413,9 @@ export interface ListResponse {
  * Share a list with another user.
  */
 export interface ListShareCreate {
+  /** @maxLength 255 */
   user_email: string;
+  /** @maxLength 50 */
   permission?: string;
 }
 
@@ -269,6 +435,59 @@ export interface ListUpdate {
   description?: ListUpdateDescription;
   icon?: ListUpdateIcon;
   sort_order?: ListUpdateSortOrder;
+}
+
+export type NotificationSettingsResponsePhoneNumber = string | null;
+
+export type NotificationSettingsResponseAccountabilityPartnerPhone = string | null;
+
+export type NotificationSettingsResponseEscalationTiming = { [key: string]: unknown };
+
+export type NotificationSettingsResponseQuietHoursStart = string | null;
+
+export type NotificationSettingsResponseQuietHoursEnd = string | null;
+
+/**
+ * Schema for notification settings response.
+ */
+export interface NotificationSettingsResponse {
+  id: number;
+  phone_number: NotificationSettingsResponsePhoneNumber;
+  accountability_partner_phone: NotificationSettingsResponseAccountabilityPartnerPhone;
+  escape_safe_word: string;
+  escalation_timing: NotificationSettingsResponseEscalationTiming;
+  quiet_hours_start: NotificationSettingsResponseQuietHoursStart;
+  quiet_hours_end: NotificationSettingsResponseQuietHoursEnd;
+  quiet_hours_timezone: string;
+}
+
+export type NotificationSettingsUpdatePhoneNumber = string | null;
+
+export type NotificationSettingsUpdateAccountabilityPartnerPhone = string | null;
+
+export type NotificationSettingsUpdateEscapeSafeWord = string | null;
+
+export type NotificationSettingsUpdateEscalationTimingAnyOf = { [key: string]: unknown };
+
+export type NotificationSettingsUpdateEscalationTiming = NotificationSettingsUpdateEscalationTimingAnyOf | null;
+
+export type NotificationSettingsUpdateQuietHoursStart = string | null;
+
+export type NotificationSettingsUpdateQuietHoursEnd = string | null;
+
+export type NotificationSettingsUpdateQuietHoursTimezone = string | null;
+
+/**
+ * Schema for updating notification settings.
+ */
+export interface NotificationSettingsUpdate {
+  phone_number?: NotificationSettingsUpdatePhoneNumber;
+  accountability_partner_phone?: NotificationSettingsUpdateAccountabilityPartnerPhone;
+  escape_safe_word?: NotificationSettingsUpdateEscapeSafeWord;
+  escalation_timing?: NotificationSettingsUpdateEscalationTiming;
+  quiet_hours_start?: NotificationSettingsUpdateQuietHoursStart;
+  quiet_hours_end?: NotificationSettingsUpdateQuietHoursEnd;
+  quiet_hours_timezone?: NotificationSettingsUpdateQuietHoursTimezone;
 }
 
 /**
@@ -299,6 +518,8 @@ export const PantryItemCreateStatus = {
 
 export type PantryItemCreateCategory = string | null;
 
+export type PantryItemCreatePreferredStore = string | null;
+
 /**
  * Create a pantry item.
  */
@@ -310,9 +531,12 @@ export interface PantryItemCreate {
   name: string;
   status?: PantryItemCreateStatus;
   category?: PantryItemCreateCategory;
+  preferred_store?: PantryItemCreatePreferredStore;
 }
 
 export type PantryItemResponseCategory = string | null;
+
+export type PantryItemResponsePreferredStore = string | null;
 
 /**
  * Pantry item response.
@@ -324,6 +548,7 @@ export interface PantryItemResponse {
   normalized_name: string;
   status: string;
   category: PantryItemResponseCategory;
+  preferred_store: PantryItemResponsePreferredStore;
   created_at: string;
   updated_at: string;
 }
@@ -334,6 +559,8 @@ export type PantryItemUpdateStatus = 'have' | 'low' | 'out' | null;
 
 export type PantryItemUpdateCategory = string | null;
 
+export type PantryItemUpdatePreferredStore = string | null;
+
 /**
  * Update a pantry item.
  */
@@ -341,6 +568,28 @@ export interface PantryItemUpdate {
   name?: PantryItemUpdateName;
   status?: PantryItemUpdateStatus;
   category?: PantryItemUpdateCategory;
+  preferred_store?: PantryItemUpdatePreferredStore;
+}
+
+export type PantryItemWithRecipesResponseCategory = string | null;
+
+export type PantryItemWithRecipesResponsePreferredStore = string | null;
+
+/**
+ * Pantry item with recipe participation data.
+ */
+export interface PantryItemWithRecipesResponse {
+  id: number;
+  user_id: number;
+  name: string;
+  normalized_name: string;
+  status: string;
+  category: PantryItemWithRecipesResponseCategory;
+  preferred_store: PantryItemWithRecipesResponsePreferredStore;
+  created_at: string;
+  updated_at: string;
+  recipe_count: number;
+  recipes: RecipeRef[];
 }
 
 /**
@@ -360,9 +609,26 @@ export type ParsedIngredientDescription = string | null;
  * Parsed ingredient from LLM.
  */
 export interface ParsedIngredient {
+  /** @maxLength 255 */
   name: string;
   quantity?: ParsedIngredientQuantity;
   description?: ParsedIngredientDescription;
+}
+
+export type ParsedReceiptItemQuantity = string | null;
+
+export type ParsedReceiptItemMatchedPantryId = number | null;
+
+export type ParsedReceiptItemAction = string | null;
+
+/**
+ * An item parsed from a receipt.
+ */
+export interface ParsedReceiptItem {
+  name: string;
+  quantity?: ParsedReceiptItemQuantity;
+  matched_pantry_id?: ParsedReceiptItemMatchedPantryId;
+  action?: ParsedReceiptItemAction;
 }
 
 export type ParsedRecipeServings = number | null;
@@ -371,9 +637,11 @@ export type ParsedRecipeServings = number | null;
  * Parsed recipe structure from LLM.
  */
 export interface ParsedRecipe {
+  /** @maxLength 255 */
   name: string;
   servings?: ParsedRecipeServings;
   ingredients: ParsedIngredient[];
+  /** @maxLength 50000 */
   instructions: string;
 }
 
@@ -386,8 +654,61 @@ export interface PendingConfirmationResponse {
   id: number;
   user_id: number;
   voice_input_id: number;
+  raw_text: string;
   proposed_changes: PendingConfirmationResponseProposedChanges;
   status: string;
+  created_at: string;
+}
+
+/**
+ * Schema for creating a push subscription.
+ */
+export interface PushSubscriptionCreate {
+  endpoint: string;
+  p256dh_key: string;
+  auth_key: string;
+}
+
+/**
+ * Schema for push subscription response.
+ */
+export interface PushSubscriptionResponse {
+  id: number;
+  endpoint: string;
+  created_at: string;
+}
+
+/**
+ * Response when creating a receipt scan.
+ */
+export interface ReceiptScanCreateResponse {
+  id: number;
+  status: string;
+  message: string;
+}
+
+export type ReceiptScanResponseErrorMessage = string | null;
+
+export type ReceiptScanResponseParsedItems = ParsedReceiptItem[] | null;
+
+export type ReceiptScanResponseItemsAdded = number | null;
+
+export type ReceiptScanResponseItemsUpdated = number | null;
+
+export type ReceiptScanResponseProcessedAt = string | null;
+
+/**
+ * Response for a receipt scan.
+ */
+export interface ReceiptScanResponse {
+  id: number;
+  user_id: number;
+  status: string;
+  error_message?: ReceiptScanResponseErrorMessage;
+  parsed_items?: ReceiptScanResponseParsedItems;
+  items_added?: ReceiptScanResponseItemsAdded;
+  items_updated?: ReceiptScanResponseItemsUpdated;
+  processed_at?: ReceiptScanResponseProcessedAt;
   created_at: string;
 }
 
@@ -415,6 +736,7 @@ export type RecipeCreateInstructions = string | null;
  * Create a new recipe.
  */
 export interface RecipeCreate {
+  /** @maxLength 255 */
   name: string;
   description?: RecipeCreateDescription;
   servings?: RecipeCreateServings;
@@ -445,6 +767,7 @@ export interface RecipeImportConfirm {
  * Request to create a recipe import.
  */
 export interface RecipeImportCreate {
+  /** @maxLength 50000 */
   raw_text: string;
 }
 
@@ -477,6 +800,7 @@ export type RecipeIngredientCreateStorePreference = string | null;
  * Create a recipe ingredient.
  */
 export interface RecipeIngredientCreate {
+  /** @maxLength 255 */
   name: string;
   quantity?: RecipeIngredientCreateQuantity;
   description?: RecipeIngredientCreateDescription;
@@ -529,6 +853,18 @@ export type RecipeListResponseLabelColor = string | null;
 
 export type RecipeListResponseInstructions = string | null;
 
+export type RecipeListResponseCaloriesPerServing = number | null;
+
+export type RecipeListResponseProteinGrams = number | null;
+
+export type RecipeListResponseCarbsGrams = number | null;
+
+export type RecipeListResponseFatGrams = number | null;
+
+export type RecipeListResponseLastCookedAt = string | null;
+
+export type RecipeListResponseThumbnailUrl = string | null;
+
 /**
  * Recipe list item (without full ingredients).
  */
@@ -540,6 +876,12 @@ export interface RecipeListResponse {
   label_color: RecipeListResponseLabelColor;
   instructions: RecipeListResponseInstructions;
   ingredient_count: number;
+  calories_per_serving: RecipeListResponseCaloriesPerServing;
+  protein_grams: RecipeListResponseProteinGrams;
+  carbs_grams: RecipeListResponseCarbsGrams;
+  fat_grams: RecipeListResponseFatGrams;
+  last_cooked_at: RecipeListResponseLastCookedAt;
+  thumbnail_url?: RecipeListResponseThumbnailUrl;
   created_at: string;
 }
 
@@ -556,6 +898,17 @@ export interface RecipePantryStatus {
   unmatched_count?: number;
 }
 
+export type RecipeRefLabelColor = string | null;
+
+/**
+ * Reference to a recipe for pantry item display.
+ */
+export interface RecipeRef {
+  id: number;
+  name: string;
+  label_color: RecipeRefLabelColor;
+}
+
 export type RecipeResponseDescription = string | null;
 
 export type RecipeResponseServings = number | null;
@@ -563,6 +916,22 @@ export type RecipeResponseServings = number | null;
 export type RecipeResponseLabelColor = string | null;
 
 export type RecipeResponseInstructions = string | null;
+
+export type RecipeResponseCaloriesPerServing = number | null;
+
+export type RecipeResponseProteinGrams = number | null;
+
+export type RecipeResponseCarbsGrams = number | null;
+
+export type RecipeResponseFatGrams = number | null;
+
+export type RecipeResponseNutritionComputedAt = string | null;
+
+export type RecipeResponseLastCookedAt = string | null;
+
+export type RecipeResponseImageUrl = string | null;
+
+export type RecipeResponseThumbnailUrl = string | null;
 
 /**
  * Recipe response with ingredients.
@@ -576,9 +945,39 @@ export interface RecipeResponse {
   label_color: RecipeResponseLabelColor;
   instructions: RecipeResponseInstructions;
   ingredients: RecipeIngredientResponse[];
+  calories_per_serving: RecipeResponseCaloriesPerServing;
+  protein_grams: RecipeResponseProteinGrams;
+  carbs_grams: RecipeResponseCarbsGrams;
+  fat_grams: RecipeResponseFatGrams;
+  nutrition_computed_at: RecipeResponseNutritionComputedAt;
+  last_cooked_at: RecipeResponseLastCookedAt;
+  image_url?: RecipeResponseImageUrl;
+  thumbnail_url?: RecipeResponseThumbnailUrl;
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Sort options for recipe list.
+ */
+export type RecipeSortBy = typeof RecipeSortBy[keyof typeof RecipeSortBy];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const RecipeSortBy = {
+  name_asc: 'name_asc',
+  name_desc: 'name_desc',
+  ingredients_asc: 'ingredients_asc',
+  ingredients_desc: 'ingredients_desc',
+  last_cooked_asc: 'last_cooked_asc',
+  last_cooked_desc: 'last_cooked_desc',
+  calories_asc: 'calories_asc',
+  calories_desc: 'calories_desc',
+  protein_asc: 'protein_asc',
+  protein_desc: 'protein_desc',
+  created_at_desc: 'created_at_desc',
+  updated_at_desc: 'updated_at_desc',
+} as const;
 
 export type RecipeUpdateName = string | null;
 
@@ -590,6 +989,8 @@ export type RecipeUpdateLabelColor = string | null;
 
 export type RecipeUpdateInstructions = string | null;
 
+export type RecipeUpdateLastCookedAt = string | null;
+
 /**
  * Update a recipe.
  */
@@ -599,6 +1000,28 @@ export interface RecipeUpdate {
   servings?: RecipeUpdateServings;
   label_color?: RecipeUpdateLabelColor;
   instructions?: RecipeUpdateInstructions;
+  last_cooked_at?: RecipeUpdateLastCookedAt;
+}
+
+/**
+ * Schema for submitting a response to a reminder.
+ */
+export interface ReminderResponseCreate {
+  item_id: number;
+  response: string;
+}
+
+export type ReminderResponseResultNewReminderAt = string | null;
+
+export type ReminderResponseResultPushbackMessage = string | null;
+
+/**
+ * Schema for reminder response processing result.
+ */
+export interface ReminderResponseResult {
+  action: string;
+  new_reminder_at?: ReminderResponseResultNewReminderAt;
+  pushback_message?: ReminderResponseResultPushbackMessage;
 }
 
 /**
@@ -619,7 +1042,12 @@ export interface StepToggleResponse {
  * User login request.
  */
 export interface UserLogin {
+  /** @maxLength 255 */
   email: string;
+  /**
+   * @minLength 8
+   * @maxLength 128
+   */
   password: string;
 }
 
@@ -629,7 +1057,12 @@ export type UserRegisterName = string | null;
  * User registration request.
  */
 export interface UserRegister {
+  /** @maxLength 255 */
   email: string;
+  /**
+   * @minLength 8
+   * @maxLength 128
+   */
   password: string;
   name?: UserRegisterName;
 }
@@ -653,10 +1086,20 @@ export interface ValidationError {
   type: string;
 }
 
+export type VapidPublicKeyResponsePublicKey = string | null;
+
+/**
+ * Schema for VAPID public key response.
+ */
+export interface VapidPublicKeyResponse {
+  public_key: VapidPublicKeyResponsePublicKey;
+}
+
 /**
  * Request to create a voice input.
  */
 export interface VoiceInputCreate {
+  /** @maxLength 50000 */
   raw_text: string;
 }
 
@@ -682,6 +1125,22 @@ export interface VoiceInputResponse {
   created_at: string;
 }
 
+/**
+ * Request to retry a voice input with updated text.
+ */
+export interface VoiceInputRetry {
+  /** @maxLength 50000 */
+  raw_text: string;
+}
+
+/**
+ * Combined response for confirm page with in-progress jobs and pending confirmations.
+ */
+export interface VoiceQueueResponse {
+  in_progress: InProgressVoiceJob[];
+  pending_confirmations: PendingConfirmationResponse[];
+}
+
 export type GetItemsApiV1ListsListIdItemsGetParams = {
 /**
  * Include checked items
@@ -689,130 +1148,254 @@ export type GetItemsApiV1ListsListIdItemsGetParams = {
 include_checked?: boolean;
 };
 
+export type ListRecipesApiV1RecipesGetParams = {
+sort_by?: RecipeSortBy;
+};
+
+export type ListReceiptScansApiV1PantryScanReceiptsGetParams = {
+limit?: number;
+};
+
+export type UnsubscribePushApiV1NotificationsSubscribeDeleteParams = {
+endpoint: string;
+};
+
+export type UnsubscribePushApiV1NotificationsSubscribeDelete200 = { [key: string]: unknown };
+
+export type GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams = {
+item_id: number;
+};
+
+export type HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams = {
+item_id?: number;
+};
+
+export type HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams = {
+item_id?: number;
+};
+
 /**
  * Register a new user.
  * @summary Register
  */
-export type registerApiV1AuthRegisterPostResponse201 = {
-  data: AuthResponse
-  status: 201
-}
+export const registerApiV1AuthRegisterPost = (
+    userRegister: UserRegister,
+ signal?: AbortSignal
+) => {
 
-export type registerApiV1AuthRegisterPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type registerApiV1AuthRegisterPostResponseSuccess = (registerApiV1AuthRegisterPostResponse201) & {
-  headers: Headers;
-};
-export type registerApiV1AuthRegisterPostResponseError = (registerApiV1AuthRegisterPostResponse422) & {
-  headers: Headers;
-};
-
-export type registerApiV1AuthRegisterPostResponse = (registerApiV1AuthRegisterPostResponseSuccess | registerApiV1AuthRegisterPostResponseError)
-
-export const getRegisterApiV1AuthRegisterPostUrl = () => {
+      return customFetch<AuthResponse>(
+      {url: `/api/v1/auth/register`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: userRegister, signal
+    },
+      );
+    }
 
 
 
+export const getRegisterApiV1AuthRegisterPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>, TError,{data: UserRegister}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>, TError,{data: UserRegister}, TContext> => {
 
-  return `/api/v1/auth/register`
-}
-
-export const registerApiV1AuthRegisterPost = async (userRegister: UserRegister, options?: RequestInit): Promise<registerApiV1AuthRegisterPostResponse> => {
-
-  return customFetch<registerApiV1AuthRegisterPostResponse>(getRegisterApiV1AuthRegisterPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      userRegister,)
-  }
-);}
+const mutationKey = ['registerApiV1AuthRegisterPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>, {data: UserRegister}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerApiV1AuthRegisterPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterApiV1AuthRegisterPostMutationResult = NonNullable<Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>>
+    export type RegisterApiV1AuthRegisterPostMutationBody = UserRegister
+    export type RegisterApiV1AuthRegisterPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Register
+ */
+export const useRegisterApiV1AuthRegisterPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>, TError,{data: UserRegister}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>,
+        TError,
+        {data: UserRegister},
+        TContext
+      > => {
+
+      const mutationOptions = getRegisterApiV1AuthRegisterPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Login with email and password.
  * @summary Login
  */
-export type loginApiV1AuthLoginPostResponse200 = {
-  data: AuthResponse
-  status: 200
-}
+export const loginApiV1AuthLoginPost = (
+    userLogin: UserLogin,
+ signal?: AbortSignal
+) => {
 
-export type loginApiV1AuthLoginPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type loginApiV1AuthLoginPostResponseSuccess = (loginApiV1AuthLoginPostResponse200) & {
-  headers: Headers;
-};
-export type loginApiV1AuthLoginPostResponseError = (loginApiV1AuthLoginPostResponse422) & {
-  headers: Headers;
-};
-
-export type loginApiV1AuthLoginPostResponse = (loginApiV1AuthLoginPostResponseSuccess | loginApiV1AuthLoginPostResponseError)
-
-export const getLoginApiV1AuthLoginPostUrl = () => {
+      return customFetch<AuthResponse>(
+      {url: `/api/v1/auth/login`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: userLogin, signal
+    },
+      );
+    }
 
 
 
+export const getLoginApiV1AuthLoginPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>, TError,{data: UserLogin}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>, TError,{data: UserLogin}, TContext> => {
 
-  return `/api/v1/auth/login`
-}
-
-export const loginApiV1AuthLoginPost = async (userLogin: UserLogin, options?: RequestInit): Promise<loginApiV1AuthLoginPostResponse> => {
-
-  return customFetch<loginApiV1AuthLoginPostResponse>(getLoginApiV1AuthLoginPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      userLogin,)
-  }
-);}
+const mutationKey = ['loginApiV1AuthLoginPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>, {data: UserLogin}> = (props) => {
+          const {data} = props ?? {};
+
+          return  loginApiV1AuthLoginPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginApiV1AuthLoginPostMutationResult = NonNullable<Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>>
+    export type LoginApiV1AuthLoginPostMutationBody = UserLogin
+    export type LoginApiV1AuthLoginPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Login
+ */
+export const useLoginApiV1AuthLoginPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>, TError,{data: UserLogin}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>,
+        TError,
+        {data: UserLogin},
+        TContext
+      > => {
+
+      const mutationOptions = getLoginApiV1AuthLoginPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get current user information.
  * @summary Get Me
  */
-export type getMeApiV1AuthMeGetResponse200 = {
-  data: UserResponse
-  status: 200
+export const getMeApiV1AuthMeGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<UserResponse>(
+      {url: `/api/v1/auth/me`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetMeApiV1AuthMeGetQueryKey = () => {
+    return [
+    `/api/v1/auth/me`
+    ] as const;
+    }
+
+
+export const getGetMeApiV1AuthMeGetQueryOptions = <TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMeApiV1AuthMeGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>> = ({ signal }) => getMeApiV1AuthMeGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getMeApiV1AuthMeGetResponseSuccess = (getMeApiV1AuthMeGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getMeApiV1AuthMeGetResponse = (getMeApiV1AuthMeGetResponseSuccess)
-
-export const getGetMeApiV1AuthMeGetUrl = () => {
+export type GetMeApiV1AuthMeGetQueryResult = NonNullable<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>>
+export type GetMeApiV1AuthMeGetQueryError = unknown
 
 
+export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>,
+          TError,
+          Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>,
+          TError,
+          Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Me
+ */
 
+export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/auth/me`
+  const queryOptions = getGetMeApiV1AuthMeGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const getMeApiV1AuthMeGet = async ( options?: RequestInit): Promise<getMeApiV1AuthMeGetResponse> => {
-
-  return customFetch<getMeApiV1AuthMeGetResponse>(getGetMeApiV1AuthMeGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -820,73 +1403,156 @@ export const getMeApiV1AuthMeGet = async ( options?: RequestInit): Promise<getMe
  * Logout (client should discard token).
  * @summary Logout
  */
-export type logoutApiV1AuthLogoutPostResponse200 = {
-  data: unknown
-  status: 200
-}
+export const logoutApiV1AuthLogoutPost = (
 
-export type logoutApiV1AuthLogoutPostResponseSuccess = (logoutApiV1AuthLogoutPostResponse200) & {
-  headers: Headers;
-};
-;
+ signal?: AbortSignal
+) => {
 
-export type logoutApiV1AuthLogoutPostResponse = (logoutApiV1AuthLogoutPostResponseSuccess)
 
-export const getLogoutApiV1AuthLogoutPostUrl = () => {
+      return customFetch<unknown>(
+      {url: `/api/v1/auth/logout`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getLogoutApiV1AuthLogoutPostMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>, TError,void, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>, TError,void, TContext> => {
 
-  return `/api/v1/auth/logout`
-}
-
-export const logoutApiV1AuthLogoutPost = async ( options?: RequestInit): Promise<logoutApiV1AuthLogoutPostResponse> => {
-
-  return customFetch<logoutApiV1AuthLogoutPostResponse>(getLogoutApiV1AuthLogoutPostUrl(),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['logoutApiV1AuthLogoutPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>, void> = () => {
+
+
+          return  logoutApiV1AuthLogoutPost()
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutApiV1AuthLogoutPostMutationResult = NonNullable<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>>
+
+    export type LogoutApiV1AuthLogoutPostMutationError = unknown
+
+    /**
+ * @summary Logout
+ */
+export const useLogoutApiV1AuthLogoutPost = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>, TError,void, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getLogoutApiV1AuthLogoutPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get all lists owned by or shared with the current user.
  * @summary Get Lists
  */
-export type getListsApiV1ListsGetResponse200 = {
-  data: ListResponse[]
-  status: 200
+export const getListsApiV1ListsGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ListResponse[]>(
+      {url: `/api/v1/lists`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetListsApiV1ListsGetQueryKey = () => {
+    return [
+    `/api/v1/lists`
+    ] as const;
+    }
+
+
+export const getGetListsApiV1ListsGetQueryOptions = <TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetListsApiV1ListsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getListsApiV1ListsGet>>> = ({ signal }) => getListsApiV1ListsGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getListsApiV1ListsGetResponseSuccess = (getListsApiV1ListsGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getListsApiV1ListsGetResponse = (getListsApiV1ListsGetResponseSuccess)
-
-export const getGetListsApiV1ListsGetUrl = () => {
+export type GetListsApiV1ListsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getListsApiV1ListsGet>>>
+export type GetListsApiV1ListsGetQueryError = unknown
 
 
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getListsApiV1ListsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getListsApiV1ListsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getListsApiV1ListsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getListsApiV1ListsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Lists
+ */
 
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/lists`
+  const queryOptions = getGetListsApiV1ListsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const getListsApiV1ListsGet = async ( options?: RequestInit): Promise<getListsApiV1ListsGetResponse> => {
-
-  return customFetch<getListsApiV1ListsGetResponse>(getGetListsApiV1ListsGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -894,88 +1560,158 @@ export const getListsApiV1ListsGet = async ( options?: RequestInit): Promise<get
  * Create a new list.
  * @summary Create List
  */
-export type createListApiV1ListsPostResponse201 = {
-  data: ListResponse
-  status: 201
-}
+export const createListApiV1ListsPost = (
+    listCreate: ListCreate,
+ signal?: AbortSignal
+) => {
 
-export type createListApiV1ListsPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type createListApiV1ListsPostResponseSuccess = (createListApiV1ListsPostResponse201) & {
-  headers: Headers;
-};
-export type createListApiV1ListsPostResponseError = (createListApiV1ListsPostResponse422) & {
-  headers: Headers;
-};
-
-export type createListApiV1ListsPostResponse = (createListApiV1ListsPostResponseSuccess | createListApiV1ListsPostResponseError)
-
-export const getCreateListApiV1ListsPostUrl = () => {
+      return customFetch<ListResponse>(
+      {url: `/api/v1/lists`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: listCreate, signal
+    },
+      );
+    }
 
 
 
+export const getCreateListApiV1ListsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createListApiV1ListsPost>>, TError,{data: ListCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createListApiV1ListsPost>>, TError,{data: ListCreate}, TContext> => {
 
-  return `/api/v1/lists`
-}
-
-export const createListApiV1ListsPost = async (listCreate: ListCreate, options?: RequestInit): Promise<createListApiV1ListsPostResponse> => {
-
-  return customFetch<createListApiV1ListsPostResponse>(getCreateListApiV1ListsPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      listCreate,)
-  }
-);}
+const mutationKey = ['createListApiV1ListsPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createListApiV1ListsPost>>, {data: ListCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createListApiV1ListsPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateListApiV1ListsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createListApiV1ListsPost>>>
+    export type CreateListApiV1ListsPostMutationBody = ListCreate
+    export type CreateListApiV1ListsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create List
+ */
+export const useCreateListApiV1ListsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createListApiV1ListsPost>>, TError,{data: ListCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createListApiV1ListsPost>>,
+        TError,
+        {data: ListCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateListApiV1ListsPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get a specific list.
  * @summary Get List
  */
-export type getListApiV1ListsListIdGetResponse200 = {
-  data: ListResponse
-  status: 200
+export const getListApiV1ListsListIdGet = (
+    listId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ListResponse>(
+      {url: `/api/v1/lists/${listId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetListApiV1ListsListIdGetQueryKey = (listId?: number,) => {
+    return [
+    `/api/v1/lists/${listId}`
+    ] as const;
+    }
+
+
+export const getGetListApiV1ListsListIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetListApiV1ListsListIdGetQueryKey(listId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>> = ({ signal }) => getListApiV1ListsListIdGet(listId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getListApiV1ListsListIdGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetListApiV1ListsListIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>>
+export type GetListApiV1ListsListIdGetQueryError = HTTPValidationError
+
+
+export function useGetListApiV1ListsListIdGet<TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(
+ listId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetListApiV1ListsListIdGet<TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetListApiV1ListsListIdGet<TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get List
+ */
+
+export function useGetListApiV1ListsListIdGet<TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetListApiV1ListsListIdGetQueryOptions(listId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getListApiV1ListsListIdGetResponseSuccess = (getListApiV1ListsListIdGetResponse200) & {
-  headers: Headers;
-};
-export type getListApiV1ListsListIdGetResponseError = (getListApiV1ListsListIdGetResponse422) & {
-  headers: Headers;
-};
-
-export type getListApiV1ListsListIdGetResponse = (getListApiV1ListsListIdGetResponseSuccess | getListApiV1ListsListIdGetResponseError)
-
-export const getGetListApiV1ListsListIdGetUrl = (listId: number,) => {
-
-
-
-
-  return `/api/v1/lists/${listId}`
-}
-
-export const getListApiV1ListsListIdGet = async (listId: number, options?: RequestInit): Promise<getListApiV1ListsListIdGetResponse> => {
-
-  return customFetch<getListApiV1ListsListIdGetResponse>(getGetListApiV1ListsListIdGetUrl(listId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -983,225 +1719,352 @@ export const getListApiV1ListsListIdGet = async (listId: number, options?: Reque
  * Update a list.
  * @summary Update List
  */
-export type updateListApiV1ListsListIdPutResponse200 = {
-  data: ListResponse
-  status: 200
-}
+export const updateListApiV1ListsListIdPut = (
+    listId: number,
+    listUpdate: ListUpdate,
+ ) => {
 
-export type updateListApiV1ListsListIdPutResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type updateListApiV1ListsListIdPutResponseSuccess = (updateListApiV1ListsListIdPutResponse200) & {
-  headers: Headers;
-};
-export type updateListApiV1ListsListIdPutResponseError = (updateListApiV1ListsListIdPutResponse422) & {
-  headers: Headers;
-};
-
-export type updateListApiV1ListsListIdPutResponse = (updateListApiV1ListsListIdPutResponseSuccess | updateListApiV1ListsListIdPutResponseError)
-
-export const getUpdateListApiV1ListsListIdPutUrl = (listId: number,) => {
+      return customFetch<ListResponse>(
+      {url: `/api/v1/lists/${listId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: listUpdate
+    },
+      );
+    }
 
 
 
+export const getUpdateListApiV1ListsListIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>, TError,{listId: number;data: ListUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>, TError,{listId: number;data: ListUpdate}, TContext> => {
 
-  return `/api/v1/lists/${listId}`
-}
-
-export const updateListApiV1ListsListIdPut = async (listId: number,
-    listUpdate: ListUpdate, options?: RequestInit): Promise<updateListApiV1ListsListIdPutResponse> => {
-
-  return customFetch<updateListApiV1ListsListIdPutResponse>(getUpdateListApiV1ListsListIdPutUrl(listId),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      listUpdate,)
-  }
-);}
+const mutationKey = ['updateListApiV1ListsListIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>, {listId: number;data: ListUpdate}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  updateListApiV1ListsListIdPut(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateListApiV1ListsListIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>>
+    export type UpdateListApiV1ListsListIdPutMutationBody = ListUpdate
+    export type UpdateListApiV1ListsListIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update List
+ */
+export const useUpdateListApiV1ListsListIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>, TError,{listId: number;data: ListUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>,
+        TError,
+        {listId: number;data: ListUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateListApiV1ListsListIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Soft delete a list (owner only).
  * @summary Delete List
  */
-export type deleteListApiV1ListsListIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const deleteListApiV1ListsListIdDelete = (
+    listId: number,
+ ) => {
 
-export type deleteListApiV1ListsListIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type deleteListApiV1ListsListIdDeleteResponseSuccess = (deleteListApiV1ListsListIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deleteListApiV1ListsListIdDeleteResponseError = (deleteListApiV1ListsListIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deleteListApiV1ListsListIdDeleteResponse = (deleteListApiV1ListsListIdDeleteResponseSuccess | deleteListApiV1ListsListIdDeleteResponseError)
-
-export const getDeleteListApiV1ListsListIdDeleteUrl = (listId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/lists/${listId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getDeleteListApiV1ListsListIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>, TError,{listId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>, TError,{listId: number}, TContext> => {
 
-  return `/api/v1/lists/${listId}`
-}
-
-export const deleteListApiV1ListsListIdDelete = async (listId: number, options?: RequestInit): Promise<deleteListApiV1ListsListIdDeleteResponse> => {
-
-  return customFetch<deleteListApiV1ListsListIdDeleteResponse>(getDeleteListApiV1ListsListIdDeleteUrl(listId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['deleteListApiV1ListsListIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>, {listId: number}> = (props) => {
+          const {listId} = props ?? {};
+
+          return  deleteListApiV1ListsListIdDelete(listId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteListApiV1ListsListIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>>
+
+    export type DeleteListApiV1ListsListIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete List
+ */
+export const useDeleteListApiV1ListsListIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>, TError,{listId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>,
+        TError,
+        {listId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteListApiV1ListsListIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Share a list with another user (owner only).
  * @summary Share List
  */
-export type shareListApiV1ListsListIdSharePostResponse201 = {
-  data: unknown
-  status: 201
-}
+export const shareListApiV1ListsListIdSharePost = (
+    listId: number,
+    listShareCreate: ListShareCreate,
+ signal?: AbortSignal
+) => {
 
-export type shareListApiV1ListsListIdSharePostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type shareListApiV1ListsListIdSharePostResponseSuccess = (shareListApiV1ListsListIdSharePostResponse201) & {
-  headers: Headers;
-};
-export type shareListApiV1ListsListIdSharePostResponseError = (shareListApiV1ListsListIdSharePostResponse422) & {
-  headers: Headers;
-};
-
-export type shareListApiV1ListsListIdSharePostResponse = (shareListApiV1ListsListIdSharePostResponseSuccess | shareListApiV1ListsListIdSharePostResponseError)
-
-export const getShareListApiV1ListsListIdSharePostUrl = (listId: number,) => {
+      return customFetch<unknown>(
+      {url: `/api/v1/lists/${listId}/share`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: listShareCreate, signal
+    },
+      );
+    }
 
 
 
+export const getShareListApiV1ListsListIdSharePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>, TError,{listId: number;data: ListShareCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>, TError,{listId: number;data: ListShareCreate}, TContext> => {
 
-  return `/api/v1/lists/${listId}/share`
-}
-
-export const shareListApiV1ListsListIdSharePost = async (listId: number,
-    listShareCreate: ListShareCreate, options?: RequestInit): Promise<shareListApiV1ListsListIdSharePostResponse> => {
-
-  return customFetch<shareListApiV1ListsListIdSharePostResponse>(getShareListApiV1ListsListIdSharePostUrl(listId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      listShareCreate,)
-  }
-);}
+const mutationKey = ['shareListApiV1ListsListIdSharePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>, {listId: number;data: ListShareCreate}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  shareListApiV1ListsListIdSharePost(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ShareListApiV1ListsListIdSharePostMutationResult = NonNullable<Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>>
+    export type ShareListApiV1ListsListIdSharePostMutationBody = ListShareCreate
+    export type ShareListApiV1ListsListIdSharePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Share List
+ */
+export const useShareListApiV1ListsListIdSharePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>, TError,{listId: number;data: ListShareCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>,
+        TError,
+        {listId: number;data: ListShareCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getShareListApiV1ListsListIdSharePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Remove a user's access to a list (owner only).
  * @summary Unshare List
  */
-export type unshareListApiV1ListsListIdShareUserIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const unshareListApiV1ListsListIdShareUserIdDelete = (
+    listId: number,
+    userId: number,
+ ) => {
 
-export type unshareListApiV1ListsListIdShareUserIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type unshareListApiV1ListsListIdShareUserIdDeleteResponseSuccess = (unshareListApiV1ListsListIdShareUserIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type unshareListApiV1ListsListIdShareUserIdDeleteResponseError = (unshareListApiV1ListsListIdShareUserIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type unshareListApiV1ListsListIdShareUserIdDeleteResponse = (unshareListApiV1ListsListIdShareUserIdDeleteResponseSuccess | unshareListApiV1ListsListIdShareUserIdDeleteResponseError)
-
-export const getUnshareListApiV1ListsListIdShareUserIdDeleteUrl = (listId: number,
-    userId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/lists/${listId}/share/${userId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getUnshareListApiV1ListsListIdShareUserIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>, TError,{listId: number;userId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>, TError,{listId: number;userId: number}, TContext> => {
 
-  return `/api/v1/lists/${listId}/share/${userId}`
-}
-
-export const unshareListApiV1ListsListIdShareUserIdDelete = async (listId: number,
-    userId: number, options?: RequestInit): Promise<unshareListApiV1ListsListIdShareUserIdDeleteResponse> => {
-
-  return customFetch<unshareListApiV1ListsListIdShareUserIdDeleteResponse>(getUnshareListApiV1ListsListIdShareUserIdDeleteUrl(listId,userId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['unshareListApiV1ListsListIdShareUserIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>, {listId: number;userId: number}> = (props) => {
+          const {listId,userId} = props ?? {};
+
+          return  unshareListApiV1ListsListIdShareUserIdDelete(listId,userId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnshareListApiV1ListsListIdShareUserIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>>
+
+    export type UnshareListApiV1ListsListIdShareUserIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Unshare List
+ */
+export const useUnshareListApiV1ListsListIdShareUserIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>, TError,{listId: number;userId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>,
+        TError,
+        {listId: number;userId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getUnshareListApiV1ListsListIdShareUserIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get all categories for a list.
  * @summary Get Categories
  */
-export type getCategoriesApiV1ListsListIdCategoriesGetResponse200 = {
-  data: CategoryResponse[]
-  status: 200
+export const getCategoriesApiV1ListsListIdCategoriesGet = (
+    listId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<CategoryResponse[]>(
+      {url: `/api/v1/lists/${listId}/categories`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey = (listId?: number,) => {
+    return [
+    `/api/v1/lists/${listId}/categories`
+    ] as const;
+    }
+
+
+export const getGetCategoriesApiV1ListsListIdCategoriesGetQueryOptions = <TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey(listId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>> = ({ signal }) => getCategoriesApiV1ListsListIdCategoriesGet(listId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getCategoriesApiV1ListsListIdCategoriesGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetCategoriesApiV1ListsListIdCategoriesGetQueryResult = NonNullable<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>>
+export type GetCategoriesApiV1ListsListIdCategoriesGetQueryError = HTTPValidationError
+
+
+export function useGetCategoriesApiV1ListsListIdCategoriesGet<TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(
+ listId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCategoriesApiV1ListsListIdCategoriesGet<TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCategoriesApiV1ListsListIdCategoriesGet<TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Categories
+ */
+
+export function useGetCategoriesApiV1ListsListIdCategoriesGet<TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCategoriesApiV1ListsListIdCategoriesGetQueryOptions(listId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getCategoriesApiV1ListsListIdCategoriesGetResponseSuccess = (getCategoriesApiV1ListsListIdCategoriesGetResponse200) & {
-  headers: Headers;
-};
-export type getCategoriesApiV1ListsListIdCategoriesGetResponseError = (getCategoriesApiV1ListsListIdCategoriesGetResponse422) & {
-  headers: Headers;
-};
-
-export type getCategoriesApiV1ListsListIdCategoriesGetResponse = (getCategoriesApiV1ListsListIdCategoriesGetResponseSuccess | getCategoriesApiV1ListsListIdCategoriesGetResponseError)
-
-export const getGetCategoriesApiV1ListsListIdCategoriesGetUrl = (listId: number,) => {
-
-
-
-
-  return `/api/v1/lists/${listId}/categories`
-}
-
-export const getCategoriesApiV1ListsListIdCategoriesGet = async (listId: number, options?: RequestInit): Promise<getCategoriesApiV1ListsListIdCategoriesGetResponse> => {
-
-  return customFetch<getCategoriesApiV1ListsListIdCategoriesGetResponse>(getGetCategoriesApiV1ListsListIdCategoriesGetUrl(listId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -1209,188 +2072,296 @@ export const getCategoriesApiV1ListsListIdCategoriesGet = async (listId: number,
  * Create a new category in a list.
  * @summary Create Category
  */
-export type createCategoryApiV1ListsListIdCategoriesPostResponse201 = {
-  data: CategoryResponse
-  status: 201
-}
+export const createCategoryApiV1ListsListIdCategoriesPost = (
+    listId: number,
+    categoryCreate: CategoryCreate,
+ signal?: AbortSignal
+) => {
 
-export type createCategoryApiV1ListsListIdCategoriesPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type createCategoryApiV1ListsListIdCategoriesPostResponseSuccess = (createCategoryApiV1ListsListIdCategoriesPostResponse201) & {
-  headers: Headers;
-};
-export type createCategoryApiV1ListsListIdCategoriesPostResponseError = (createCategoryApiV1ListsListIdCategoriesPostResponse422) & {
-  headers: Headers;
-};
-
-export type createCategoryApiV1ListsListIdCategoriesPostResponse = (createCategoryApiV1ListsListIdCategoriesPostResponseSuccess | createCategoryApiV1ListsListIdCategoriesPostResponseError)
-
-export const getCreateCategoryApiV1ListsListIdCategoriesPostUrl = (listId: number,) => {
+      return customFetch<CategoryResponse>(
+      {url: `/api/v1/lists/${listId}/categories`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: categoryCreate, signal
+    },
+      );
+    }
 
 
 
+export const getCreateCategoryApiV1ListsListIdCategoriesPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>, TError,{listId: number;data: CategoryCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>, TError,{listId: number;data: CategoryCreate}, TContext> => {
 
-  return `/api/v1/lists/${listId}/categories`
-}
-
-export const createCategoryApiV1ListsListIdCategoriesPost = async (listId: number,
-    categoryCreate: CategoryCreate, options?: RequestInit): Promise<createCategoryApiV1ListsListIdCategoriesPostResponse> => {
-
-  return customFetch<createCategoryApiV1ListsListIdCategoriesPostResponse>(getCreateCategoryApiV1ListsListIdCategoriesPostUrl(listId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      categoryCreate,)
-  }
-);}
+const mutationKey = ['createCategoryApiV1ListsListIdCategoriesPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>, {listId: number;data: CategoryCreate}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  createCategoryApiV1ListsListIdCategoriesPost(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCategoryApiV1ListsListIdCategoriesPostMutationResult = NonNullable<Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>>
+    export type CreateCategoryApiV1ListsListIdCategoriesPostMutationBody = CategoryCreate
+    export type CreateCategoryApiV1ListsListIdCategoriesPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Category
+ */
+export const useCreateCategoryApiV1ListsListIdCategoriesPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>, TError,{listId: number;data: CategoryCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>,
+        TError,
+        {listId: number;data: CategoryCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateCategoryApiV1ListsListIdCategoriesPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Update a category.
  * @summary Update Category
  */
-export type updateCategoryApiV1CategoriesCategoryIdPutResponse200 = {
-  data: CategoryResponse
-  status: 200
-}
+export const updateCategoryApiV1CategoriesCategoryIdPut = (
+    categoryId: number,
+    categoryUpdate: CategoryUpdate,
+ ) => {
 
-export type updateCategoryApiV1CategoriesCategoryIdPutResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type updateCategoryApiV1CategoriesCategoryIdPutResponseSuccess = (updateCategoryApiV1CategoriesCategoryIdPutResponse200) & {
-  headers: Headers;
-};
-export type updateCategoryApiV1CategoriesCategoryIdPutResponseError = (updateCategoryApiV1CategoriesCategoryIdPutResponse422) & {
-  headers: Headers;
-};
-
-export type updateCategoryApiV1CategoriesCategoryIdPutResponse = (updateCategoryApiV1CategoriesCategoryIdPutResponseSuccess | updateCategoryApiV1CategoriesCategoryIdPutResponseError)
-
-export const getUpdateCategoryApiV1CategoriesCategoryIdPutUrl = (categoryId: number,) => {
+      return customFetch<CategoryResponse>(
+      {url: `/api/v1/categories/${categoryId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: categoryUpdate
+    },
+      );
+    }
 
 
 
+export const getUpdateCategoryApiV1CategoriesCategoryIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>, TError,{categoryId: number;data: CategoryUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>, TError,{categoryId: number;data: CategoryUpdate}, TContext> => {
 
-  return `/api/v1/categories/${categoryId}`
-}
-
-export const updateCategoryApiV1CategoriesCategoryIdPut = async (categoryId: number,
-    categoryUpdate: CategoryUpdate, options?: RequestInit): Promise<updateCategoryApiV1CategoriesCategoryIdPutResponse> => {
-
-  return customFetch<updateCategoryApiV1CategoriesCategoryIdPutResponse>(getUpdateCategoryApiV1CategoriesCategoryIdPutUrl(categoryId),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      categoryUpdate,)
-  }
-);}
+const mutationKey = ['updateCategoryApiV1CategoriesCategoryIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>, {categoryId: number;data: CategoryUpdate}> = (props) => {
+          const {categoryId,data} = props ?? {};
+
+          return  updateCategoryApiV1CategoriesCategoryIdPut(categoryId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCategoryApiV1CategoriesCategoryIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>>
+    export type UpdateCategoryApiV1CategoriesCategoryIdPutMutationBody = CategoryUpdate
+    export type UpdateCategoryApiV1CategoriesCategoryIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Category
+ */
+export const useUpdateCategoryApiV1CategoriesCategoryIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>, TError,{categoryId: number;data: CategoryUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>,
+        TError,
+        {categoryId: number;data: CategoryUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateCategoryApiV1CategoriesCategoryIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Soft delete a category. Items in the category become uncategorized.
  * @summary Delete Category
  */
-export type deleteCategoryApiV1CategoriesCategoryIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const deleteCategoryApiV1CategoriesCategoryIdDelete = (
+    categoryId: number,
+ ) => {
 
-export type deleteCategoryApiV1CategoriesCategoryIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type deleteCategoryApiV1CategoriesCategoryIdDeleteResponseSuccess = (deleteCategoryApiV1CategoriesCategoryIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deleteCategoryApiV1CategoriesCategoryIdDeleteResponseError = (deleteCategoryApiV1CategoriesCategoryIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deleteCategoryApiV1CategoriesCategoryIdDeleteResponse = (deleteCategoryApiV1CategoriesCategoryIdDeleteResponseSuccess | deleteCategoryApiV1CategoriesCategoryIdDeleteResponseError)
-
-export const getDeleteCategoryApiV1CategoriesCategoryIdDeleteUrl = (categoryId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/categories/${categoryId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getDeleteCategoryApiV1CategoriesCategoryIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>, TError,{categoryId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>, TError,{categoryId: number}, TContext> => {
 
-  return `/api/v1/categories/${categoryId}`
-}
-
-export const deleteCategoryApiV1CategoriesCategoryIdDelete = async (categoryId: number, options?: RequestInit): Promise<deleteCategoryApiV1CategoriesCategoryIdDeleteResponse> => {
-
-  return customFetch<deleteCategoryApiV1CategoriesCategoryIdDeleteResponse>(getDeleteCategoryApiV1CategoriesCategoryIdDeleteUrl(categoryId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['deleteCategoryApiV1CategoriesCategoryIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>, {categoryId: number}> = (props) => {
+          const {categoryId} = props ?? {};
+
+          return  deleteCategoryApiV1CategoriesCategoryIdDelete(categoryId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCategoryApiV1CategoriesCategoryIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>>
+
+    export type DeleteCategoryApiV1CategoriesCategoryIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Category
+ */
+export const useDeleteCategoryApiV1CategoriesCategoryIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>, TError,{categoryId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>,
+        TError,
+        {categoryId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteCategoryApiV1CategoriesCategoryIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get all items for a list.
  * @summary Get Items
  */
-export type getItemsApiV1ListsListIdItemsGetResponse200 = {
-  data: ItemResponse[]
-  status: 200
-}
+export const getItemsApiV1ListsListIdItemsGet = (
+    listId: number,
+    params?: GetItemsApiV1ListsListIdItemsGetParams,
+ signal?: AbortSignal
+) => {
 
-export type getItemsApiV1ListsListIdItemsGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type getItemsApiV1ListsListIdItemsGetResponseSuccess = (getItemsApiV1ListsListIdItemsGetResponse200) & {
-  headers: Headers;
-};
-export type getItemsApiV1ListsListIdItemsGetResponseError = (getItemsApiV1ListsListIdItemsGetResponse422) & {
-  headers: Headers;
-};
-
-export type getItemsApiV1ListsListIdItemsGetResponse = (getItemsApiV1ListsListIdItemsGetResponseSuccess | getItemsApiV1ListsListIdItemsGetResponseError)
-
-export const getGetItemsApiV1ListsListIdItemsGetUrl = (listId: number,
-    params?: GetItemsApiV1ListsListIdItemsGetParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
+      return customFetch<ItemResponse[]>(
+      {url: `/api/v1/lists/${listId}/items`, method: 'GET',
+        params, signal
+    },
+      );
     }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/v1/lists/${listId}/items?${stringifiedParams}` : `/api/v1/lists/${listId}/items`
+
+
+export const getGetItemsApiV1ListsListIdItemsGetQueryKey = (listId?: number,
+    params?: GetItemsApiV1ListsListIdItemsGetParams,) => {
+    return [
+    `/api/v1/lists/${listId}/items`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+
+export const getGetItemsApiV1ListsListIdItemsGetQueryOptions = <TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(listId: number,
+    params?: GetItemsApiV1ListsListIdItemsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetItemsApiV1ListsListIdItemsGetQueryKey(listId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>> = ({ signal }) => getItemsApiV1ListsListIdItemsGet(listId,params, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export const getItemsApiV1ListsListIdItemsGet = async (listId: number,
-    params?: GetItemsApiV1ListsListIdItemsGetParams, options?: RequestInit): Promise<getItemsApiV1ListsListIdItemsGetResponse> => {
-
-  return customFetch<getItemsApiV1ListsListIdItemsGetResponse>(getGetItemsApiV1ListsListIdItemsGetUrl(listId,params),
-  {
-    ...options,
-    method: 'GET'
+export type GetItemsApiV1ListsListIdItemsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>>
+export type GetItemsApiV1ListsListIdItemsGetQueryError = HTTPValidationError
 
 
-  }
-);}
+export function useGetItemsApiV1ListsListIdItemsGet<TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(
+ listId: number,
+    params: undefined |  GetItemsApiV1ListsListIdItemsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetItemsApiV1ListsListIdItemsGet<TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(
+ listId: number,
+    params?: GetItemsApiV1ListsListIdItemsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetItemsApiV1ListsListIdItemsGet<TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(
+ listId: number,
+    params?: GetItemsApiV1ListsListIdItemsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Items
+ */
+
+export function useGetItemsApiV1ListsListIdItemsGet<TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(
+ listId: number,
+    params?: GetItemsApiV1ListsListIdItemsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetItemsApiV1ListsListIdItemsGetQueryOptions(listId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
 
 
 
@@ -1398,439 +2369,836 @@ export const getItemsApiV1ListsListIdItemsGet = async (listId: number,
  * Create a new item in a list, merging with existing if same name exists.
  * @summary Create Item
  */
-export type createItemApiV1ListsListIdItemsPostResponse201 = {
-  data: ItemResponse
-  status: 201
-}
+export const createItemApiV1ListsListIdItemsPost = (
+    listId: number,
+    itemCreate: ItemCreate,
+ signal?: AbortSignal
+) => {
 
-export type createItemApiV1ListsListIdItemsPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type createItemApiV1ListsListIdItemsPostResponseSuccess = (createItemApiV1ListsListIdItemsPostResponse201) & {
-  headers: Headers;
-};
-export type createItemApiV1ListsListIdItemsPostResponseError = (createItemApiV1ListsListIdItemsPostResponse422) & {
-  headers: Headers;
-};
-
-export type createItemApiV1ListsListIdItemsPostResponse = (createItemApiV1ListsListIdItemsPostResponseSuccess | createItemApiV1ListsListIdItemsPostResponseError)
-
-export const getCreateItemApiV1ListsListIdItemsPostUrl = (listId: number,) => {
+      return customFetch<ItemResponse>(
+      {url: `/api/v1/lists/${listId}/items`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: itemCreate, signal
+    },
+      );
+    }
 
 
 
+export const getCreateItemApiV1ListsListIdItemsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>, TError,{listId: number;data: ItemCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>, TError,{listId: number;data: ItemCreate}, TContext> => {
 
-  return `/api/v1/lists/${listId}/items`
-}
-
-export const createItemApiV1ListsListIdItemsPost = async (listId: number,
-    itemCreate: ItemCreate, options?: RequestInit): Promise<createItemApiV1ListsListIdItemsPostResponse> => {
-
-  return customFetch<createItemApiV1ListsListIdItemsPostResponse>(getCreateItemApiV1ListsListIdItemsPostUrl(listId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      itemCreate,)
-  }
-);}
+const mutationKey = ['createItemApiV1ListsListIdItemsPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>, {listId: number;data: ItemCreate}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  createItemApiV1ListsListIdItemsPost(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateItemApiV1ListsListIdItemsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>>
+    export type CreateItemApiV1ListsListIdItemsPostMutationBody = ItemCreate
+    export type CreateItemApiV1ListsListIdItemsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Item
+ */
+export const useCreateItemApiV1ListsListIdItemsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>, TError,{listId: number;data: ItemCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>,
+        TError,
+        {listId: number;data: ItemCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateItemApiV1ListsListIdItemsPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Update an item.
  * @summary Update Item
  */
-export type updateItemApiV1ItemsItemIdPutResponse200 = {
-  data: ItemResponse
-  status: 200
-}
+export const updateItemApiV1ItemsItemIdPut = (
+    itemId: number,
+    itemUpdate: ItemUpdate,
+ ) => {
 
-export type updateItemApiV1ItemsItemIdPutResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type updateItemApiV1ItemsItemIdPutResponseSuccess = (updateItemApiV1ItemsItemIdPutResponse200) & {
-  headers: Headers;
-};
-export type updateItemApiV1ItemsItemIdPutResponseError = (updateItemApiV1ItemsItemIdPutResponse422) & {
-  headers: Headers;
-};
-
-export type updateItemApiV1ItemsItemIdPutResponse = (updateItemApiV1ItemsItemIdPutResponseSuccess | updateItemApiV1ItemsItemIdPutResponseError)
-
-export const getUpdateItemApiV1ItemsItemIdPutUrl = (itemId: number,) => {
+      return customFetch<ItemResponse>(
+      {url: `/api/v1/items/${itemId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: itemUpdate
+    },
+      );
+    }
 
 
 
+export const getUpdateItemApiV1ItemsItemIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>, TError,{itemId: number;data: ItemUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>, TError,{itemId: number;data: ItemUpdate}, TContext> => {
 
-  return `/api/v1/items/${itemId}`
-}
-
-export const updateItemApiV1ItemsItemIdPut = async (itemId: number,
-    itemUpdate: ItemUpdate, options?: RequestInit): Promise<updateItemApiV1ItemsItemIdPutResponse> => {
-
-  return customFetch<updateItemApiV1ItemsItemIdPutResponse>(getUpdateItemApiV1ItemsItemIdPutUrl(itemId),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      itemUpdate,)
-  }
-);}
+const mutationKey = ['updateItemApiV1ItemsItemIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>, {itemId: number;data: ItemUpdate}> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  updateItemApiV1ItemsItemIdPut(itemId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateItemApiV1ItemsItemIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>>
+    export type UpdateItemApiV1ItemsItemIdPutMutationBody = ItemUpdate
+    export type UpdateItemApiV1ItemsItemIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Item
+ */
+export const useUpdateItemApiV1ItemsItemIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>, TError,{itemId: number;data: ItemUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>,
+        TError,
+        {itemId: number;data: ItemUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateItemApiV1ItemsItemIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Soft delete an item.
  * @summary Delete Item
  */
-export type deleteItemApiV1ItemsItemIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const deleteItemApiV1ItemsItemIdDelete = (
+    itemId: number,
+ ) => {
 
-export type deleteItemApiV1ItemsItemIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type deleteItemApiV1ItemsItemIdDeleteResponseSuccess = (deleteItemApiV1ItemsItemIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deleteItemApiV1ItemsItemIdDeleteResponseError = (deleteItemApiV1ItemsItemIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deleteItemApiV1ItemsItemIdDeleteResponse = (deleteItemApiV1ItemsItemIdDeleteResponseSuccess | deleteItemApiV1ItemsItemIdDeleteResponseError)
-
-export const getDeleteItemApiV1ItemsItemIdDeleteUrl = (itemId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/items/${itemId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getDeleteItemApiV1ItemsItemIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>, TError,{itemId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>, TError,{itemId: number}, TContext> => {
 
-  return `/api/v1/items/${itemId}`
-}
-
-export const deleteItemApiV1ItemsItemIdDelete = async (itemId: number, options?: RequestInit): Promise<deleteItemApiV1ItemsItemIdDeleteResponse> => {
-
-  return customFetch<deleteItemApiV1ItemsItemIdDeleteResponse>(getDeleteItemApiV1ItemsItemIdDeleteUrl(itemId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['deleteItemApiV1ItemsItemIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>, {itemId: number}> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  deleteItemApiV1ItemsItemIdDelete(itemId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteItemApiV1ItemsItemIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>>
+
+    export type DeleteItemApiV1ItemsItemIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Item
+ */
+export const useDeleteItemApiV1ItemsItemIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>, TError,{itemId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>,
+        TError,
+        {itemId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteItemApiV1ItemsItemIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Check off an item.
  * @summary Check Item
  */
-export type checkItemApiV1ItemsItemIdCheckPostResponse200 = {
-  data: ItemResponse
-  status: 200
-}
+export const checkItemApiV1ItemsItemIdCheckPost = (
+    itemId: number,
+ signal?: AbortSignal
+) => {
 
-export type checkItemApiV1ItemsItemIdCheckPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type checkItemApiV1ItemsItemIdCheckPostResponseSuccess = (checkItemApiV1ItemsItemIdCheckPostResponse200) & {
-  headers: Headers;
-};
-export type checkItemApiV1ItemsItemIdCheckPostResponseError = (checkItemApiV1ItemsItemIdCheckPostResponse422) & {
-  headers: Headers;
-};
-
-export type checkItemApiV1ItemsItemIdCheckPostResponse = (checkItemApiV1ItemsItemIdCheckPostResponseSuccess | checkItemApiV1ItemsItemIdCheckPostResponseError)
-
-export const getCheckItemApiV1ItemsItemIdCheckPostUrl = (itemId: number,) => {
+      return customFetch<ItemResponse>(
+      {url: `/api/v1/items/${itemId}/check`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getCheckItemApiV1ItemsItemIdCheckPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>, TError,{itemId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>, TError,{itemId: number}, TContext> => {
 
-  return `/api/v1/items/${itemId}/check`
-}
-
-export const checkItemApiV1ItemsItemIdCheckPost = async (itemId: number, options?: RequestInit): Promise<checkItemApiV1ItemsItemIdCheckPostResponse> => {
-
-  return customFetch<checkItemApiV1ItemsItemIdCheckPostResponse>(getCheckItemApiV1ItemsItemIdCheckPostUrl(itemId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['checkItemApiV1ItemsItemIdCheckPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>, {itemId: number}> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  checkItemApiV1ItemsItemIdCheckPost(itemId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckItemApiV1ItemsItemIdCheckPostMutationResult = NonNullable<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>>
+
+    export type CheckItemApiV1ItemsItemIdCheckPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Check Item
+ */
+export const useCheckItemApiV1ItemsItemIdCheckPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>, TError,{itemId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>,
+        TError,
+        {itemId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getCheckItemApiV1ItemsItemIdCheckPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Uncheck an item.
  * @summary Uncheck Item
  */
-export type uncheckItemApiV1ItemsItemIdUncheckPostResponse200 = {
-  data: ItemResponse
-  status: 200
-}
+export const uncheckItemApiV1ItemsItemIdUncheckPost = (
+    itemId: number,
+ signal?: AbortSignal
+) => {
 
-export type uncheckItemApiV1ItemsItemIdUncheckPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type uncheckItemApiV1ItemsItemIdUncheckPostResponseSuccess = (uncheckItemApiV1ItemsItemIdUncheckPostResponse200) & {
-  headers: Headers;
-};
-export type uncheckItemApiV1ItemsItemIdUncheckPostResponseError = (uncheckItemApiV1ItemsItemIdUncheckPostResponse422) & {
-  headers: Headers;
-};
-
-export type uncheckItemApiV1ItemsItemIdUncheckPostResponse = (uncheckItemApiV1ItemsItemIdUncheckPostResponseSuccess | uncheckItemApiV1ItemsItemIdUncheckPostResponseError)
-
-export const getUncheckItemApiV1ItemsItemIdUncheckPostUrl = (itemId: number,) => {
+      return customFetch<ItemResponse>(
+      {url: `/api/v1/items/${itemId}/uncheck`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getUncheckItemApiV1ItemsItemIdUncheckPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>, TError,{itemId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>, TError,{itemId: number}, TContext> => {
 
-  return `/api/v1/items/${itemId}/uncheck`
-}
-
-export const uncheckItemApiV1ItemsItemIdUncheckPost = async (itemId: number, options?: RequestInit): Promise<uncheckItemApiV1ItemsItemIdUncheckPostResponse> => {
-
-  return customFetch<uncheckItemApiV1ItemsItemIdUncheckPostResponse>(getUncheckItemApiV1ItemsItemIdUncheckPostUrl(itemId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['uncheckItemApiV1ItemsItemIdUncheckPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>, {itemId: number}> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  uncheckItemApiV1ItemsItemIdUncheckPost(itemId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UncheckItemApiV1ItemsItemIdUncheckPostMutationResult = NonNullable<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>>
+
+    export type UncheckItemApiV1ItemsItemIdUncheckPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Uncheck Item
+ */
+export const useUncheckItemApiV1ItemsItemIdUncheckPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>, TError,{itemId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>,
+        TError,
+        {itemId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getUncheckItemApiV1ItemsItemIdUncheckPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Complete a task item (for task lists only).
+
+Marks the item as checked and sets completed_at.
+If the item has a recurrence pattern, creates the next occurrence.
+ * @summary Complete Task Item
+ */
+export const completeTaskItemApiV1ItemsItemIdCompletePost = (
+    itemId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ItemResponse>(
+      {url: `/api/v1/items/${itemId}/complete`, method: 'POST', signal
+    },
+      );
+    }
+
+
+
+export const getCompleteTaskItemApiV1ItemsItemIdCompletePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>, TError,{itemId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>, TError,{itemId: number}, TContext> => {
+
+const mutationKey = ['completeTaskItemApiV1ItemsItemIdCompletePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>, {itemId: number}> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  completeTaskItemApiV1ItemsItemIdCompletePost(itemId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteTaskItemApiV1ItemsItemIdCompletePostMutationResult = NonNullable<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>>
+
+    export type CompleteTaskItemApiV1ItemsItemIdCompletePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Complete Task Item
+ */
+export const useCompleteTaskItemApiV1ItemsItemIdCompletePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>, TError,{itemId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>,
+        TError,
+        {itemId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getCompleteTaskItemApiV1ItemsItemIdCompletePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Bulk soft delete items.
  * @summary Bulk Delete Items
  */
-export type bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse204 = {
-  data: void
-  status: 204
-}
+export const bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost = (
+    listId: number,
+    bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostBody: number[],
+ signal?: AbortSignal
+) => {
 
-export type bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponseSuccess = (bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse204) & {
-  headers: Headers;
-};
-export type bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponseError = (bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse422) & {
-  headers: Headers;
-};
-
-export type bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse = (bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponseSuccess | bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponseError)
-
-export const getBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostUrl = (listId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/lists/${listId}/items/bulk-delete`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostBody, signal
+    },
+      );
+    }
 
 
 
+export const getBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>, TError,{listId: number;data: number[]}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>, TError,{listId: number;data: number[]}, TContext> => {
 
-  return `/api/v1/lists/${listId}/items/bulk-delete`
-}
-
-export const bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost = async (listId: number,
-    bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostBody: number[], options?: RequestInit): Promise<bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse> => {
-
-  return customFetch<bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostResponse>(getBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostUrl(listId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostBody,)
-  }
-);}
+const mutationKey = ['bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>, {listId: number;data: number[]}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostMutationResult = NonNullable<Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>>
+    export type BulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostMutationBody = number[]
+    export type BulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Bulk Delete Items
+ */
+export const useBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>, TError,{listId: number;data: number[]}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>,
+        TError,
+        {listId: number;data: number[]},
+        TContext
+      > => {
+
+      const mutationOptions = getBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Auto-categorize uncategorized items using history and LLM.
  * @summary Auto Categorize Items
  */
-export type autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse200 = {
-  data: unknown
-  status: 200
-}
+export const autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost = (
+    listId: number,
+ signal?: AbortSignal
+) => {
 
-export type autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponseSuccess = (autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse200) & {
-  headers: Headers;
-};
-export type autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponseError = (autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse422) & {
-  headers: Headers;
-};
-
-export type autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse = (autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponseSuccess | autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponseError)
-
-export const getAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostUrl = (listId: number,) => {
+      return customFetch<unknown>(
+      {url: `/api/v1/lists/${listId}/items/auto-categorize`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>, TError,{listId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>, TError,{listId: number}, TContext> => {
 
-  return `/api/v1/lists/${listId}/items/auto-categorize`
-}
-
-export const autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost = async (listId: number, options?: RequestInit): Promise<autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse> => {
-
-  return customFetch<autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostResponse>(getAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostUrl(listId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>, {listId: number}> = (props) => {
+          const {listId} = props ?? {};
+
+          return  autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost(listId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationResult = NonNullable<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>>
+
+    export type AutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Auto Categorize Items
+ */
+export const useAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>, TError,{listId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>,
+        TError,
+        {listId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Submit voice input for async processing.
  * @summary Create Voice Input
  */
-export type createVoiceInputApiV1VoicePostResponse201 = {
-  data: VoiceInputResponse
-  status: 201
-}
+export const createVoiceInputApiV1VoicePost = (
+    voiceInputCreate: VoiceInputCreate,
+ signal?: AbortSignal
+) => {
 
-export type createVoiceInputApiV1VoicePostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type createVoiceInputApiV1VoicePostResponseSuccess = (createVoiceInputApiV1VoicePostResponse201) & {
-  headers: Headers;
-};
-export type createVoiceInputApiV1VoicePostResponseError = (createVoiceInputApiV1VoicePostResponse422) & {
-  headers: Headers;
-};
-
-export type createVoiceInputApiV1VoicePostResponse = (createVoiceInputApiV1VoicePostResponseSuccess | createVoiceInputApiV1VoicePostResponseError)
-
-export const getCreateVoiceInputApiV1VoicePostUrl = () => {
+      return customFetch<VoiceInputResponse>(
+      {url: `/api/v1/voice`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: voiceInputCreate, signal
+    },
+      );
+    }
 
 
 
+export const getCreateVoiceInputApiV1VoicePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>, TError,{data: VoiceInputCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>, TError,{data: VoiceInputCreate}, TContext> => {
 
-  return `/api/v1/voice`
-}
-
-export const createVoiceInputApiV1VoicePost = async (voiceInputCreate: VoiceInputCreate, options?: RequestInit): Promise<createVoiceInputApiV1VoicePostResponse> => {
-
-  return customFetch<createVoiceInputApiV1VoicePostResponse>(getCreateVoiceInputApiV1VoicePostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      voiceInputCreate,)
-  }
-);}
+const mutationKey = ['createVoiceInputApiV1VoicePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>, {data: VoiceInputCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createVoiceInputApiV1VoicePost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateVoiceInputApiV1VoicePostMutationResult = NonNullable<Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>>
+    export type CreateVoiceInputApiV1VoicePostMutationBody = VoiceInputCreate
+    export type CreateVoiceInputApiV1VoicePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Voice Input
+ */
+export const useCreateVoiceInputApiV1VoicePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>, TError,{data: VoiceInputCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>,
+        TError,
+        {data: VoiceInputCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateVoiceInputApiV1VoicePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get voice input by ID.
  * @summary Get Voice Input
  */
-export type getVoiceInputApiV1VoiceVoiceInputIdGetResponse200 = {
-  data: VoiceInputResponse
-  status: 200
+export const getVoiceInputApiV1VoiceVoiceInputIdGet = (
+    voiceInputId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<VoiceInputResponse>(
+      {url: `/api/v1/voice/${voiceInputId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryKey = (voiceInputId?: number,) => {
+    return [
+    `/api/v1/voice/${voiceInputId}`
+    ] as const;
+    }
+
+
+export const getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(voiceInputId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryKey(voiceInputId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>> = ({ signal }) => getVoiceInputApiV1VoiceVoiceInputIdGet(voiceInputId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(voiceInputId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getVoiceInputApiV1VoiceVoiceInputIdGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetVoiceInputApiV1VoiceVoiceInputIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>>
+export type GetVoiceInputApiV1VoiceVoiceInputIdGetQueryError = HTTPValidationError
+
+
+export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(
+ voiceInputId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(
+ voiceInputId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(
+ voiceInputId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Voice Input
+ */
+
+export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(
+ voiceInputId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryOptions(voiceInputId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getVoiceInputApiV1VoiceVoiceInputIdGetResponseSuccess = (getVoiceInputApiV1VoiceVoiceInputIdGetResponse200) & {
-  headers: Headers;
-};
-export type getVoiceInputApiV1VoiceVoiceInputIdGetResponseError = (getVoiceInputApiV1VoiceVoiceInputIdGetResponse422) & {
-  headers: Headers;
-};
-
-export type getVoiceInputApiV1VoiceVoiceInputIdGetResponse = (getVoiceInputApiV1VoiceVoiceInputIdGetResponseSuccess | getVoiceInputApiV1VoiceVoiceInputIdGetResponseError)
-
-export const getGetVoiceInputApiV1VoiceVoiceInputIdGetUrl = (voiceInputId: number,) => {
-
-
-
-
-  return `/api/v1/voice/${voiceInputId}`
-}
-
-export const getVoiceInputApiV1VoiceVoiceInputIdGet = async (voiceInputId: number, options?: RequestInit): Promise<getVoiceInputApiV1VoiceVoiceInputIdGetResponse> => {
-
-  return customFetch<getVoiceInputApiV1VoiceVoiceInputIdGetResponse>(getGetVoiceInputApiV1VoiceVoiceInputIdGetUrl(voiceInputId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
 /**
- * List all pending confirmations for the current user.
+ * Delete a voice input (used to dismiss failed jobs).
+ * @summary Delete Voice Input
+ */
+export const deleteVoiceInputApiV1VoiceVoiceInputIdDelete = (
+    voiceInputId: number,
+ ) => {
+
+
+      return customFetch<void>(
+      {url: `/api/v1/voice/${voiceInputId}`, method: 'DELETE'
+    },
+      );
+    }
+
+
+
+export const getDeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>, TError,{voiceInputId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>, TError,{voiceInputId: number}, TContext> => {
+
+const mutationKey = ['deleteVoiceInputApiV1VoiceVoiceInputIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>, {voiceInputId: number}> = (props) => {
+          const {voiceInputId} = props ?? {};
+
+          return  deleteVoiceInputApiV1VoiceVoiceInputIdDelete(voiceInputId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>>
+
+    export type DeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Voice Input
+ */
+export const useDeleteVoiceInputApiV1VoiceVoiceInputIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>, TError,{voiceInputId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>,
+        TError,
+        {voiceInputId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * List in-progress voice jobs and pending confirmations for the current user.
  * @summary List Pending Confirmations
  */
-export type listPendingConfirmationsApiV1VoicePendingListGetResponse200 = {
-  data: PendingConfirmationResponse[]
-  status: 200
+export const listPendingConfirmationsApiV1VoicePendingListGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<VoiceQueueResponse>(
+      {url: `/api/v1/voice/pending/list`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getListPendingConfirmationsApiV1VoicePendingListGetQueryKey = () => {
+    return [
+    `/api/v1/voice/pending/list`
+    ] as const;
+    }
+
+
+export const getListPendingConfirmationsApiV1VoicePendingListGetQueryOptions = <TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPendingConfirmationsApiV1VoicePendingListGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>> = ({ signal }) => listPendingConfirmationsApiV1VoicePendingListGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type listPendingConfirmationsApiV1VoicePendingListGetResponseSuccess = (listPendingConfirmationsApiV1VoicePendingListGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type listPendingConfirmationsApiV1VoicePendingListGetResponse = (listPendingConfirmationsApiV1VoicePendingListGetResponseSuccess)
-
-export const getListPendingConfirmationsApiV1VoicePendingListGetUrl = () => {
+export type ListPendingConfirmationsApiV1VoicePendingListGetQueryResult = NonNullable<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>>
+export type ListPendingConfirmationsApiV1VoicePendingListGetQueryError = unknown
 
 
+export function useListPendingConfirmationsApiV1VoicePendingListGet<TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>,
+          TError,
+          Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPendingConfirmationsApiV1VoicePendingListGet<TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>,
+          TError,
+          Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPendingConfirmationsApiV1VoicePendingListGet<TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Pending Confirmations
+ */
 
+export function useListPendingConfirmationsApiV1VoicePendingListGet<TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/voice/pending/list`
+  const queryOptions = getListPendingConfirmationsApiV1VoicePendingListGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const listPendingConfirmationsApiV1VoicePendingListGet = async ( options?: RequestInit): Promise<listPendingConfirmationsApiV1VoicePendingListGetResponse> => {
-
-  return customFetch<listPendingConfirmationsApiV1VoicePendingListGetResponse>(getListPendingConfirmationsApiV1VoicePendingListGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -1838,43 +3206,92 @@ export const listPendingConfirmationsApiV1VoicePendingListGet = async ( options?
  * Get a specific pending confirmation.
  * @summary Get Pending Confirmation
  */
-export type getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse200 = {
-  data: PendingConfirmationResponse
-  status: 200
+export const getPendingConfirmationApiV1VoicePendingConfirmationIdGet = (
+    confirmationId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PendingConfirmationResponse>(
+      {url: `/api/v1/voice/pending/${confirmationId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryKey = (confirmationId?: number,) => {
+    return [
+    `/api/v1/voice/pending/${confirmationId}`
+    ] as const;
+    }
+
+
+export const getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(confirmationId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryKey(confirmationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>> = ({ signal }) => getPendingConfirmationApiV1VoicePendingConfirmationIdGet(confirmationId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(confirmationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>>
+export type GetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryError = HTTPValidationError
+
+
+export function useGetPendingConfirmationApiV1VoicePendingConfirmationIdGet<TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(
+ confirmationId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPendingConfirmationApiV1VoicePendingConfirmationIdGet<TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(
+ confirmationId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPendingConfirmationApiV1VoicePendingConfirmationIdGet<TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(
+ confirmationId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Pending Confirmation
+ */
+
+export function useGetPendingConfirmationApiV1VoicePendingConfirmationIdGet<TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(
+ confirmationId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryOptions(confirmationId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponseSuccess = (getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse200) & {
-  headers: Headers;
-};
-export type getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponseError = (getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse422) & {
-  headers: Headers;
-};
-
-export type getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse = (getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponseSuccess | getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponseError)
-
-export const getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetUrl = (confirmationId: number,) => {
-
-
-
-
-  return `/api/v1/voice/pending/${confirmationId}`
-}
-
-export const getPendingConfirmationApiV1VoicePendingConfirmationIdGet = async (confirmationId: number, options?: RequestInit): Promise<getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse> => {
-
-  return customFetch<getPendingConfirmationApiV1VoicePendingConfirmationIdGetResponse>(getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetUrl(confirmationId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -1882,119 +3299,522 @@ export const getPendingConfirmationApiV1VoicePendingConfirmationIdGet = async (c
  * Confirm or reject a pending confirmation.
  * @summary Action Pending Confirmation
  */
-export type actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse200 = {
-  data: PendingConfirmationResponse
-  status: 200
-}
+export const actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost = (
+    confirmationId: number,
+    confirmationAction: ConfirmationAction,
+ signal?: AbortSignal
+) => {
 
-export type actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponseSuccess = (actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse200) & {
-  headers: Headers;
-};
-export type actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponseError = (actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse422) & {
-  headers: Headers;
-};
-
-export type actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse = (actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponseSuccess | actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponseError)
-
-export const getActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostUrl = (confirmationId: number,) => {
+      return customFetch<PendingConfirmationResponse>(
+      {url: `/api/v1/voice/pending/${confirmationId}/action`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: confirmationAction, signal
+    },
+      );
+    }
 
 
 
+export const getActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>, TError,{confirmationId: number;data: ConfirmationAction}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>, TError,{confirmationId: number;data: ConfirmationAction}, TContext> => {
 
-  return `/api/v1/voice/pending/${confirmationId}/action`
-}
-
-export const actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost = async (confirmationId: number,
-    confirmationAction: ConfirmationAction, options?: RequestInit): Promise<actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse> => {
-
-  return customFetch<actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostResponse>(getActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostUrl(confirmationId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      confirmationAction,)
-  }
-);}
+const mutationKey = ['actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>, {confirmationId: number;data: ConfirmationAction}> = (props) => {
+          const {confirmationId,data} = props ?? {};
+
+          return  actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost(confirmationId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostMutationResult = NonNullable<Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>>
+    export type ActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostMutationBody = ConfirmationAction
+    export type ActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Action Pending Confirmation
+ */
+export const useActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>, TError,{confirmationId: number;data: ConfirmationAction}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>,
+        TError,
+        {confirmationId: number;data: ConfirmationAction},
+        TContext
+      > => {
+
+      const mutationOptions = getActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Retry a failed voice input with optionally edited text.
+ * @summary Retry Voice Input
+ */
+export const retryVoiceInputApiV1VoiceVoiceInputIdRetryPost = (
+    voiceInputId: number,
+    voiceInputRetry: VoiceInputRetry,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<VoiceInputResponse>(
+      {url: `/api/v1/voice/${voiceInputId}/retry`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: voiceInputRetry, signal
+    },
+      );
+    }
+
+
+
+export const getRetryVoiceInputApiV1VoiceVoiceInputIdRetryPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>, TError,{voiceInputId: number;data: VoiceInputRetry}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>, TError,{voiceInputId: number;data: VoiceInputRetry}, TContext> => {
+
+const mutationKey = ['retryVoiceInputApiV1VoiceVoiceInputIdRetryPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>, {voiceInputId: number;data: VoiceInputRetry}> = (props) => {
+          const {voiceInputId,data} = props ?? {};
+
+          return  retryVoiceInputApiV1VoiceVoiceInputIdRetryPost(voiceInputId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryVoiceInputApiV1VoiceVoiceInputIdRetryPostMutationResult = NonNullable<Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>>
+    export type RetryVoiceInputApiV1VoiceVoiceInputIdRetryPostMutationBody = VoiceInputRetry
+    export type RetryVoiceInputApiV1VoiceVoiceInputIdRetryPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Retry Voice Input
+ */
+export const useRetryVoiceInputApiV1VoiceVoiceInputIdRetryPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>, TError,{voiceInputId: number;data: VoiceInputRetry}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>,
+        TError,
+        {voiceInputId: number;data: VoiceInputRetry},
+        TContext
+      > => {
+
+      const mutationOptions = getRetryVoiceInputApiV1VoiceVoiceInputIdRetryPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get available label colors for recipes.
  * @summary Get Label Colors
  */
-export type getLabelColorsApiV1RecipesColorsGetResponse200 = {
-  data: unknown
-  status: 200
+export const getLabelColorsApiV1RecipesColorsGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/recipes/colors`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetLabelColorsApiV1RecipesColorsGetQueryKey = () => {
+    return [
+    `/api/v1/recipes/colors`
+    ] as const;
+    }
+
+
+export const getGetLabelColorsApiV1RecipesColorsGetQueryOptions = <TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLabelColorsApiV1RecipesColorsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>> = ({ signal }) => getLabelColorsApiV1RecipesColorsGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getLabelColorsApiV1RecipesColorsGetResponseSuccess = (getLabelColorsApiV1RecipesColorsGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type getLabelColorsApiV1RecipesColorsGetResponse = (getLabelColorsApiV1RecipesColorsGetResponseSuccess)
-
-export const getGetLabelColorsApiV1RecipesColorsGetUrl = () => {
+export type GetLabelColorsApiV1RecipesColorsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>>
+export type GetLabelColorsApiV1RecipesColorsGetQueryError = unknown
 
 
+export function useGetLabelColorsApiV1RecipesColorsGet<TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLabelColorsApiV1RecipesColorsGet<TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLabelColorsApiV1RecipesColorsGet<TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Label Colors
+ */
 
+export function useGetLabelColorsApiV1RecipesColorsGet<TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/recipes/colors`
+  const queryOptions = getGetLabelColorsApiV1RecipesColorsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const getLabelColorsApiV1RecipesColorsGet = async ( options?: RequestInit): Promise<getLabelColorsApiV1RecipesColorsGetResponse> => {
-
-  return customFetch<getLabelColorsApiV1RecipesColorsGetResponse>(getGetLabelColorsApiV1RecipesColorsGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
 /**
- * List all recipes for the current user.
+ * Upload an image for a recipe.
+
+Accepts JPEG, PNG, WebP, or GIF. Images are resized to max 800px
+and a 200px thumbnail is created. Both are stored as JPEG.
+ * @summary Upload Recipe Image
+ */
+export const uploadRecipeImageApiV1RecipesRecipeIdImagePost = (
+    recipeId: number,
+    bodyUploadRecipeImageApiV1RecipesRecipeIdImagePost: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost,
+ signal?: AbortSignal
+) => {
+
+      const formData = new FormData();
+formData.append(`file`, bodyUploadRecipeImageApiV1RecipesRecipeIdImagePost.file)
+
+      return customFetch<RecipeResponse>(
+      {url: `/api/v1/recipes/${recipeId}/image`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      );
+    }
+
+
+
+export const getUploadRecipeImageApiV1RecipesRecipeIdImagePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>, TError,{recipeId: number;data: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>, TError,{recipeId: number;data: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost}, TContext> => {
+
+const mutationKey = ['uploadRecipeImageApiV1RecipesRecipeIdImagePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>, {recipeId: number;data: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost}> = (props) => {
+          const {recipeId,data} = props ?? {};
+
+          return  uploadRecipeImageApiV1RecipesRecipeIdImagePost(recipeId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadRecipeImageApiV1RecipesRecipeIdImagePostMutationResult = NonNullable<Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>>
+    export type UploadRecipeImageApiV1RecipesRecipeIdImagePostMutationBody = BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost
+    export type UploadRecipeImageApiV1RecipesRecipeIdImagePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Upload Recipe Image
+ */
+export const useUploadRecipeImageApiV1RecipesRecipeIdImagePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>, TError,{recipeId: number;data: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>,
+        TError,
+        {recipeId: number;data: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost},
+        TContext
+      > => {
+
+      const mutationOptions = getUploadRecipeImageApiV1RecipesRecipeIdImagePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Delete the image for a recipe.
+ * @summary Delete Image
+ */
+export const deleteImageApiV1RecipesRecipeIdImageDelete = (
+    recipeId: number,
+ ) => {
+
+
+      return customFetch<void>(
+      {url: `/api/v1/recipes/${recipeId}/image`, method: 'DELETE'
+    },
+      );
+    }
+
+
+
+export const getDeleteImageApiV1RecipesRecipeIdImageDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>, TError,{recipeId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>, TError,{recipeId: number}, TContext> => {
+
+const mutationKey = ['deleteImageApiV1RecipesRecipeIdImageDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>, {recipeId: number}> = (props) => {
+          const {recipeId} = props ?? {};
+
+          return  deleteImageApiV1RecipesRecipeIdImageDelete(recipeId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteImageApiV1RecipesRecipeIdImageDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>>
+
+    export type DeleteImageApiV1RecipesRecipeIdImageDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Image
+ */
+export const useDeleteImageApiV1RecipesRecipeIdImageDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>, TError,{recipeId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>,
+        TError,
+        {recipeId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteImageApiV1RecipesRecipeIdImageDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Trigger nutrition computation for a recipe.
+
+This queues an async task to compute nutrition data using the Edamam API.
+The nutrition data will be available on subsequent GET requests once computed.
+ * @summary Compute Nutrition
+ */
+export const computeNutritionApiV1RecipesRecipeIdComputeNutritionPost = (
+    recipeId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/recipes/${recipeId}/compute-nutrition`, method: 'POST', signal
+    },
+      );
+    }
+
+
+
+export const getComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>, TError,{recipeId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>, TError,{recipeId: number}, TContext> => {
+
+const mutationKey = ['computeNutritionApiV1RecipesRecipeIdComputeNutritionPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>, {recipeId: number}> = (props) => {
+          const {recipeId} = props ?? {};
+
+          return  computeNutritionApiV1RecipesRecipeIdComputeNutritionPost(recipeId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationResult = NonNullable<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>>
+
+    export type ComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Compute Nutrition
+ */
+export const useComputeNutritionApiV1RecipesRecipeIdComputeNutritionPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>, TError,{recipeId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>,
+        TError,
+        {recipeId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * List all recipes for the current user's household.
  * @summary List Recipes
  */
-export type listRecipesApiV1RecipesGetResponse200 = {
-  data: RecipeListResponse[]
-  status: 200
+export const listRecipesApiV1RecipesGet = (
+    params?: ListRecipesApiV1RecipesGetParams,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<RecipeListResponse[]>(
+      {url: `/api/v1/recipes`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+
+
+
+
+export const getListRecipesApiV1RecipesGetQueryKey = (params?: ListRecipesApiV1RecipesGetParams,) => {
+    return [
+    `/api/v1/recipes`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+
+export const getListRecipesApiV1RecipesGetQueryOptions = <TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(params?: ListRecipesApiV1RecipesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRecipesApiV1RecipesGetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>> = ({ signal }) => listRecipesApiV1RecipesGet(params, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type listRecipesApiV1RecipesGetResponseSuccess = (listRecipesApiV1RecipesGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type listRecipesApiV1RecipesGetResponse = (listRecipesApiV1RecipesGetResponseSuccess)
-
-export const getListRecipesApiV1RecipesGetUrl = () => {
+export type ListRecipesApiV1RecipesGetQueryResult = NonNullable<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>>
+export type ListRecipesApiV1RecipesGetQueryError = HTTPValidationError
 
 
+export function useListRecipesApiV1RecipesGet<TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(
+ params: undefined |  ListRecipesApiV1RecipesGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListRecipesApiV1RecipesGet<TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(
+ params?: ListRecipesApiV1RecipesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListRecipesApiV1RecipesGet<TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(
+ params?: ListRecipesApiV1RecipesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Recipes
+ */
 
+export function useListRecipesApiV1RecipesGet<TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(
+ params?: ListRecipesApiV1RecipesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/recipes`
+  const queryOptions = getListRecipesApiV1RecipesGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const listRecipesApiV1RecipesGet = async ( options?: RequestInit): Promise<listRecipesApiV1RecipesGetResponse> => {
-
-  return customFetch<listRecipesApiV1RecipesGetResponse>(getListRecipesApiV1RecipesGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2002,126 +3822,224 @@ export const listRecipesApiV1RecipesGet = async ( options?: RequestInit): Promis
  * Create a new recipe with ingredients.
  * @summary Create Recipe
  */
-export type createRecipeApiV1RecipesPostResponse201 = {
-  data: RecipeResponse
-  status: 201
-}
+export const createRecipeApiV1RecipesPost = (
+    recipeCreate: RecipeCreate,
+ signal?: AbortSignal
+) => {
 
-export type createRecipeApiV1RecipesPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type createRecipeApiV1RecipesPostResponseSuccess = (createRecipeApiV1RecipesPostResponse201) & {
-  headers: Headers;
-};
-export type createRecipeApiV1RecipesPostResponseError = (createRecipeApiV1RecipesPostResponse422) & {
-  headers: Headers;
-};
-
-export type createRecipeApiV1RecipesPostResponse = (createRecipeApiV1RecipesPostResponseSuccess | createRecipeApiV1RecipesPostResponseError)
-
-export const getCreateRecipeApiV1RecipesPostUrl = () => {
+      return customFetch<RecipeResponse>(
+      {url: `/api/v1/recipes`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: recipeCreate, signal
+    },
+      );
+    }
 
 
 
+export const getCreateRecipeApiV1RecipesPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>, TError,{data: RecipeCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>, TError,{data: RecipeCreate}, TContext> => {
 
-  return `/api/v1/recipes`
-}
-
-export const createRecipeApiV1RecipesPost = async (recipeCreate: RecipeCreate, options?: RequestInit): Promise<createRecipeApiV1RecipesPostResponse> => {
-
-  return customFetch<createRecipeApiV1RecipesPostResponse>(getCreateRecipeApiV1RecipesPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      recipeCreate,)
-  }
-);}
+const mutationKey = ['createRecipeApiV1RecipesPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>, {data: RecipeCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRecipeApiV1RecipesPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRecipeApiV1RecipesPostMutationResult = NonNullable<Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>>
+    export type CreateRecipeApiV1RecipesPostMutationBody = RecipeCreate
+    export type CreateRecipeApiV1RecipesPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Recipe
+ */
+export const useCreateRecipeApiV1RecipesPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>, TError,{data: RecipeCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>,
+        TError,
+        {data: RecipeCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateRecipeApiV1RecipesPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Add ingredients from recipe(s) to appropriate shopping lists.
  * @summary Add Recipes To List
  */
-export type addRecipesToListApiV1RecipesAddToListPostResponse200 = {
-  data: AddToListResult
-  status: 200
-}
+export const addRecipesToListApiV1RecipesAddToListPost = (
+    addToListRequest: AddToListRequest,
+ signal?: AbortSignal
+) => {
 
-export type addRecipesToListApiV1RecipesAddToListPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type addRecipesToListApiV1RecipesAddToListPostResponseSuccess = (addRecipesToListApiV1RecipesAddToListPostResponse200) & {
-  headers: Headers;
-};
-export type addRecipesToListApiV1RecipesAddToListPostResponseError = (addRecipesToListApiV1RecipesAddToListPostResponse422) & {
-  headers: Headers;
-};
-
-export type addRecipesToListApiV1RecipesAddToListPostResponse = (addRecipesToListApiV1RecipesAddToListPostResponseSuccess | addRecipesToListApiV1RecipesAddToListPostResponseError)
-
-export const getAddRecipesToListApiV1RecipesAddToListPostUrl = () => {
+      return customFetch<AddToListResult>(
+      {url: `/api/v1/recipes/add-to-list`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: addToListRequest, signal
+    },
+      );
+    }
 
 
 
+export const getAddRecipesToListApiV1RecipesAddToListPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>, TError,{data: AddToListRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>, TError,{data: AddToListRequest}, TContext> => {
 
-  return `/api/v1/recipes/add-to-list`
-}
-
-export const addRecipesToListApiV1RecipesAddToListPost = async (addToListRequest: AddToListRequest, options?: RequestInit): Promise<addRecipesToListApiV1RecipesAddToListPostResponse> => {
-
-  return customFetch<addRecipesToListApiV1RecipesAddToListPostResponse>(getAddRecipesToListApiV1RecipesAddToListPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      addToListRequest,)
-  }
-);}
+const mutationKey = ['addRecipesToListApiV1RecipesAddToListPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>, {data: AddToListRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addRecipesToListApiV1RecipesAddToListPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddRecipesToListApiV1RecipesAddToListPostMutationResult = NonNullable<Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>>
+    export type AddRecipesToListApiV1RecipesAddToListPostMutationBody = AddToListRequest
+    export type AddRecipesToListApiV1RecipesAddToListPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Add Recipes To List
+ */
+export const useAddRecipesToListApiV1RecipesAddToListPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>, TError,{data: AddToListRequest}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>,
+        TError,
+        {data: AddToListRequest},
+        TContext
+      > => {
+
+      const mutationOptions = getAddRecipesToListApiV1RecipesAddToListPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * List recent add events (for undo UI).
  * @summary List Add Events
  */
-export type listAddEventsApiV1RecipesAddEventsGetResponse200 = {
-  data: RecipeAddEventResponse[]
-  status: 200
+export const listAddEventsApiV1RecipesAddEventsGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<RecipeAddEventResponse[]>(
+      {url: `/api/v1/recipes/add-events`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getListAddEventsApiV1RecipesAddEventsGetQueryKey = () => {
+    return [
+    `/api/v1/recipes/add-events`
+    ] as const;
+    }
+
+
+export const getListAddEventsApiV1RecipesAddEventsGetQueryOptions = <TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAddEventsApiV1RecipesAddEventsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>> = ({ signal }) => listAddEventsApiV1RecipesAddEventsGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type listAddEventsApiV1RecipesAddEventsGetResponseSuccess = (listAddEventsApiV1RecipesAddEventsGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type listAddEventsApiV1RecipesAddEventsGetResponse = (listAddEventsApiV1RecipesAddEventsGetResponseSuccess)
-
-export const getListAddEventsApiV1RecipesAddEventsGetUrl = () => {
+export type ListAddEventsApiV1RecipesAddEventsGetQueryResult = NonNullable<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>>
+export type ListAddEventsApiV1RecipesAddEventsGetQueryError = unknown
 
 
+export function useListAddEventsApiV1RecipesAddEventsGet<TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAddEventsApiV1RecipesAddEventsGet<TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAddEventsApiV1RecipesAddEventsGet<TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Add Events
+ */
 
+export function useListAddEventsApiV1RecipesAddEventsGet<TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/recipes/add-events`
+  const queryOptions = getListAddEventsApiV1RecipesAddEventsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const listAddEventsApiV1RecipesAddEventsGet = async ( options?: RequestInit): Promise<listAddEventsApiV1RecipesAddEventsGetResponse> => {
-
-  return customFetch<listAddEventsApiV1RecipesAddEventsGetResponse>(getListAddEventsApiV1RecipesAddEventsGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2129,80 +4047,156 @@ export const listAddEventsApiV1RecipesAddEventsGet = async ( options?: RequestIn
  * Undo an add-to-list operation.
  * @summary Undo Add Event
  */
-export type undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse200 = {
-  data: unknown
-  status: 200
-}
+export const undoAddEventApiV1RecipesAddEventsEventIdUndoPost = (
+    eventId: number,
+ signal?: AbortSignal
+) => {
 
-export type undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponseSuccess = (undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse200) & {
-  headers: Headers;
-};
-export type undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponseError = (undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse422) & {
-  headers: Headers;
-};
-
-export type undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse = (undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponseSuccess | undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponseError)
-
-export const getUndoAddEventApiV1RecipesAddEventsEventIdUndoPostUrl = (eventId: number,) => {
+      return customFetch<unknown>(
+      {url: `/api/v1/recipes/add-events/${eventId}/undo`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getUndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>, TError,{eventId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>, TError,{eventId: number}, TContext> => {
 
-  return `/api/v1/recipes/add-events/${eventId}/undo`
-}
-
-export const undoAddEventApiV1RecipesAddEventsEventIdUndoPost = async (eventId: number, options?: RequestInit): Promise<undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse> => {
-
-  return customFetch<undoAddEventApiV1RecipesAddEventsEventIdUndoPostResponse>(getUndoAddEventApiV1RecipesAddEventsEventIdUndoPostUrl(eventId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['undoAddEventApiV1RecipesAddEventsEventIdUndoPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>, {eventId: number}> = (props) => {
+          const {eventId} = props ?? {};
+
+          return  undoAddEventApiV1RecipesAddEventsEventIdUndoPost(eventId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationResult = NonNullable<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>>
+
+    export type UndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Undo Add Event
+ */
+export const useUndoAddEventApiV1RecipesAddEventsEventIdUndoPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>, TError,{eventId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>,
+        TError,
+        {eventId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getUndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * List all ingredient store defaults for the user.
  * @summary List Store Defaults
  */
-export type listStoreDefaultsApiV1RecipesStoreDefaultsGetResponse200 = {
-  data: IngredientStoreDefaultResponse[]
-  status: 200
+export const listStoreDefaultsApiV1RecipesStoreDefaultsGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<IngredientStoreDefaultResponse[]>(
+      {url: `/api/v1/recipes/store-defaults`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryKey = () => {
+    return [
+    `/api/v1/recipes/store-defaults`
+    ] as const;
+    }
+
+
+export const getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryOptions = <TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>> = ({ signal }) => listStoreDefaultsApiV1RecipesStoreDefaultsGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type listStoreDefaultsApiV1RecipesStoreDefaultsGetResponseSuccess = (listStoreDefaultsApiV1RecipesStoreDefaultsGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type listStoreDefaultsApiV1RecipesStoreDefaultsGetResponse = (listStoreDefaultsApiV1RecipesStoreDefaultsGetResponseSuccess)
-
-export const getListStoreDefaultsApiV1RecipesStoreDefaultsGetUrl = () => {
+export type ListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryResult = NonNullable<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>>
+export type ListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryError = unknown
 
 
+export function useListStoreDefaultsApiV1RecipesStoreDefaultsGet<TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListStoreDefaultsApiV1RecipesStoreDefaultsGet<TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListStoreDefaultsApiV1RecipesStoreDefaultsGet<TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Store Defaults
+ */
 
+export function useListStoreDefaultsApiV1RecipesStoreDefaultsGet<TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/recipes/store-defaults`
+  const queryOptions = getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const listStoreDefaultsApiV1RecipesStoreDefaultsGet = async ( options?: RequestInit): Promise<listStoreDefaultsApiV1RecipesStoreDefaultsGetResponse> => {
-
-  return customFetch<listStoreDefaultsApiV1RecipesStoreDefaultsGetResponse>(getListStoreDefaultsApiV1RecipesStoreDefaultsGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2210,46 +4204,67 @@ export const listStoreDefaultsApiV1RecipesStoreDefaultsGet = async ( options?: R
  * Set or update default store for an ingredient.
  * @summary Set Store Default
  */
-export type setStoreDefaultApiV1RecipesStoreDefaultsPostResponse201 = {
-  data: IngredientStoreDefaultResponse
-  status: 201
-}
+export const setStoreDefaultApiV1RecipesStoreDefaultsPost = (
+    ingredientStoreDefaultCreate: IngredientStoreDefaultCreate,
+ signal?: AbortSignal
+) => {
 
-export type setStoreDefaultApiV1RecipesStoreDefaultsPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type setStoreDefaultApiV1RecipesStoreDefaultsPostResponseSuccess = (setStoreDefaultApiV1RecipesStoreDefaultsPostResponse201) & {
-  headers: Headers;
-};
-export type setStoreDefaultApiV1RecipesStoreDefaultsPostResponseError = (setStoreDefaultApiV1RecipesStoreDefaultsPostResponse422) & {
-  headers: Headers;
-};
-
-export type setStoreDefaultApiV1RecipesStoreDefaultsPostResponse = (setStoreDefaultApiV1RecipesStoreDefaultsPostResponseSuccess | setStoreDefaultApiV1RecipesStoreDefaultsPostResponseError)
-
-export const getSetStoreDefaultApiV1RecipesStoreDefaultsPostUrl = () => {
+      return customFetch<IngredientStoreDefaultResponse>(
+      {url: `/api/v1/recipes/store-defaults`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: ingredientStoreDefaultCreate, signal
+    },
+      );
+    }
 
 
 
+export const getSetStoreDefaultApiV1RecipesStoreDefaultsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>, TError,{data: IngredientStoreDefaultCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>, TError,{data: IngredientStoreDefaultCreate}, TContext> => {
 
-  return `/api/v1/recipes/store-defaults`
-}
-
-export const setStoreDefaultApiV1RecipesStoreDefaultsPost = async (ingredientStoreDefaultCreate: IngredientStoreDefaultCreate, options?: RequestInit): Promise<setStoreDefaultApiV1RecipesStoreDefaultsPostResponse> => {
-
-  return customFetch<setStoreDefaultApiV1RecipesStoreDefaultsPostResponse>(getSetStoreDefaultApiV1RecipesStoreDefaultsPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      ingredientStoreDefaultCreate,)
-  }
-);}
+const mutationKey = ['setStoreDefaultApiV1RecipesStoreDefaultsPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>, {data: IngredientStoreDefaultCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setStoreDefaultApiV1RecipesStoreDefaultsPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetStoreDefaultApiV1RecipesStoreDefaultsPostMutationResult = NonNullable<Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>>
+    export type SetStoreDefaultApiV1RecipesStoreDefaultsPostMutationBody = IngredientStoreDefaultCreate
+    export type SetStoreDefaultApiV1RecipesStoreDefaultsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Set Store Default
+ */
+export const useSetStoreDefaultApiV1RecipesStoreDefaultsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>, TError,{data: IngredientStoreDefaultCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>,
+        TError,
+        {data: IngredientStoreDefaultCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getSetStoreDefaultApiV1RecipesStoreDefaultsPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Check all recipes against pantry to get ingredient counts.
@@ -2259,36 +4274,92 @@ the user has in their pantry, broken down by status (have/low/out).
 Uses simple matching only (no LLM) for speed.
  * @summary Bulk Check Pantry
  */
-export type bulkCheckPantryApiV1RecipesPantryStatusGetResponse200 = {
-  data: BulkPantryCheckResponse
-  status: 200
+export const bulkCheckPantryApiV1RecipesPantryStatusGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<BulkPantryCheckResponse>(
+      {url: `/api/v1/recipes/pantry-status`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getBulkCheckPantryApiV1RecipesPantryStatusGetQueryKey = () => {
+    return [
+    `/api/v1/recipes/pantry-status`
+    ] as const;
+    }
+
+
+export const getBulkCheckPantryApiV1RecipesPantryStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getBulkCheckPantryApiV1RecipesPantryStatusGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>> = ({ signal }) => bulkCheckPantryApiV1RecipesPantryStatusGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type bulkCheckPantryApiV1RecipesPantryStatusGetResponseSuccess = (bulkCheckPantryApiV1RecipesPantryStatusGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type bulkCheckPantryApiV1RecipesPantryStatusGetResponse = (bulkCheckPantryApiV1RecipesPantryStatusGetResponseSuccess)
-
-export const getBulkCheckPantryApiV1RecipesPantryStatusGetUrl = () => {
+export type BulkCheckPantryApiV1RecipesPantryStatusGetQueryResult = NonNullable<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>>
+export type BulkCheckPantryApiV1RecipesPantryStatusGetQueryError = unknown
 
 
+export function useBulkCheckPantryApiV1RecipesPantryStatusGet<TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>,
+          TError,
+          Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBulkCheckPantryApiV1RecipesPantryStatusGet<TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>,
+          TError,
+          Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useBulkCheckPantryApiV1RecipesPantryStatusGet<TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Bulk Check Pantry
+ */
 
+export function useBulkCheckPantryApiV1RecipesPantryStatusGet<TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/recipes/pantry-status`
+  const queryOptions = getBulkCheckPantryApiV1RecipesPantryStatusGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const bulkCheckPantryApiV1RecipesPantryStatusGet = async ( options?: RequestInit): Promise<bulkCheckPantryApiV1RecipesPantryStatusGetResponse> => {
-
-  return customFetch<bulkCheckPantryApiV1RecipesPantryStatusGetResponse>(getBulkCheckPantryApiV1RecipesPantryStatusGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2296,88 +4367,158 @@ export const bulkCheckPantryApiV1RecipesPantryStatusGet = async ( options?: Requ
  * Submit recipe text for async LLM parsing.
  * @summary Create Recipe Import
  */
-export type createRecipeImportApiV1RecipesImportPostResponse200 = {
-  data: RecipeImportResponse
-  status: 200
-}
+export const createRecipeImportApiV1RecipesImportPost = (
+    recipeImportCreate: RecipeImportCreate,
+ signal?: AbortSignal
+) => {
 
-export type createRecipeImportApiV1RecipesImportPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type createRecipeImportApiV1RecipesImportPostResponseSuccess = (createRecipeImportApiV1RecipesImportPostResponse200) & {
-  headers: Headers;
-};
-export type createRecipeImportApiV1RecipesImportPostResponseError = (createRecipeImportApiV1RecipesImportPostResponse422) & {
-  headers: Headers;
-};
-
-export type createRecipeImportApiV1RecipesImportPostResponse = (createRecipeImportApiV1RecipesImportPostResponseSuccess | createRecipeImportApiV1RecipesImportPostResponseError)
-
-export const getCreateRecipeImportApiV1RecipesImportPostUrl = () => {
+      return customFetch<RecipeImportResponse>(
+      {url: `/api/v1/recipes/import`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: recipeImportCreate, signal
+    },
+      );
+    }
 
 
 
+export const getCreateRecipeImportApiV1RecipesImportPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>, TError,{data: RecipeImportCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>, TError,{data: RecipeImportCreate}, TContext> => {
 
-  return `/api/v1/recipes/import`
-}
-
-export const createRecipeImportApiV1RecipesImportPost = async (recipeImportCreate: RecipeImportCreate, options?: RequestInit): Promise<createRecipeImportApiV1RecipesImportPostResponse> => {
-
-  return customFetch<createRecipeImportApiV1RecipesImportPostResponse>(getCreateRecipeImportApiV1RecipesImportPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      recipeImportCreate,)
-  }
-);}
+const mutationKey = ['createRecipeImportApiV1RecipesImportPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>, {data: RecipeImportCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createRecipeImportApiV1RecipesImportPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRecipeImportApiV1RecipesImportPostMutationResult = NonNullable<Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>>
+    export type CreateRecipeImportApiV1RecipesImportPostMutationBody = RecipeImportCreate
+    export type CreateRecipeImportApiV1RecipesImportPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Recipe Import
+ */
+export const useCreateRecipeImportApiV1RecipesImportPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>, TError,{data: RecipeImportCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>,
+        TError,
+        {data: RecipeImportCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateRecipeImportApiV1RecipesImportPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get import status and parsed recipe.
  * @summary Get Recipe Import
  */
-export type getRecipeImportApiV1RecipesImportImportIdGetResponse200 = {
-  data: RecipeImportResponse
-  status: 200
+export const getRecipeImportApiV1RecipesImportImportIdGet = (
+    importId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<RecipeImportResponse>(
+      {url: `/api/v1/recipes/import/${importId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetRecipeImportApiV1RecipesImportImportIdGetQueryKey = (importId?: number,) => {
+    return [
+    `/api/v1/recipes/import/${importId}`
+    ] as const;
+    }
+
+
+export const getGetRecipeImportApiV1RecipesImportImportIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(importId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRecipeImportApiV1RecipesImportImportIdGetQueryKey(importId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>> = ({ signal }) => getRecipeImportApiV1RecipesImportImportIdGet(importId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(importId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getRecipeImportApiV1RecipesImportImportIdGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetRecipeImportApiV1RecipesImportImportIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>>
+export type GetRecipeImportApiV1RecipesImportImportIdGetQueryError = HTTPValidationError
+
+
+export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(
+ importId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(
+ importId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(
+ importId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Recipe Import
+ */
+
+export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(
+ importId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetRecipeImportApiV1RecipesImportImportIdGetQueryOptions(importId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getRecipeImportApiV1RecipesImportImportIdGetResponseSuccess = (getRecipeImportApiV1RecipesImportImportIdGetResponse200) & {
-  headers: Headers;
-};
-export type getRecipeImportApiV1RecipesImportImportIdGetResponseError = (getRecipeImportApiV1RecipesImportImportIdGetResponse422) & {
-  headers: Headers;
-};
-
-export type getRecipeImportApiV1RecipesImportImportIdGetResponse = (getRecipeImportApiV1RecipesImportImportIdGetResponseSuccess | getRecipeImportApiV1RecipesImportImportIdGetResponseError)
-
-export const getGetRecipeImportApiV1RecipesImportImportIdGetUrl = (importId: number,) => {
-
-
-
-
-  return `/api/v1/recipes/import/${importId}`
-}
-
-export const getRecipeImportApiV1RecipesImportImportIdGet = async (importId: number, options?: RequestInit): Promise<getRecipeImportApiV1RecipesImportImportIdGetResponse> => {
-
-  return customFetch<getRecipeImportApiV1RecipesImportImportIdGetResponse>(getGetRecipeImportApiV1RecipesImportImportIdGetUrl(importId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2385,267 +4526,415 @@ export const getRecipeImportApiV1RecipesImportImportIdGet = async (importId: num
  * Discard an import.
  * @summary Delete Recipe Import
  */
-export type deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const deleteRecipeImportApiV1RecipesImportImportIdDelete = (
+    importId: number,
+ ) => {
 
-export type deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type deleteRecipeImportApiV1RecipesImportImportIdDeleteResponseSuccess = (deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deleteRecipeImportApiV1RecipesImportImportIdDeleteResponseError = (deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse = (deleteRecipeImportApiV1RecipesImportImportIdDeleteResponseSuccess | deleteRecipeImportApiV1RecipesImportImportIdDeleteResponseError)
-
-export const getDeleteRecipeImportApiV1RecipesImportImportIdDeleteUrl = (importId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/recipes/import/${importId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getDeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>, TError,{importId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>, TError,{importId: number}, TContext> => {
 
-  return `/api/v1/recipes/import/${importId}`
-}
-
-export const deleteRecipeImportApiV1RecipesImportImportIdDelete = async (importId: number, options?: RequestInit): Promise<deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse> => {
-
-  return customFetch<deleteRecipeImportApiV1RecipesImportImportIdDeleteResponse>(getDeleteRecipeImportApiV1RecipesImportImportIdDeleteUrl(importId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['deleteRecipeImportApiV1RecipesImportImportIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>, {importId: number}> = (props) => {
+          const {importId} = props ?? {};
+
+          return  deleteRecipeImportApiV1RecipesImportImportIdDelete(importId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>>
+
+    export type DeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Recipe Import
+ */
+export const useDeleteRecipeImportApiV1RecipesImportImportIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>, TError,{importId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>,
+        TError,
+        {importId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Create recipe from parsed import with optional edits.
  * @summary Confirm Recipe Import
  */
-export type confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse200 = {
-  data: RecipeResponse
-  status: 200
-}
+export const confirmRecipeImportApiV1RecipesImportImportIdConfirmPost = (
+    importId: number,
+    recipeImportConfirm: RecipeImportConfirm,
+ signal?: AbortSignal
+) => {
 
-export type confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponseSuccess = (confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse200) & {
-  headers: Headers;
-};
-export type confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponseError = (confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse422) & {
-  headers: Headers;
-};
-
-export type confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse = (confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponseSuccess | confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponseError)
-
-export const getConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostUrl = (importId: number,) => {
+      return customFetch<RecipeResponse>(
+      {url: `/api/v1/recipes/import/${importId}/confirm`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: recipeImportConfirm, signal
+    },
+      );
+    }
 
 
 
+export const getConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>, TError,{importId: number;data: RecipeImportConfirm}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>, TError,{importId: number;data: RecipeImportConfirm}, TContext> => {
 
-  return `/api/v1/recipes/import/${importId}/confirm`
-}
-
-export const confirmRecipeImportApiV1RecipesImportImportIdConfirmPost = async (importId: number,
-    recipeImportConfirm: RecipeImportConfirm, options?: RequestInit): Promise<confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse> => {
-
-  return customFetch<confirmRecipeImportApiV1RecipesImportImportIdConfirmPostResponse>(getConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostUrl(importId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      recipeImportConfirm,)
-  }
-);}
+const mutationKey = ['confirmRecipeImportApiV1RecipesImportImportIdConfirmPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>, {importId: number;data: RecipeImportConfirm}> = (props) => {
+          const {importId,data} = props ?? {};
+
+          return  confirmRecipeImportApiV1RecipesImportImportIdConfirmPost(importId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostMutationResult = NonNullable<Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>>
+    export type ConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostMutationBody = RecipeImportConfirm
+    export type ConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Confirm Recipe Import
+ */
+export const useConfirmRecipeImportApiV1RecipesImportImportIdConfirmPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>, TError,{importId: number;data: RecipeImportConfirm}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>,
+        TError,
+        {importId: number;data: RecipeImportConfirm},
+        TContext
+      > => {
+
+      const mutationOptions = getConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Update an ingredient.
  * @summary Update Ingredient
  */
-export type updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse200 = {
-  data: RecipeIngredientResponse
-  status: 200
-}
+export const updateIngredientApiV1RecipesIngredientsIngredientIdPut = (
+    ingredientId: number,
+    recipeIngredientUpdate: RecipeIngredientUpdate,
+ ) => {
 
-export type updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type updateIngredientApiV1RecipesIngredientsIngredientIdPutResponseSuccess = (updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse200) & {
-  headers: Headers;
-};
-export type updateIngredientApiV1RecipesIngredientsIngredientIdPutResponseError = (updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse422) & {
-  headers: Headers;
-};
-
-export type updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse = (updateIngredientApiV1RecipesIngredientsIngredientIdPutResponseSuccess | updateIngredientApiV1RecipesIngredientsIngredientIdPutResponseError)
-
-export const getUpdateIngredientApiV1RecipesIngredientsIngredientIdPutUrl = (ingredientId: number,) => {
+      return customFetch<RecipeIngredientResponse>(
+      {url: `/api/v1/recipes/ingredients/${ingredientId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: recipeIngredientUpdate
+    },
+      );
+    }
 
 
 
+export const getUpdateIngredientApiV1RecipesIngredientsIngredientIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>, TError,{ingredientId: number;data: RecipeIngredientUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>, TError,{ingredientId: number;data: RecipeIngredientUpdate}, TContext> => {
 
-  return `/api/v1/recipes/ingredients/${ingredientId}`
-}
-
-export const updateIngredientApiV1RecipesIngredientsIngredientIdPut = async (ingredientId: number,
-    recipeIngredientUpdate: RecipeIngredientUpdate, options?: RequestInit): Promise<updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse> => {
-
-  return customFetch<updateIngredientApiV1RecipesIngredientsIngredientIdPutResponse>(getUpdateIngredientApiV1RecipesIngredientsIngredientIdPutUrl(ingredientId),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      recipeIngredientUpdate,)
-  }
-);}
+const mutationKey = ['updateIngredientApiV1RecipesIngredientsIngredientIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>, {ingredientId: number;data: RecipeIngredientUpdate}> = (props) => {
+          const {ingredientId,data} = props ?? {};
+
+          return  updateIngredientApiV1RecipesIngredientsIngredientIdPut(ingredientId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateIngredientApiV1RecipesIngredientsIngredientIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>>
+    export type UpdateIngredientApiV1RecipesIngredientsIngredientIdPutMutationBody = RecipeIngredientUpdate
+    export type UpdateIngredientApiV1RecipesIngredientsIngredientIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Ingredient
+ */
+export const useUpdateIngredientApiV1RecipesIngredientsIngredientIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>, TError,{ingredientId: number;data: RecipeIngredientUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>,
+        TError,
+        {ingredientId: number;data: RecipeIngredientUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateIngredientApiV1RecipesIngredientsIngredientIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Delete an ingredient from a recipe.
  * @summary Delete Ingredient
  */
-export type deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const deleteIngredientApiV1RecipesIngredientsIngredientIdDelete = (
+    ingredientId: number,
+ ) => {
 
-export type deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponseSuccess = (deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponseError = (deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse = (deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponseSuccess | deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponseError)
-
-export const getDeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteUrl = (ingredientId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/recipes/ingredients/${ingredientId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getDeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>, TError,{ingredientId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>, TError,{ingredientId: number}, TContext> => {
 
-  return `/api/v1/recipes/ingredients/${ingredientId}`
-}
-
-export const deleteIngredientApiV1RecipesIngredientsIngredientIdDelete = async (ingredientId: number, options?: RequestInit): Promise<deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse> => {
-
-  return customFetch<deleteIngredientApiV1RecipesIngredientsIngredientIdDeleteResponse>(getDeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteUrl(ingredientId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['deleteIngredientApiV1RecipesIngredientsIngredientIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>, {ingredientId: number}> = (props) => {
+          const {ingredientId} = props ?? {};
+
+          return  deleteIngredientApiV1RecipesIngredientsIngredientIdDelete(ingredientId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>>
+
+    export type DeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Ingredient
+ */
+export const useDeleteIngredientApiV1RecipesIngredientsIngredientIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>, TError,{ingredientId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>,
+        TError,
+        {ingredientId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Check recipe ingredients against user's pantry.
  * @summary Check Recipe Pantry
  */
-export type checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse200 = {
-  data: CheckPantryResponse
-  status: 200
-}
+export const checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost = (
+    recipeId: number,
+ signal?: AbortSignal
+) => {
 
-export type checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponseSuccess = (checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse200) & {
-  headers: Headers;
-};
-export type checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponseError = (checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse422) & {
-  headers: Headers;
-};
-
-export type checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse = (checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponseSuccess | checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponseError)
-
-export const getCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostUrl = (recipeId: number,) => {
+      return customFetch<CheckPantryResponse>(
+      {url: `/api/v1/recipes/${recipeId}/check-pantry`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>, TError,{recipeId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>, TError,{recipeId: number}, TContext> => {
 
-  return `/api/v1/recipes/${recipeId}/check-pantry`
-}
-
-export const checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost = async (recipeId: number, options?: RequestInit): Promise<checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse> => {
-
-  return customFetch<checkRecipePantryApiV1RecipesRecipeIdCheckPantryPostResponse>(getCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostUrl(recipeId),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>, {recipeId: number}> = (props) => {
+          const {recipeId} = props ?? {};
+
+          return  checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost(recipeId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationResult = NonNullable<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>>
+
+    export type CheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Check Recipe Pantry
+ */
+export const useCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>, TError,{recipeId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>,
+        TError,
+        {recipeId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get a specific recipe with all ingredients.
  * @summary Get Recipe
  */
-export type getRecipeApiV1RecipesRecipeIdGetResponse200 = {
-  data: RecipeResponse
-  status: 200
+export const getRecipeApiV1RecipesRecipeIdGet = (
+    recipeId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<RecipeResponse>(
+      {url: `/api/v1/recipes/${recipeId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetRecipeApiV1RecipesRecipeIdGetQueryKey = (recipeId?: number,) => {
+    return [
+    `/api/v1/recipes/${recipeId}`
+    ] as const;
+    }
+
+
+export const getGetRecipeApiV1RecipesRecipeIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>> = ({ signal }) => getRecipeApiV1RecipesRecipeIdGet(recipeId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(recipeId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getRecipeApiV1RecipesRecipeIdGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetRecipeApiV1RecipesRecipeIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>>
+export type GetRecipeApiV1RecipesRecipeIdGetQueryError = HTTPValidationError
+
+
+export function useGetRecipeApiV1RecipesRecipeIdGet<TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(
+ recipeId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetRecipeApiV1RecipesRecipeIdGet<TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(
+ recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetRecipeApiV1RecipesRecipeIdGet<TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(
+ recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Recipe
+ */
+
+export function useGetRecipeApiV1RecipesRecipeIdGet<TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(
+ recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetRecipeApiV1RecipesRecipeIdGetQueryOptions(recipeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getRecipeApiV1RecipesRecipeIdGetResponseSuccess = (getRecipeApiV1RecipesRecipeIdGetResponse200) & {
-  headers: Headers;
-};
-export type getRecipeApiV1RecipesRecipeIdGetResponseError = (getRecipeApiV1RecipesRecipeIdGetResponse422) & {
-  headers: Headers;
-};
-
-export type getRecipeApiV1RecipesRecipeIdGetResponse = (getRecipeApiV1RecipesRecipeIdGetResponseSuccess | getRecipeApiV1RecipesRecipeIdGetResponseError)
-
-export const getGetRecipeApiV1RecipesRecipeIdGetUrl = (recipeId: number,) => {
-
-
-
-
-  return `/api/v1/recipes/${recipeId}`
-}
-
-export const getRecipeApiV1RecipesRecipeIdGet = async (recipeId: number, options?: RequestInit): Promise<getRecipeApiV1RecipesRecipeIdGetResponse> => {
-
-  return customFetch<getRecipeApiV1RecipesRecipeIdGetResponse>(getGetRecipeApiV1RecipesRecipeIdGetUrl(recipeId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2653,179 +4942,288 @@ export const getRecipeApiV1RecipesRecipeIdGet = async (recipeId: number, options
  * Update recipe metadata (not ingredients).
  * @summary Update Recipe
  */
-export type updateRecipeApiV1RecipesRecipeIdPutResponse200 = {
-  data: RecipeResponse
-  status: 200
-}
+export const updateRecipeApiV1RecipesRecipeIdPut = (
+    recipeId: number,
+    recipeUpdate: RecipeUpdate,
+ ) => {
 
-export type updateRecipeApiV1RecipesRecipeIdPutResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type updateRecipeApiV1RecipesRecipeIdPutResponseSuccess = (updateRecipeApiV1RecipesRecipeIdPutResponse200) & {
-  headers: Headers;
-};
-export type updateRecipeApiV1RecipesRecipeIdPutResponseError = (updateRecipeApiV1RecipesRecipeIdPutResponse422) & {
-  headers: Headers;
-};
-
-export type updateRecipeApiV1RecipesRecipeIdPutResponse = (updateRecipeApiV1RecipesRecipeIdPutResponseSuccess | updateRecipeApiV1RecipesRecipeIdPutResponseError)
-
-export const getUpdateRecipeApiV1RecipesRecipeIdPutUrl = (recipeId: number,) => {
+      return customFetch<RecipeResponse>(
+      {url: `/api/v1/recipes/${recipeId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: recipeUpdate
+    },
+      );
+    }
 
 
 
+export const getUpdateRecipeApiV1RecipesRecipeIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>, TError,{recipeId: number;data: RecipeUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>, TError,{recipeId: number;data: RecipeUpdate}, TContext> => {
 
-  return `/api/v1/recipes/${recipeId}`
-}
-
-export const updateRecipeApiV1RecipesRecipeIdPut = async (recipeId: number,
-    recipeUpdate: RecipeUpdate, options?: RequestInit): Promise<updateRecipeApiV1RecipesRecipeIdPutResponse> => {
-
-  return customFetch<updateRecipeApiV1RecipesRecipeIdPutResponse>(getUpdateRecipeApiV1RecipesRecipeIdPutUrl(recipeId),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      recipeUpdate,)
-  }
-);}
+const mutationKey = ['updateRecipeApiV1RecipesRecipeIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>, {recipeId: number;data: RecipeUpdate}> = (props) => {
+          const {recipeId,data} = props ?? {};
+
+          return  updateRecipeApiV1RecipesRecipeIdPut(recipeId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRecipeApiV1RecipesRecipeIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>>
+    export type UpdateRecipeApiV1RecipesRecipeIdPutMutationBody = RecipeUpdate
+    export type UpdateRecipeApiV1RecipesRecipeIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Recipe
+ */
+export const useUpdateRecipeApiV1RecipesRecipeIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>, TError,{recipeId: number;data: RecipeUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>,
+        TError,
+        {recipeId: number;data: RecipeUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateRecipeApiV1RecipesRecipeIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Soft delete a recipe.
  * @summary Delete Recipe
  */
-export type deleteRecipeApiV1RecipesRecipeIdDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const deleteRecipeApiV1RecipesRecipeIdDelete = (
+    recipeId: number,
+ ) => {
 
-export type deleteRecipeApiV1RecipesRecipeIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type deleteRecipeApiV1RecipesRecipeIdDeleteResponseSuccess = (deleteRecipeApiV1RecipesRecipeIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deleteRecipeApiV1RecipesRecipeIdDeleteResponseError = (deleteRecipeApiV1RecipesRecipeIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deleteRecipeApiV1RecipesRecipeIdDeleteResponse = (deleteRecipeApiV1RecipesRecipeIdDeleteResponseSuccess | deleteRecipeApiV1RecipesRecipeIdDeleteResponseError)
-
-export const getDeleteRecipeApiV1RecipesRecipeIdDeleteUrl = (recipeId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/recipes/${recipeId}`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getDeleteRecipeApiV1RecipesRecipeIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>, TError,{recipeId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>, TError,{recipeId: number}, TContext> => {
 
-  return `/api/v1/recipes/${recipeId}`
-}
-
-export const deleteRecipeApiV1RecipesRecipeIdDelete = async (recipeId: number, options?: RequestInit): Promise<deleteRecipeApiV1RecipesRecipeIdDeleteResponse> => {
-
-  return customFetch<deleteRecipeApiV1RecipesRecipeIdDeleteResponse>(getDeleteRecipeApiV1RecipesRecipeIdDeleteUrl(recipeId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['deleteRecipeApiV1RecipesRecipeIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>, {recipeId: number}> = (props) => {
+          const {recipeId} = props ?? {};
+
+          return  deleteRecipeApiV1RecipesRecipeIdDelete(recipeId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRecipeApiV1RecipesRecipeIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>>
+
+    export type DeleteRecipeApiV1RecipesRecipeIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Recipe
+ */
+export const useDeleteRecipeApiV1RecipesRecipeIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>, TError,{recipeId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>,
+        TError,
+        {recipeId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteRecipeApiV1RecipesRecipeIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Add an ingredient to a recipe.
  * @summary Add Ingredient
  */
-export type addIngredientApiV1RecipesRecipeIdIngredientsPostResponse201 = {
-  data: RecipeIngredientResponse
-  status: 201
-}
+export const addIngredientApiV1RecipesRecipeIdIngredientsPost = (
+    recipeId: number,
+    recipeIngredientCreate: RecipeIngredientCreate,
+ signal?: AbortSignal
+) => {
 
-export type addIngredientApiV1RecipesRecipeIdIngredientsPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type addIngredientApiV1RecipesRecipeIdIngredientsPostResponseSuccess = (addIngredientApiV1RecipesRecipeIdIngredientsPostResponse201) & {
-  headers: Headers;
-};
-export type addIngredientApiV1RecipesRecipeIdIngredientsPostResponseError = (addIngredientApiV1RecipesRecipeIdIngredientsPostResponse422) & {
-  headers: Headers;
-};
-
-export type addIngredientApiV1RecipesRecipeIdIngredientsPostResponse = (addIngredientApiV1RecipesRecipeIdIngredientsPostResponseSuccess | addIngredientApiV1RecipesRecipeIdIngredientsPostResponseError)
-
-export const getAddIngredientApiV1RecipesRecipeIdIngredientsPostUrl = (recipeId: number,) => {
+      return customFetch<RecipeIngredientResponse>(
+      {url: `/api/v1/recipes/${recipeId}/ingredients`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: recipeIngredientCreate, signal
+    },
+      );
+    }
 
 
 
+export const getAddIngredientApiV1RecipesRecipeIdIngredientsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>, TError,{recipeId: number;data: RecipeIngredientCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>, TError,{recipeId: number;data: RecipeIngredientCreate}, TContext> => {
 
-  return `/api/v1/recipes/${recipeId}/ingredients`
-}
-
-export const addIngredientApiV1RecipesRecipeIdIngredientsPost = async (recipeId: number,
-    recipeIngredientCreate: RecipeIngredientCreate, options?: RequestInit): Promise<addIngredientApiV1RecipesRecipeIdIngredientsPostResponse> => {
-
-  return customFetch<addIngredientApiV1RecipesRecipeIdIngredientsPostResponse>(getAddIngredientApiV1RecipesRecipeIdIngredientsPostUrl(recipeId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      recipeIngredientCreate,)
-  }
-);}
+const mutationKey = ['addIngredientApiV1RecipesRecipeIdIngredientsPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>, {recipeId: number;data: RecipeIngredientCreate}> = (props) => {
+          const {recipeId,data} = props ?? {};
+
+          return  addIngredientApiV1RecipesRecipeIdIngredientsPost(recipeId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddIngredientApiV1RecipesRecipeIdIngredientsPostMutationResult = NonNullable<Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>>
+    export type AddIngredientApiV1RecipesRecipeIdIngredientsPostMutationBody = RecipeIngredientCreate
+    export type AddIngredientApiV1RecipesRecipeIdIngredientsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Add Ingredient
+ */
+export const useAddIngredientApiV1RecipesRecipeIdIngredientsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>, TError,{recipeId: number;data: RecipeIngredientCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>,
+        TError,
+        {recipeId: number;data: RecipeIngredientCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getAddIngredientApiV1RecipesRecipeIdIngredientsPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Get list of completed step indices.
  * @summary Get Step Completions
  */
-export type getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse200 = {
-  data: StepCompletionsResponse
-  status: 200
+export const getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet = (
+    recipeId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<StepCompletionsResponse>(
+      {url: `/api/v1/recipes/${recipeId}/step-completions`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryKey = (recipeId?: number,) => {
+    return [
+    `/api/v1/recipes/${recipeId}/step-completions`
+    ] as const;
+    }
+
+
+export const getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryOptions = <TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryKey(recipeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>> = ({ signal }) => getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet(recipeId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(recipeId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>>
+export type GetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryError = HTTPValidationError
+
+
+export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(
+ recipeId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(
+ recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(
+ recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Step Completions
+ */
+
+export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(
+ recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryOptions(recipeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponseSuccess = (getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse200) & {
-  headers: Headers;
-};
-export type getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponseError = (getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse422) & {
-  headers: Headers;
-};
-
-export type getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse = (getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponseSuccess | getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponseError)
-
-export const getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetUrl = (recipeId: number,) => {
-
-
-
-
-  return `/api/v1/recipes/${recipeId}/step-completions`
-}
-
-export const getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet = async (recipeId: number, options?: RequestInit): Promise<getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse> => {
-
-  return customFetch<getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetResponse>(getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetUrl(recipeId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -2833,171 +5231,382 @@ export const getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet = async (r
  * Clear all step completions for a recipe.
  * @summary Reset Step Completions
  */
-export type resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse204 = {
-  data: void
-  status: 204
-}
+export const resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete = (
+    recipeId: number,
+ ) => {
 
-export type resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponseSuccess = (resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse204) & {
-  headers: Headers;
-};
-export type resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponseError = (resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse = (resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponseSuccess | resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponseError)
-
-export const getResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteUrl = (recipeId: number,) => {
+      return customFetch<void>(
+      {url: `/api/v1/recipes/${recipeId}/step-completions`, method: 'DELETE'
+    },
+      );
+    }
 
 
 
+export const getResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>, TError,{recipeId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>, TError,{recipeId: number}, TContext> => {
 
-  return `/api/v1/recipes/${recipeId}/step-completions`
-}
-
-export const resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete = async (recipeId: number, options?: RequestInit): Promise<resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse> => {
-
-  return customFetch<resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteResponse>(getResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteUrl(recipeId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
+const mutationKey = ['resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>, {recipeId: number}> = (props) => {
+          const {recipeId} = props ?? {};
+
+          return  resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete(recipeId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>>
+
+    export type ResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Reset Step Completions
+ */
+export const useResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>, TError,{recipeId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>,
+        TError,
+        {recipeId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Toggle a step's completion state.
  * @summary Toggle Step Completion
  */
-export type toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse200 = {
-  data: StepToggleResponse
-  status: 200
-}
+export const toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost = (
+    recipeId: number,
+    stepIndex: number,
+ signal?: AbortSignal
+) => {
 
-export type toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponseSuccess = (toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse200) & {
-  headers: Headers;
-};
-export type toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponseError = (toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse422) & {
-  headers: Headers;
-};
-
-export type toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse = (toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponseSuccess | toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponseError)
-
-export const getToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostUrl = (recipeId: number,
-    stepIndex: number,) => {
+      return customFetch<StepToggleResponse>(
+      {url: `/api/v1/recipes/${recipeId}/steps/${stepIndex}/toggle`, method: 'POST', signal
+    },
+      );
+    }
 
 
 
+export const getToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>, TError,{recipeId: number;stepIndex: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>, TError,{recipeId: number;stepIndex: number}, TContext> => {
 
-  return `/api/v1/recipes/${recipeId}/steps/${stepIndex}/toggle`
-}
-
-export const toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost = async (recipeId: number,
-    stepIndex: number, options?: RequestInit): Promise<toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse> => {
-
-  return customFetch<toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostResponse>(getToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostUrl(recipeId,stepIndex),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-);}
+const mutationKey = ['toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>, {recipeId: number;stepIndex: number}> = (props) => {
+          const {recipeId,stepIndex} = props ?? {};
+
+          return  toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost(recipeId,stepIndex,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationResult = NonNullable<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>>
+
+    export type ToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Toggle Step Completion
+ */
+export const useToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>, TError,{recipeId: number;stepIndex: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>,
+        TError,
+        {recipeId: number;stepIndex: number},
+        TContext
+      > => {
+
+      const mutationOptions = getToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
- * List all pantry items for the current user.
+ * List all pantry items for the current user's household.
  * @summary List Pantry Items
  */
-export type listPantryItemsApiV1PantryGetResponse200 = {
-  data: PantryItemResponse[]
-  status: 200
+export const listPantryItemsApiV1PantryGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PantryItemResponse[]>(
+      {url: `/api/v1/pantry`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getListPantryItemsApiV1PantryGetQueryKey = () => {
+    return [
+    `/api/v1/pantry`
+    ] as const;
+    }
+
+
+export const getListPantryItemsApiV1PantryGetQueryOptions = <TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPantryItemsApiV1PantryGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>> = ({ signal }) => listPantryItemsApiV1PantryGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type listPantryItemsApiV1PantryGetResponseSuccess = (listPantryItemsApiV1PantryGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type listPantryItemsApiV1PantryGetResponse = (listPantryItemsApiV1PantryGetResponseSuccess)
-
-export const getListPantryItemsApiV1PantryGetUrl = () => {
+export type ListPantryItemsApiV1PantryGetQueryResult = NonNullable<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>>
+export type ListPantryItemsApiV1PantryGetQueryError = unknown
 
 
+export function useListPantryItemsApiV1PantryGet<TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>,
+          TError,
+          Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPantryItemsApiV1PantryGet<TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>,
+          TError,
+          Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPantryItemsApiV1PantryGet<TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Pantry Items
+ */
 
+export function useListPantryItemsApiV1PantryGet<TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/api/v1/pantry`
+  const queryOptions = getListPantryItemsApiV1PantryGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export const listPantryItemsApiV1PantryGet = async ( options?: RequestInit): Promise<listPantryItemsApiV1PantryGetResponse> => {
-
-  return customFetch<listPantryItemsApiV1PantryGetResponse>(getListPantryItemsApiV1PantryGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
 /**
- * Add an item to the pantry.
+ * Add an item to the household pantry.
  * @summary Create Pantry Item
  */
-export type createPantryItemApiV1PantryPostResponse201 = {
-  data: PantryItemResponse
-  status: 201
+export const createPantryItemApiV1PantryPost = (
+    pantryItemCreate: PantryItemCreate,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PantryItemResponse>(
+      {url: `/api/v1/pantry`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: pantryItemCreate, signal
+    },
+      );
+    }
+
+
+
+export const getCreatePantryItemApiV1PantryPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>, TError,{data: PantryItemCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>, TError,{data: PantryItemCreate}, TContext> => {
+
+const mutationKey = ['createPantryItemApiV1PantryPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>, {data: PantryItemCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPantryItemApiV1PantryPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePantryItemApiV1PantryPostMutationResult = NonNullable<Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>>
+    export type CreatePantryItemApiV1PantryPostMutationBody = PantryItemCreate
+    export type CreatePantryItemApiV1PantryPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Pantry Item
+ */
+export const useCreatePantryItemApiV1PantryPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>, TError,{data: PantryItemCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>,
+        TError,
+        {data: PantryItemCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreatePantryItemApiV1PantryPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * List pantry items with recipe participation data.
+
+Returns each pantry item along with which recipes use that ingredient.
+Matching is done by normalized ingredient name (case-insensitive, trimmed).
+ * @summary List Pantry Items With Recipes
+ */
+export const listPantryItemsWithRecipesApiV1PantryWithRecipesGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PantryItemWithRecipesResponse[]>(
+      {url: `/api/v1/pantry/with-recipes`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey = () => {
+    return [
+    `/api/v1/pantry/with-recipes`
+    ] as const;
+    }
+
+
+export const getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryOptions = <TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>> = ({ signal }) => listPantryItemsWithRecipesApiV1PantryWithRecipesGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type createPantryItemApiV1PantryPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type ListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryResult = NonNullable<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>>
+export type ListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryError = unknown
+
+
+export function useListPantryItemsWithRecipesApiV1PantryWithRecipesGet<TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPantryItemsWithRecipesApiV1PantryWithRecipesGet<TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>,
+          TError,
+          Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListPantryItemsWithRecipesApiV1PantryWithRecipesGet<TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Pantry Items With Recipes
+ */
+
+export function useListPantryItemsWithRecipesApiV1PantryWithRecipesGet<TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type createPantryItemApiV1PantryPostResponseSuccess = (createPantryItemApiV1PantryPostResponse201) & {
-  headers: Headers;
-};
-export type createPantryItemApiV1PantryPostResponseError = (createPantryItemApiV1PantryPostResponse422) & {
-  headers: Headers;
-};
-
-export type createPantryItemApiV1PantryPostResponse = (createPantryItemApiV1PantryPostResponseSuccess | createPantryItemApiV1PantryPostResponseError)
-
-export const getCreatePantryItemApiV1PantryPostUrl = () => {
-
-
-
-
-  return `/api/v1/pantry`
-}
-
-export const createPantryItemApiV1PantryPost = async (pantryItemCreate: PantryItemCreate, options?: RequestInit): Promise<createPantryItemApiV1PantryPostResponse> => {
-
-  return customFetch<createPantryItemApiV1PantryPostResponse>(getCreatePantryItemApiV1PantryPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      pantryItemCreate,)
-  }
-);}
 
 
 
@@ -3005,43 +5614,92 @@ export const createPantryItemApiV1PantryPost = async (pantryItemCreate: PantryIt
  * Get a specific pantry item.
  * @summary Get Pantry Item
  */
-export type getPantryItemApiV1PantryItemIdGetResponse200 = {
-  data: PantryItemResponse
-  status: 200
+export const getPantryItemApiV1PantryItemIdGet = (
+    itemId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PantryItemResponse>(
+      {url: `/api/v1/pantry/${itemId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetPantryItemApiV1PantryItemIdGetQueryKey = (itemId?: number,) => {
+    return [
+    `/api/v1/pantry/${itemId}`
+    ] as const;
+    }
+
+
+export const getGetPantryItemApiV1PantryItemIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(itemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPantryItemApiV1PantryItemIdGetQueryKey(itemId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>> = ({ signal }) => getPantryItemApiV1PantryItemIdGet(itemId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(itemId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type getPantryItemApiV1PantryItemIdGetResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetPantryItemApiV1PantryItemIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>>
+export type GetPantryItemApiV1PantryItemIdGetQueryError = HTTPValidationError
+
+
+export function useGetPantryItemApiV1PantryItemIdGet<TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(
+ itemId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPantryItemApiV1PantryItemIdGet<TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(
+ itemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPantryItemApiV1PantryItemIdGet<TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(
+ itemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Pantry Item
+ */
+
+export function useGetPantryItemApiV1PantryItemIdGet<TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(
+ itemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPantryItemApiV1PantryItemIdGetQueryOptions(itemId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type getPantryItemApiV1PantryItemIdGetResponseSuccess = (getPantryItemApiV1PantryItemIdGetResponse200) & {
-  headers: Headers;
-};
-export type getPantryItemApiV1PantryItemIdGetResponseError = (getPantryItemApiV1PantryItemIdGetResponse422) & {
-  headers: Headers;
-};
-
-export type getPantryItemApiV1PantryItemIdGetResponse = (getPantryItemApiV1PantryItemIdGetResponseSuccess | getPantryItemApiV1PantryItemIdGetResponseError)
-
-export const getGetPantryItemApiV1PantryItemIdGetUrl = (itemId: number,) => {
-
-
-
-
-  return `/api/v1/pantry/${itemId}`
-}
-
-export const getPantryItemApiV1PantryItemIdGet = async (itemId: number, options?: RequestInit): Promise<getPantryItemApiV1PantryItemIdGetResponse> => {
-
-  return customFetch<getPantryItemApiV1PantryItemIdGetResponse>(getGetPantryItemApiV1PantryItemIdGetUrl(itemId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
 
 
 
@@ -3049,168 +5707,1370 @@ export const getPantryItemApiV1PantryItemIdGet = async (itemId: number, options?
  * Update a pantry item.
  * @summary Update Pantry Item
  */
-export type updatePantryItemApiV1PantryItemIdPutResponse200 = {
-  data: PantryItemResponse
-  status: 200
-}
+export const updatePantryItemApiV1PantryItemIdPut = (
+    itemId: number,
+    pantryItemUpdate: PantryItemUpdate,
+ ) => {
 
-export type updatePantryItemApiV1PantryItemIdPutResponse422 = {
-  data: HTTPValidationError
-  status: 422
-}
 
-export type updatePantryItemApiV1PantryItemIdPutResponseSuccess = (updatePantryItemApiV1PantryItemIdPutResponse200) & {
-  headers: Headers;
-};
-export type updatePantryItemApiV1PantryItemIdPutResponseError = (updatePantryItemApiV1PantryItemIdPutResponse422) & {
-  headers: Headers;
-};
-
-export type updatePantryItemApiV1PantryItemIdPutResponse = (updatePantryItemApiV1PantryItemIdPutResponseSuccess | updatePantryItemApiV1PantryItemIdPutResponseError)
-
-export const getUpdatePantryItemApiV1PantryItemIdPutUrl = (itemId: number,) => {
+      return customFetch<PantryItemResponse>(
+      {url: `/api/v1/pantry/${itemId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: pantryItemUpdate
+    },
+      );
+    }
 
 
 
+export const getUpdatePantryItemApiV1PantryItemIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>, TError,{itemId: number;data: PantryItemUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>, TError,{itemId: number;data: PantryItemUpdate}, TContext> => {
 
-  return `/api/v1/pantry/${itemId}`
-}
-
-export const updatePantryItemApiV1PantryItemIdPut = async (itemId: number,
-    pantryItemUpdate: PantryItemUpdate, options?: RequestInit): Promise<updatePantryItemApiV1PantryItemIdPutResponse> => {
-
-  return customFetch<updatePantryItemApiV1PantryItemIdPutResponse>(getUpdatePantryItemApiV1PantryItemIdPutUrl(itemId),
-  {
-    ...options,
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      pantryItemUpdate,)
-  }
-);}
+const mutationKey = ['updatePantryItemApiV1PantryItemIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
 
 
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>, {itemId: number;data: PantryItemUpdate}> = (props) => {
+          const {itemId,data} = props ?? {};
+
+          return  updatePantryItemApiV1PantryItemIdPut(itemId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePantryItemApiV1PantryItemIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>>
+    export type UpdatePantryItemApiV1PantryItemIdPutMutationBody = PantryItemUpdate
+    export type UpdatePantryItemApiV1PantryItemIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Pantry Item
+ */
+export const useUpdatePantryItemApiV1PantryItemIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>, TError,{itemId: number;data: PantryItemUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>,
+        TError,
+        {itemId: number;data: PantryItemUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdatePantryItemApiV1PantryItemIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Remove an item from the pantry.
  * @summary Delete Pantry Item
  */
-export type deletePantryItemApiV1PantryItemIdDeleteResponse204 = {
-  data: void
-  status: 204
+export const deletePantryItemApiV1PantryItemIdDelete = (
+    itemId: number,
+ ) => {
+
+
+      return customFetch<void>(
+      {url: `/api/v1/pantry/${itemId}`, method: 'DELETE'
+    },
+      );
+    }
+
+
+
+export const getDeletePantryItemApiV1PantryItemIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>, TError,{itemId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>, TError,{itemId: number}, TContext> => {
+
+const mutationKey = ['deletePantryItemApiV1PantryItemIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>, {itemId: number}> = (props) => {
+          const {itemId} = props ?? {};
+
+          return  deletePantryItemApiV1PantryItemIdDelete(itemId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePantryItemApiV1PantryItemIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>>
+
+    export type DeletePantryItemApiV1PantryItemIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Pantry Item
+ */
+export const useDeletePantryItemApiV1PantryItemIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>, TError,{itemId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>,
+        TError,
+        {itemId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeletePantryItemApiV1PantryItemIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Bulk add items to household pantry (for post-shopping flow).
+ * @summary Bulk Add Pantry Items
+ */
+export const bulkAddPantryItemsApiV1PantryBulkPost = (
+    pantryBulkAddRequest: PantryBulkAddRequest,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PantryBulkAddResponse>(
+      {url: `/api/v1/pantry/bulk`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: pantryBulkAddRequest, signal
+    },
+      );
+    }
+
+
+
+export const getBulkAddPantryItemsApiV1PantryBulkPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>, TError,{data: PantryBulkAddRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>, TError,{data: PantryBulkAddRequest}, TContext> => {
+
+const mutationKey = ['bulkAddPantryItemsApiV1PantryBulkPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>, {data: PantryBulkAddRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  bulkAddPantryItemsApiV1PantryBulkPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BulkAddPantryItemsApiV1PantryBulkPostMutationResult = NonNullable<Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>>
+    export type BulkAddPantryItemsApiV1PantryBulkPostMutationBody = PantryBulkAddRequest
+    export type BulkAddPantryItemsApiV1PantryBulkPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Bulk Add Pantry Items
+ */
+export const useBulkAddPantryItemsApiV1PantryBulkPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>, TError,{data: PantryBulkAddRequest}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>,
+        TError,
+        {data: PantryBulkAddRequest},
+        TContext
+      > => {
+
+      const mutationOptions = getBulkAddPantryItemsApiV1PantryBulkPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Upload a receipt image for scanning.
+
+The receipt will be processed asynchronously using Claude Vision.
+Poll the status endpoint to check when processing is complete.
+
+Note: This endpoint must remain async because UploadFile.read() is async.
+ * @summary Scan Receipt
+ */
+export const scanReceiptApiV1PantryScanReceiptPost = (
+    bodyScanReceiptApiV1PantryScanReceiptPost: BodyScanReceiptApiV1PantryScanReceiptPost,
+ signal?: AbortSignal
+) => {
+
+      const formData = new FormData();
+formData.append(`file`, bodyScanReceiptApiV1PantryScanReceiptPost.file)
+
+      return customFetch<ReceiptScanCreateResponse>(
+      {url: `/api/v1/pantry/scan-receipt`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      );
+    }
+
+
+
+export const getScanReceiptApiV1PantryScanReceiptPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>, TError,{data: BodyScanReceiptApiV1PantryScanReceiptPost}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>, TError,{data: BodyScanReceiptApiV1PantryScanReceiptPost}, TContext> => {
+
+const mutationKey = ['scanReceiptApiV1PantryScanReceiptPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>, {data: BodyScanReceiptApiV1PantryScanReceiptPost}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanReceiptApiV1PantryScanReceiptPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanReceiptApiV1PantryScanReceiptPostMutationResult = NonNullable<Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>>
+    export type ScanReceiptApiV1PantryScanReceiptPostMutationBody = BodyScanReceiptApiV1PantryScanReceiptPost
+    export type ScanReceiptApiV1PantryScanReceiptPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Scan Receipt
+ */
+export const useScanReceiptApiV1PantryScanReceiptPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>, TError,{data: BodyScanReceiptApiV1PantryScanReceiptPost}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>,
+        TError,
+        {data: BodyScanReceiptApiV1PantryScanReceiptPost},
+        TContext
+      > => {
+
+      const mutationOptions = getScanReceiptApiV1PantryScanReceiptPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Get the status and results of a receipt scan.
+ * @summary Get Receipt Scan
+ */
+export const getReceiptScanApiV1PantryScanReceiptScanIdGet = (
+    scanId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ReceiptScanResponse>(
+      {url: `/api/v1/pantry/scan-receipt/${scanId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryKey = (scanId?: number,) => {
+    return [
+    `/api/v1/pantry/scan-receipt/${scanId}`
+    ] as const;
+    }
+
+
+export const getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(scanId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryKey(scanId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>> = ({ signal }) => getReceiptScanApiV1PantryScanReceiptScanIdGet(scanId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(scanId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type deletePantryItemApiV1PantryItemIdDeleteResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type GetReceiptScanApiV1PantryScanReceiptScanIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>>
+export type GetReceiptScanApiV1PantryScanReceiptScanIdGetQueryError = HTTPValidationError
+
+
+export function useGetReceiptScanApiV1PantryScanReceiptScanIdGet<TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(
+ scanId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetReceiptScanApiV1PantryScanReceiptScanIdGet<TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(
+ scanId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetReceiptScanApiV1PantryScanReceiptScanIdGet<TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(
+ scanId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Receipt Scan
+ */
+
+export function useGetReceiptScanApiV1PantryScanReceiptScanIdGet<TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(
+ scanId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryOptions(scanId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type deletePantryItemApiV1PantryItemIdDeleteResponseSuccess = (deletePantryItemApiV1PantryItemIdDeleteResponse204) & {
-  headers: Headers;
-};
-export type deletePantryItemApiV1PantryItemIdDeleteResponseError = (deletePantryItemApiV1PantryItemIdDeleteResponse422) & {
-  headers: Headers;
-};
-
-export type deletePantryItemApiV1PantryItemIdDeleteResponse = (deletePantryItemApiV1PantryItemIdDeleteResponseSuccess | deletePantryItemApiV1PantryItemIdDeleteResponseError)
-
-export const getDeletePantryItemApiV1PantryItemIdDeleteUrl = (itemId: number,) => {
-
-
-
-
-  return `/api/v1/pantry/${itemId}`
-}
-
-export const deletePantryItemApiV1PantryItemIdDelete = async (itemId: number, options?: RequestInit): Promise<deletePantryItemApiV1PantryItemIdDeleteResponse> => {
-
-  return customFetch<deletePantryItemApiV1PantryItemIdDeleteResponse>(getDeletePantryItemApiV1PantryItemIdDeleteUrl(itemId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
 
 
 
 /**
- * Bulk add items to pantry (for post-shopping flow).
- * @summary Bulk Add Pantry Items
+ * List recent receipt scans for the user.
+ * @summary List Receipt Scans
  */
-export type bulkAddPantryItemsApiV1PantryBulkPostResponse200 = {
-  data: PantryBulkAddResponse
-  status: 200
+export const listReceiptScansApiV1PantryScanReceiptsGet = (
+    params?: ListReceiptScansApiV1PantryScanReceiptsGetParams,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ReceiptScanResponse[]>(
+      {url: `/api/v1/pantry/scan-receipts`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+
+
+
+
+export const getListReceiptScansApiV1PantryScanReceiptsGetQueryKey = (params?: ListReceiptScansApiV1PantryScanReceiptsGetParams,) => {
+    return [
+    `/api/v1/pantry/scan-receipts`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+
+export const getListReceiptScansApiV1PantryScanReceiptsGetQueryOptions = <TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(params?: ListReceiptScansApiV1PantryScanReceiptsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReceiptScansApiV1PantryScanReceiptsGetQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>> = ({ signal }) => listReceiptScansApiV1PantryScanReceiptsGet(params, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type bulkAddPantryItemsApiV1PantryBulkPostResponse422 = {
-  data: HTTPValidationError
-  status: 422
+export type ListReceiptScansApiV1PantryScanReceiptsGetQueryResult = NonNullable<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>>
+export type ListReceiptScansApiV1PantryScanReceiptsGetQueryError = HTTPValidationError
+
+
+export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(
+ params: undefined |  ListReceiptScansApiV1PantryScanReceiptsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(
+ params?: ListReceiptScansApiV1PantryScanReceiptsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>,
+          TError,
+          Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(
+ params?: ListReceiptScansApiV1PantryScanReceiptsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List Receipt Scans
+ */
+
+export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(
+ params?: ListReceiptScansApiV1PantryScanReceiptsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListReceiptScansApiV1PantryScanReceiptsGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
 
-export type bulkAddPantryItemsApiV1PantryBulkPostResponseSuccess = (bulkAddPantryItemsApiV1PantryBulkPostResponse200) & {
-  headers: Headers;
-};
-export type bulkAddPantryItemsApiV1PantryBulkPostResponseError = (bulkAddPantryItemsApiV1PantryBulkPostResponse422) & {
-  headers: Headers;
-};
-
-export type bulkAddPantryItemsApiV1PantryBulkPostResponse = (bulkAddPantryItemsApiV1PantryBulkPostResponseSuccess | bulkAddPantryItemsApiV1PantryBulkPostResponseError)
-
-export const getBulkAddPantryItemsApiV1PantryBulkPostUrl = () => {
 
 
 
+/**
+ * Get the VAPID public key for push notification subscription.
+ * @summary Get Vapid Public Key
+ */
+export const getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet = (
 
-  return `/api/v1/pantry/bulk`
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<VapidPublicKeyResponse>(
+      {url: `/api/v1/notifications/vapid-public-key`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryKey = () => {
+    return [
+    `/api/v1/notifications/vapid-public-key`
+    ] as const;
+    }
+
+
+export const getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryOptions = <TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>> = ({ signal }) => getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export const bulkAddPantryItemsApiV1PantryBulkPost = async (pantryBulkAddRequest: PantryBulkAddRequest, options?: RequestInit): Promise<bulkAddPantryItemsApiV1PantryBulkPostResponse> => {
-
-  return customFetch<bulkAddPantryItemsApiV1PantryBulkPostResponse>(getBulkAddPantryItemsApiV1PantryBulkPostUrl(),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      pantryBulkAddRequest,)
-  }
-);}
+export type GetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryResult = NonNullable<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>>
+export type GetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryError = unknown
 
 
+export function useGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGet<TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>,
+          TError,
+          Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGet<TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>,
+          TError,
+          Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGet<TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Vapid Public Key
+ */
+
+export function useGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGet<TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Subscribe to push notifications.
+ * @summary Subscribe Push
+ */
+export const subscribePushApiV1NotificationsSubscribePost = (
+    pushSubscriptionCreate: PushSubscriptionCreate,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<PushSubscriptionResponse>(
+      {url: `/api/v1/notifications/subscribe`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: pushSubscriptionCreate, signal
+    },
+      );
+    }
+
+
+
+export const getSubscribePushApiV1NotificationsSubscribePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>, TError,{data: PushSubscriptionCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>, TError,{data: PushSubscriptionCreate}, TContext> => {
+
+const mutationKey = ['subscribePushApiV1NotificationsSubscribePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>, {data: PushSubscriptionCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  subscribePushApiV1NotificationsSubscribePost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubscribePushApiV1NotificationsSubscribePostMutationResult = NonNullable<Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>>
+    export type SubscribePushApiV1NotificationsSubscribePostMutationBody = PushSubscriptionCreate
+    export type SubscribePushApiV1NotificationsSubscribePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Subscribe Push
+ */
+export const useSubscribePushApiV1NotificationsSubscribePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>, TError,{data: PushSubscriptionCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>,
+        TError,
+        {data: PushSubscriptionCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getSubscribePushApiV1NotificationsSubscribePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Unsubscribe from push notifications.
+ * @summary Unsubscribe Push
+ */
+export const unsubscribePushApiV1NotificationsSubscribeDelete = (
+    params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams,
+ ) => {
+
+
+      return customFetch<UnsubscribePushApiV1NotificationsSubscribeDelete200>(
+      {url: `/api/v1/notifications/subscribe`, method: 'DELETE',
+        params
+    },
+      );
+    }
+
+
+
+export const getUnsubscribePushApiV1NotificationsSubscribeDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>, TError,{params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>, TError,{params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams}, TContext> => {
+
+const mutationKey = ['unsubscribePushApiV1NotificationsSubscribeDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>, {params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  unsubscribePushApiV1NotificationsSubscribeDelete(params,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnsubscribePushApiV1NotificationsSubscribeDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>>
+
+    export type UnsubscribePushApiV1NotificationsSubscribeDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Unsubscribe Push
+ */
+export const useUnsubscribePushApiV1NotificationsSubscribeDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>, TError,{params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>,
+        TError,
+        {params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams},
+        TContext
+      > => {
+
+      const mutationOptions = getUnsubscribePushApiV1NotificationsSubscribeDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Get notification settings for the current user.
+ * @summary Get Notification Settings
+ */
+export const getNotificationSettingsApiV1NotificationsSettingsGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<NotificationSettingsResponse>(
+      {url: `/api/v1/notifications/settings`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetNotificationSettingsApiV1NotificationsSettingsGetQueryKey = () => {
+    return [
+    `/api/v1/notifications/settings`
+    ] as const;
+    }
+
+
+export const getGetNotificationSettingsApiV1NotificationsSettingsGetQueryOptions = <TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetNotificationSettingsApiV1NotificationsSettingsGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>> = ({ signal }) => getNotificationSettingsApiV1NotificationsSettingsGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetNotificationSettingsApiV1NotificationsSettingsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>>
+export type GetNotificationSettingsApiV1NotificationsSettingsGetQueryError = unknown
+
+
+export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Notification Settings
+ */
+
+export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetNotificationSettingsApiV1NotificationsSettingsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Update notification settings for the current user.
+ * @summary Update Notification Settings
+ */
+export const updateNotificationSettingsApiV1NotificationsSettingsPut = (
+    notificationSettingsUpdate: NotificationSettingsUpdate,
+ ) => {
+
+
+      return customFetch<NotificationSettingsResponse>(
+      {url: `/api/v1/notifications/settings`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: notificationSettingsUpdate
+    },
+      );
+    }
+
+
+
+export const getUpdateNotificationSettingsApiV1NotificationsSettingsPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>, TError,{data: NotificationSettingsUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>, TError,{data: NotificationSettingsUpdate}, TContext> => {
+
+const mutationKey = ['updateNotificationSettingsApiV1NotificationsSettingsPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>, {data: NotificationSettingsUpdate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateNotificationSettingsApiV1NotificationsSettingsPut(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateNotificationSettingsApiV1NotificationsSettingsPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>>
+    export type UpdateNotificationSettingsApiV1NotificationsSettingsPutMutationBody = NotificationSettingsUpdate
+    export type UpdateNotificationSettingsApiV1NotificationsSettingsPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Notification Settings
+ */
+export const useUpdateNotificationSettingsApiV1NotificationsSettingsPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>, TError,{data: NotificationSettingsUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>,
+        TError,
+        {data: NotificationSettingsUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateNotificationSettingsApiV1NotificationsSettingsPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Submit a response to a task reminder from the app.
+ * @summary Respond To Reminder
+ */
+export const respondToReminderApiV1NotificationsRespondPost = (
+    reminderResponseCreate: ReminderResponseCreate,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ReminderResponseResult>(
+      {url: `/api/v1/notifications/respond`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: reminderResponseCreate, signal
+    },
+      );
+    }
+
+
+
+export const getRespondToReminderApiV1NotificationsRespondPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>, TError,{data: ReminderResponseCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>, TError,{data: ReminderResponseCreate}, TContext> => {
+
+const mutationKey = ['respondToReminderApiV1NotificationsRespondPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>, {data: ReminderResponseCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  respondToReminderApiV1NotificationsRespondPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToReminderApiV1NotificationsRespondPostMutationResult = NonNullable<Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>>
+    export type RespondToReminderApiV1NotificationsRespondPostMutationBody = ReminderResponseCreate
+    export type RespondToReminderApiV1NotificationsRespondPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Respond To Reminder
+ */
+export const useRespondToReminderApiV1NotificationsRespondPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>, TError,{data: ReminderResponseCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>,
+        TError,
+        {data: ReminderResponseCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getRespondToReminderApiV1NotificationsRespondPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Handle incoming SMS responses from Twilio.
+
+Twilio sends POST with form data:
+- From: phone number that sent the SMS
+- Body: SMS text content
+ * @summary Handle Sms Response
+ */
+export const handleSmsResponseApiV1WebhooksTwilioSmsPost = (
+    bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost,
+ signal?: AbortSignal
+) => {
+
+      const formUrlEncoded = new URLSearchParams();
+formUrlEncoded.append(`From`, bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost.From)
+formUrlEncoded.append(`Body`, bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost.Body)
+
+      return customFetch<unknown>(
+      {url: `/api/v1/webhooks/twilio/sms`, method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', },
+       data: formUrlEncoded, signal
+    },
+      );
+    }
+
+
+
+export const getHandleSmsResponseApiV1WebhooksTwilioSmsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>, TError,{data: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>, TError,{data: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost}, TContext> => {
+
+const mutationKey = ['handleSmsResponseApiV1WebhooksTwilioSmsPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>, {data: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost}> = (props) => {
+          const {data} = props ?? {};
+
+          return  handleSmsResponseApiV1WebhooksTwilioSmsPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HandleSmsResponseApiV1WebhooksTwilioSmsPostMutationResult = NonNullable<Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>>
+    export type HandleSmsResponseApiV1WebhooksTwilioSmsPostMutationBody = BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost
+    export type HandleSmsResponseApiV1WebhooksTwilioSmsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Handle Sms Response
+ */
+export const useHandleSmsResponseApiV1WebhooksTwilioSmsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>, TError,{data: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>,
+        TError,
+        {data: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost},
+        TContext
+      > => {
+
+      const mutationOptions = getHandleSmsResponseApiV1WebhooksTwilioSmsPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Generate TwiML for voice call that reads the task and records response.
+
+This endpoint is called by Twilio when initiating a call.
+ * @summary Get Voice Twiml
+ */
+export const getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost = (
+    params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/webhooks/twilio/voice/twiml`, method: 'POST',
+        params, signal
+    },
+      );
+    }
+
+
+
+export const getGetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>, TError,{params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>, TError,{params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams}, TContext> => {
+
+const mutationKey = ['getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>, {params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost(params,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationResult = NonNullable<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>>
+
+    export type GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Get Voice Twiml
+ */
+export const useGetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>, TError,{params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>,
+        TError,
+        {params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams},
+        TContext
+      > => {
+
+      const mutationOptions = getGetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Handle voice call status callbacks from Twilio.
+ * @summary Handle Voice Status
+ */
+export const handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost = (
+    bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost,
+ signal?: AbortSignal
+) => {
+
+      const formUrlEncoded = new URLSearchParams();
+if(bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.CallSid !== undefined) {
+ formUrlEncoded.append(`CallSid`, bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.CallSid)
+ }
+if(bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.CallStatus !== undefined) {
+ formUrlEncoded.append(`CallStatus`, bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.CallStatus)
+ }
+if(bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.RecordingUrl !== undefined) {
+ formUrlEncoded.append(`RecordingUrl`, bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.RecordingUrl)
+ }
+if(bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.RecordingSid !== undefined) {
+ formUrlEncoded.append(`RecordingSid`, bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.RecordingSid)
+ }
+
+      return customFetch<unknown>(
+      {url: `/api/v1/webhooks/twilio/voice/status`, method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', },
+       data: formUrlEncoded, signal
+    },
+      );
+    }
+
+
+
+export const getHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>, TError,{data: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>, TError,{data: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost}, TContext> => {
+
+const mutationKey = ['handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>, {data: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost}> = (props) => {
+          const {data} = props ?? {};
+
+          return  handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPostMutationResult = NonNullable<Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>>
+    export type HandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPostMutationBody = BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost
+    export type HandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Handle Voice Status
+ */
+export const useHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>, TError,{data: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>,
+        TError,
+        {data: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost},
+        TContext
+      > => {
+
+      const mutationOptions = getHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Handle voice transcription callbacks from Twilio.
+
+Note: Twilio's built-in transcription is deprecated. This endpoint is
+kept for compatibility but may need updating to use a different
+transcription service.
+ * @summary Handle Voice Transcription
+ */
+export const handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost = (
+    bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost,
+    params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams,
+ signal?: AbortSignal
+) => {
+
+      const formUrlEncoded = new URLSearchParams();
+if(bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.TranscriptionText !== undefined) {
+ formUrlEncoded.append(`TranscriptionText`, bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.TranscriptionText)
+ }
+if(bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.RecordingSid !== undefined) {
+ formUrlEncoded.append(`RecordingSid`, bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.RecordingSid)
+ }
+
+      return customFetch<unknown>(
+      {url: `/api/v1/webhooks/twilio/voice/transcription`, method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', },
+       data: formUrlEncoded,
+        params, signal
+    },
+      );
+    }
+
+
+
+export const getHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>, TError,{data: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost;params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>, TError,{data: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost;params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams}, TContext> => {
+
+const mutationKey = ['handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>, {data: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost;params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams}> = (props) => {
+          const {data,params} = props ?? {};
+
+          return  handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost(data,params,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostMutationResult = NonNullable<Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>>
+    export type HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostMutationBody = BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost
+    export type HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Handle Voice Transcription
+ */
+export const useHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>, TError,{data: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost;params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>,
+        TError,
+        {data: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost;params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams},
+        TContext
+      > => {
+
+      const mutationOptions = getHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Handle recording completion callback.
+
+Since Twilio's built-in transcription is deprecated, we would need to:
+1. Fetch the recording audio
+2. Send it to a transcription service (Whisper, Google STT, etc.)
+3. Process the transcribed text
+
+For now, log the recording URL for manual processing.
+ * @summary Handle Voice Recorded
+ */
+export const handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost = (
+    bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost,
+    params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams,
+ signal?: AbortSignal
+) => {
+
+      const formUrlEncoded = new URLSearchParams();
+if(bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingUrl !== undefined) {
+ formUrlEncoded.append(`RecordingUrl`, bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingUrl)
+ }
+if(bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingSid !== undefined) {
+ formUrlEncoded.append(`RecordingSid`, bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingSid)
+ }
+
+      return customFetch<unknown>(
+      {url: `/api/v1/webhooks/twilio/voice/recorded`, method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', },
+       data: formUrlEncoded,
+        params, signal
+    },
+      );
+    }
+
+
+
+export const getHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>, TError,{data: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost;params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>, TError,{data: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost;params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams}, TContext> => {
+
+const mutationKey = ['handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>, {data: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost;params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams}> = (props) => {
+          const {data,params} = props ?? {};
+
+          return  handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost(data,params,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostMutationResult = NonNullable<Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>>
+    export type HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostMutationBody = BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost
+    export type HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Handle Voice Recorded
+ */
+export const useHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>, TError,{data: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost;params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>,
+        TError,
+        {data: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost;params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams},
+        TContext
+      > => {
+
+      const mutationOptions = getHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
 
 /**
  * Health check endpoint.
  * @summary Health Check
  */
-export type healthCheckHealthGetResponse200 = {
-  data: unknown
-  status: 200
+export const healthCheckHealthGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/health`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getHealthCheckHealthGetQueryKey = () => {
+    return [
+    `/health`
+    ] as const;
+    }
+
+
+export const getHealthCheckHealthGetQueryOptions = <TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getHealthCheckHealthGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheckHealthGet>>> = ({ signal }) => healthCheckHealthGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type healthCheckHealthGetResponseSuccess = (healthCheckHealthGetResponse200) & {
-  headers: Headers;
-};
-;
-
-export type healthCheckHealthGetResponse = (healthCheckHealthGetResponseSuccess)
-
-export const getHealthCheckHealthGetUrl = () => {
+export type HealthCheckHealthGetQueryResult = NonNullable<Awaited<ReturnType<typeof healthCheckHealthGet>>>
+export type HealthCheckHealthGetQueryError = unknown
 
 
+export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthCheckHealthGet>>,
+          TError,
+          Awaited<ReturnType<typeof healthCheckHealthGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthCheckHealthGet>>,
+          TError,
+          Awaited<ReturnType<typeof healthCheckHealthGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Health Check
+ */
 
+export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  return `/health`
+  const queryOptions = getHealthCheckHealthGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
 }
-
-export const healthCheckHealthGet = async ( options?: RequestInit): Promise<healthCheckHealthGetResponse> => {
-
-  return customFetch<healthCheckHealthGetResponse>(getHealthCheckHealthGetUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}

@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { getCurrentUser, logout } from '@/lib/auth';
 import styles from './Navbar.module.css';
 
 // Hydration-safe mounted check
@@ -68,10 +68,10 @@ export default function Navbar() {
   const mounted = useMounted();
 
   // Get user at render time - only meaningful when mounted (client-side)
-  const user = mounted ? api.getCurrentUser() : null;
+  const user = mounted ? getCurrentUser() : null;
 
   const handleLogout = () => {
-    api.logout();
+    logout();
     router.push('/login');
   };
 

@@ -64,7 +64,27 @@ Dev hot-reloads on `todolist.lan`; prod on `thiemnet.ca` needs manual rebuild (`
 
 **Voice Page**: Uses Web Speech API. Brave Desktop blocks Google's speech servers (privacy); code shows warning banner. Other browsers work fine.
 
-**API Client** (`/web/src/lib/api.ts`): Handles auth tokens, 30s cache for GETs, mutations auto-invalidate cache.
+**API Client Architecture** (IMPORTANT):
+- **Generated client** (`/web/src/generated/api.ts`): Auto-generated from OpenAPI spec using orval. Provides React Query hooks for all API endpoints with type-safe request/response types.
+- **Auth helpers** (`/web/src/lib/auth.ts`): Login/logout/getCurrentUser functions that handle localStorage token management.
+- **Custom fetcher** (`/web/src/lib/api-fetcher.ts`): Base fetch wrapper used by generated client. Handles auth headers, base URL, error responses.
+
+**NEVER write manual API client code.** All API calls must use:
+1. Generated React Query hooks from `@/generated/api` for data fetching/mutations
+2. Auth helpers from `@/lib/auth` for login/logout/user state
+3. Types from `@/generated/api` for request/response types
+
+**Regenerating the API client** (after backend API changes):
+```bash
+cd web && npm run generate-api
+```
+
+**Auto-regeneration watcher** (for development):
+```bash
+./scripts/watch-api.sh  # Watches backend files, auto-regenerates on change
+```
+
+The pre-commit hook will fail if it detects manual API client imports. Fix by migrating to the generated client.
 
 ### Deployment (Cloudflare Tunnel)
 
@@ -127,7 +147,8 @@ The post-commit hook:
 **Patterns**:
 - Services in `src/services/`, CRUD in routers
 - Frontend uses CSS Modules (`.module.css`)
-- Use `api.ts` client, not fetch directly
+- Use generated React Query hooks from `@/generated/api`, never manual fetch calls
+- Use `@/lib/auth` for auth state, not direct localStorage access
 
 **Avoid**:
 - `print()`/`console.log()` (ruff T20 catches this)
