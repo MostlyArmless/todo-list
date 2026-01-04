@@ -425,11 +425,28 @@ def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -
                     if llm_item.get("recurrence_pattern") and not item.recurrence_pattern:
                         item.recurrence_pattern = llm_item["recurrence_pattern"]
         else:
-            # Grocery refinement - mainly category assignment
+            # Grocery refinement - name cleanup and category assignment
+            grocery_lists = (
+                db.query(List).filter(List.owner_id == user_id, List.list_type != "task").all()
+            )
+
+            # Run LLM parsing to get cleaned item names
+            parsed_data = _parse_grocery_voice_input(llm_service, raw_text, grocery_lists)
+
+            # Build a map of heuristic name -> LLM cleaned name
+            llm_item_names = parsed_data.get("items", []) if parsed_data else []
+
             categorization_service = CategorizationService(db, llm_service)
 
-            for item in items:
-                # Only categorize if not already categorized
+            for i, item in enumerate(items):
+                # Update name if LLM provided a cleaner version
+                if i < len(llm_item_names) and llm_item_names[i]:
+                    llm_name = llm_item_names[i]
+                    if llm_name != item.name:
+                        logger.info(f"Refining item name: '{item.name}' -> '{llm_name}'")
+                        item.name = llm_name
+
+                # Categorize if not already categorized
                 if not item.category_id:
                     result = categorization_service.categorize_item(
                         item_name=item.name,

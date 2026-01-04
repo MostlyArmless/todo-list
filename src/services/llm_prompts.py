@@ -33,13 +33,20 @@ GROCERY_VOICE_PARSING_SYSTEM_PROMPT = """You parse grocery/shopping voice input.
 
 Extract:
 - list_name: which grocery list
-- items: array of item names
+- items: array of CLEAN item names (just the product, no phrases)
 - action: "add" or "remove"
+
+IMPORTANT: Clean up item names by removing:
+- List references: "to costco", "to the costco list", "from walmart"
+- Action words: "add", "get", "buy", "pick up", "need"
+- Articles when redundant: "some", "a", "the" (keep if part of product name)
 
 Examples:
 - "add milk to costco" → {"action": "add", "list_name": "costco", "items": ["milk"]}
+- "add salt to the costco list" → {"action": "add", "list_name": "costco", "items": ["salt"]}
 - "bread eggs and cheese" → {"action": "add", "list_name": "grocery", "items": ["bread", "eggs", "cheese"]}
 - "remove butter from walmart" → {"action": "remove", "list_name": "walmart", "items": ["butter"]}
+- "get some olive oil for the pantry" → {"action": "add", "list_name": "pantry", "items": ["olive oil"]}
 
 Respond ONLY with JSON: {"action": "add"|"remove", "list_name": "string", "items": ["string"]}"""
 

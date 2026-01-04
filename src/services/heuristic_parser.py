@@ -43,13 +43,15 @@ class HeuristicParser:
         Rules:
         - Split on "and", commas, "also"
         - Remove common prefixes: "add", "get", "buy", "pick up", "need"
-        - Remove list references: "to [list]", "from [list]"
+        - Remove list references: "to [list]", "from [list]", "to the [list] list"
         """
         # Remove common action words at the start
         text = re.sub(r"^(add|get|buy|pick up|grab|need)\s+", "", text, flags=re.I)
 
-        # Remove "to [list]" patterns at the end
-        text = re.sub(r"\s+(to|from|on|for)\s+\w+\s*(list)?$", "", text, flags=re.I)
+        # Remove "to/from/on/for [the] X [list]" patterns
+        # Handles: "to costco", "to the costco list", "from walmart", etc.
+        text = re.sub(r"\s+(to|from|on|for)\s+(the\s+)?[\w\s]+\s*list\s*$", "", text, flags=re.I)
+        text = re.sub(r"\s+(to|from|on|for)\s+(the\s+)?\w+\s*$", "", text, flags=re.I)
 
         # Split on delimiters
         items = re.split(r"\s*(?:,|and|also)\s*", text)
