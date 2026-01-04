@@ -448,10 +448,10 @@
             throw new Error('Not authenticated. Please log in first.');
           }
 
-          console.log('Sending to API:', { text, url: `${API_BASE_URL}/api/v1/voice` });
+          console.log('Sending to API:', { text, url: `${API_BASE_URL}/api/v1/voice/instant` });
 
-          // Send to voice API
-          const response = await fetch(`${API_BASE_URL}/api/v1/voice`, {
+          // Send to instant voice API (creates items immediately with heuristics)
+          const response = await fetch(`${API_BASE_URL}/api/v1/voice/instant`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -468,15 +468,24 @@
             throw new Error(error.detail || 'Failed to process voice input');
           }
 
-          const data = await response.json();
-          console.log('API success response:', data);
-          statusEl.textContent = 'Processing complete!';
-          showSuccess('Redirecting to confirmation page...');
+          const items = await response.json();
+          console.log('API success response:', items);
 
-          // Redirect to confirmation page after 1.5 seconds
+          // Items were created immediately - redirect to the list
+          const itemCount = items.length;
+          const listId = items.length > 0 ? items[0].list_id : null;
+
+          statusEl.textContent = 'Added!';
+          showSuccess(`Added ${itemCount} item${itemCount !== 1 ? 's' : ''} to your list`);
+
+          // Redirect to list detail page after 1 second
           setTimeout(() => {
-            window.location.href = '/confirm';
-          }, 1500);
+            if (listId) {
+              window.location.href = `/list/${listId}`;
+            } else {
+              window.location.href = '/lists';
+            }
+          }, 1000);
         } catch (error) {
           console.error('API error:', error);
           showError(error.message);
