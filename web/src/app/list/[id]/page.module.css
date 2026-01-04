@@ -530,18 +530,23 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .itemEditQty {
-  flex: 1 1 80px;
+  flex: 0 0 80px;
+  max-width: 100px;
 }
 
 .itemEditDesc {
   flex: 1 1 120px;
+  min-height: 60px;
+  max-height: 120px;
+  resize: vertical;
 }
 
 .itemEditCategory {
-  flex: 1 1 100px;
+  flex: 0 1 140px;
 }
 
 .itemEditActions {

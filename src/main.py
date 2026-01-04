@@ -18,6 +18,7 @@ from src.api import (
     recipes,
     voice,
     webhooks,
+    websocket,
 )
 from src.config import get_settings
 
@@ -70,6 +71,7 @@ app.include_router(pantry.router)
 app.include_router(notifications.router)
 app.include_router(webhooks.router)
 app.include_router(debug.router)
+app.include_router(websocket.router)
 
 
 @app.get("/health")

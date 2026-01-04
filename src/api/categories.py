@@ -13,6 +13,7 @@ from src.models.enums import ListType
 from src.models.item import Item
 from src.models.user import User
 from src.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from src.services.realtime import ListEventType, publish_list_event
 
 router = APIRouter(prefix="/api/v1", tags=["categories"])
 
@@ -84,6 +85,7 @@ def create_category(
     db.add(category)
     db.commit()
     db.refresh(category)
+    publish_list_event(list_id, ListEventType.CATEGORY_CREATED, {"category_id": category.id})
     return category
 
 
@@ -106,6 +108,9 @@ def update_category(
 
     db.commit()
     db.refresh(category)
+    publish_list_event(
+        category.list_id, ListEventType.CATEGORY_UPDATED, {"category_id": category.id}
+    )
     return category
 
 
@@ -119,6 +124,7 @@ def delete_category(
     from src.models.item_history import ItemHistory
 
     category = get_category(db, category_id, current_user)
+    list_id = category.list_id
 
     # Move items in this category to uncategorized
     db.query(Item).filter(
@@ -133,3 +139,4 @@ def delete_category(
 
     category.soft_delete()
     db.commit()
+    publish_list_event(list_id, ListEventType.CATEGORY_DELETED, {"category_id": category_id})

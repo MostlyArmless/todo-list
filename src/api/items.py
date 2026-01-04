@@ -15,6 +15,7 @@ from src.models.item_history import ItemHistory
 from src.models.list import List
 from src.models.user import User
 from src.schemas.item import ItemCreate, ItemResponse, ItemUpdate
+from src.services.realtime import ListEventType, publish_list_event
 from src.tasks.reminders import schedule_reminder
 
 router = APIRouter(prefix="/api/v1", tags=["items"])
@@ -225,6 +226,7 @@ def create_item(
 
         db.commit()
         db.refresh(matching_item)
+        publish_list_event(list_id, ListEventType.ITEM_UPDATED, {"item_id": matching_item.id})
         return matching_item
     else:
         # Create new item
@@ -268,6 +270,7 @@ def create_item(
         db.add(item)
         db.commit()
         db.refresh(item)
+        publish_list_event(list_id, ListEventType.ITEM_CREATED, {"item_id": item.id})
 
         # Schedule reminder for task items with due date or reminder
         if is_task_list and (item.due_date or item.reminder_at):
@@ -336,6 +339,7 @@ def update_item(
 
     db.commit()
     db.refresh(item)
+    publish_list_event(item.list_id, ListEventType.ITEM_UPDATED, {"item_id": item.id})
 
     # Reschedule reminder if task reminder fields changed
     if (
@@ -363,6 +367,7 @@ def delete_item(
     from src.models.enums import ReminderStatus
 
     item = get_item(db, item_id, current_user)
+    list_id = item.list_id
 
     # Cancel any pending reminders for this item
     db.query(ReminderState).filter(
@@ -372,6 +377,7 @@ def delete_item(
 
     item.soft_delete()
     db.commit()
+    publish_list_event(list_id, ListEventType.ITEM_DELETED, {"item_id": item_id})
 
 
 @router.post("/items/{item_id}/check", response_model=ItemResponse)
@@ -389,6 +395,7 @@ def check_item(
 
     db.commit()
     db.refresh(item)
+    publish_list_event(item.list_id, ListEventType.ITEM_CHECKED, {"item_id": item.id})
     return item
 
 
@@ -407,6 +414,7 @@ def uncheck_item(
 
     db.commit()
     db.refresh(item)
+    publish_list_event(item.list_id, ListEventType.ITEM_UNCHECKED, {"item_id": item.id})
     return item
 
 
@@ -491,6 +499,7 @@ def complete_task_item(
 
     db.commit()
     db.refresh(item)
+    publish_list_event(item.list_id, ListEventType.ITEM_CHECKED, {"item_id": item.id})
     return item
 
 
@@ -515,6 +524,7 @@ def bulk_delete_items(
         item.soft_delete()
 
     db.commit()
+    publish_list_event(list_id, ListEventType.ITEMS_BULK_DELETED, {"item_ids": item_ids})
 
 
 @router.post("/lists/{list_id}/items/auto-categorize")

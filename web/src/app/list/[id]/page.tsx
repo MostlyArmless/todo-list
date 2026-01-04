@@ -31,6 +31,7 @@ import {
 } from '@/generated/api';
 import TaskItem from '@/components/TaskItem';
 import { formatQuantityTotal } from '@/lib/formatQuantity';
+import { useListSync } from '@/hooks/useListSync';
 import IconButton from '@/components/IconButton';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import {
@@ -152,6 +153,13 @@ export default function ListDetailPage() {
     query: {
       enabled: !!getCurrentUser(),
     },
+  });
+
+  // Real-time sync via WebSocket
+  useListSync({
+    listId,
+    includeChecked: showChecked,
+    enabled: !!listId && !!getCurrentUser(),
   });
 
   // Sync server categories to local state for optimistic updates
@@ -1475,6 +1483,7 @@ function ItemRow({
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -1494,6 +1503,12 @@ function ItemRow({
     setEditDescription(item.description || '');
     setEditCategoryId(item.category_id ?? null);
     setIsEditing(true);
+    // Auto-scroll to item on mobile when editing starts
+    if (window.innerWidth <= 640) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1520,7 +1535,7 @@ function ItemRow({
 
   if (isEditing) {
     return (
-      <div className={styles.itemEditCard}>
+      <div ref={cardRef} className={styles.itemEditCard}>
         <div className={styles.inputWithCounter}>
           <input
             type="text"
@@ -1552,15 +1567,13 @@ function ItemRow({
             }}
           />
           <div className={styles.inputWithCounter}>
-            <input
-              type="text"
+            <textarea
               className={`${styles.itemEditInput} ${styles.itemEditDesc}`}
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               placeholder="Description (notes, details...)"
               maxLength={DESCRIPTION_MAX_LENGTH}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveEdit();
                 if (e.key === 'Escape') handleCancelEdit();
               }}
             />
@@ -1790,6 +1803,7 @@ function ItemRowWithDragHandle({
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -1809,6 +1823,12 @@ function ItemRowWithDragHandle({
     setEditDescription(item.description || '');
     setEditCategoryId(item.category_id ?? null);
     setIsEditing(true);
+    // Auto-scroll to item on mobile when editing starts
+    if (window.innerWidth <= 640) {
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -1835,7 +1855,7 @@ function ItemRowWithDragHandle({
 
   if (isEditing) {
     return (
-      <div className={styles.itemEditCard}>
+      <div ref={cardRef} className={styles.itemEditCard}>
         <div className={styles.inputWithCounter}>
           <input
             type="text"
@@ -1867,15 +1887,13 @@ function ItemRowWithDragHandle({
             }}
           />
           <div className={styles.inputWithCounter}>
-            <input
-              type="text"
+            <textarea
               className={`${styles.itemEditInput} ${styles.itemEditDesc}`}
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
               placeholder="Description (notes, details...)"
               maxLength={DESCRIPTION_MAX_LENGTH}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveEdit();
                 if (e.key === 'Escape') handleCancelEdit();
               }}
             />
