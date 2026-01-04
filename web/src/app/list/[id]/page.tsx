@@ -38,9 +38,14 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
+  DragOverlay,
+  useDroppable,
   type DragEndEvent,
+  type DragStartEvent,
+  type UniqueIdentifier,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -104,6 +109,8 @@ export default function ListDetailPage() {
   const [newItemRecurrence, setNewItemRecurrence] = useState<RecurrencePattern | ''>('');
   // Optimistically reordered categories
   const [localCategories, setLocalCategories] = useState<CategoryResponse[] | null>(null);
+  // Track active drag item for DragOverlay
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   // Track if component is mounted (for hydration safety)
   const [mounted, setMounted] = useState(false);
 
@@ -376,7 +383,7 @@ export default function ListDetailPage() {
     );
   };
 
-  const handleUpdateItem = async (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => {
+  const handleUpdateItem = async (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; sort_order?: number }) => {
     return new Promise<void>((resolve, reject) => {
       updateItemMutation.mutate(
         { itemId: id, data },
@@ -451,11 +458,17 @@ export default function ListDetailPage() {
     );
   };
 
-  // dnd-kit sensors for pointer and keyboard
+  // dnd-kit sensors for pointer, touch, and keyboard
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8, // Require 8px of movement before starting drag
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // Delay for touch to distinguish from scroll
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -463,42 +476,134 @@ export default function ListDetailPage() {
     })
   );
 
+  // Helper functions to parse drag IDs
+  const parseId = (id: UniqueIdentifier): { type: 'category' | 'item' | 'drop-zone'; numId: number | null } => {
+    const strId = String(id);
+    if (strId.startsWith('cat-')) {
+      return { type: 'category', numId: parseInt(strId.replace('cat-', ''), 10) };
+    }
+    if (strId.startsWith('item-')) {
+      return { type: 'item', numId: parseInt(strId.replace('item-', ''), 10) };
+    }
+    if (strId.startsWith('drop-')) {
+      // drop-null for uncategorized, drop-{id} for categories
+      const rest = strId.replace('drop-', '');
+      return { type: 'drop-zone', numId: rest === 'null' ? null : parseInt(rest, 10) };
+    }
+    // Legacy: try as raw number (for categories)
+    return { type: 'category', numId: parseInt(strId, 10) };
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
 
     if (!over || active.id === over.id) return;
 
-    const oldIndex = categories.findIndex((cat) => cat.id === active.id);
-    const newIndex = categories.findIndex((cat) => cat.id === over.id);
+    const activeInfo = parseId(active.id);
+    const overInfo = parseId(over.id);
 
-    if (oldIndex === -1 || newIndex === -1) return;
+    // Handle category reordering (legacy: categories still use raw numeric IDs)
+    if (activeInfo.type === 'category' && overInfo.type === 'category') {
+      const oldIndex = categories.findIndex((cat) => cat.id === activeInfo.numId);
+      const newIndex = categories.findIndex((cat) => cat.id === overInfo.numId);
 
-    // Reorder with arrayMove
-    const reordered = arrayMove(categories, oldIndex, newIndex);
+      if (oldIndex === -1 || newIndex === -1) return;
 
-    // Update sort_order for all categories
-    const updates = reordered.map((cat, idx) => ({
-      ...cat,
-      sort_order: idx,
-    }));
+      const reordered = arrayMove(categories, oldIndex, newIndex);
+      const updates = reordered.map((cat, idx) => ({
+        ...cat,
+        sort_order: idx,
+      }));
 
-    // Optimistically update UI
-    setLocalCategories(updates);
+      setLocalCategories(updates);
 
-    // Save to backend
-    try {
-      await Promise.all(
-        updates.map((cat) =>
-          new Promise<void>((resolve, reject) => {
-            updateCategoryMutation.mutate(
-              { categoryId: cat.id, data: { sort_order: cat.sort_order } },
-              { onSuccess: () => resolve(), onError: reject }
-            );
-          })
-        )
-      );
-    } catch {
-      invalidateListData(); // Reload on error
+      try {
+        await Promise.all(
+          updates.map((cat) =>
+            new Promise<void>((resolve, reject) => {
+              updateCategoryMutation.mutate(
+                { categoryId: cat.id, data: { sort_order: cat.sort_order } },
+                { onSuccess: () => resolve(), onError: reject }
+              );
+            })
+          )
+        );
+      } catch {
+        invalidateListData();
+      }
+      return;
+    }
+
+    // Handle item drag
+    if (activeInfo.type === 'item' && activeInfo.numId !== null) {
+      const draggedItemId = activeInfo.numId;
+      const draggedItem = items.find((i) => i.id === draggedItemId);
+      if (!draggedItem) return;
+
+      let targetCategoryId: number | null = draggedItem.category_id ?? null;
+
+      // Determine target category first
+      if (overInfo.type === 'item' && overInfo.numId !== null) {
+        const overItem = items.find((i) => i.id === overInfo.numId);
+        if (!overItem) return;
+        targetCategoryId = overItem.category_id ?? null;
+      } else if (overInfo.type === 'drop-zone') {
+        targetCategoryId = overInfo.numId;
+      }
+
+      // Get all items in the target category, EXCLUDING the dragged item, sorted by sort_order
+      const categoryItems = items
+        .filter((i) => (i.category_id ?? null) === targetCategoryId && i.id !== draggedItemId)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      // Now find the target index in the filtered/sorted list
+      let targetIndex: number | null = null;
+      if (overInfo.type === 'item' && overInfo.numId !== null) {
+        targetIndex = categoryItems.findIndex((i) => i.id === overInfo.numId);
+        if (targetIndex === -1) targetIndex = null; // Item not found (shouldn't happen)
+      }
+
+      // Calculate new sort_order
+      let newSortOrder: number;
+      if (targetIndex === null || categoryItems.length === 0) {
+        // Place at end (or empty category)
+        newSortOrder = categoryItems.length > 0
+          ? categoryItems[categoryItems.length - 1].sort_order + 1000
+          : 0;
+      } else if (targetIndex === 0) {
+        // Place at beginning (before the first item)
+        newSortOrder = categoryItems[0].sort_order - 1000;
+      } else {
+        // Place between items - insert BEFORE the target item
+        const prevItem = categoryItems[targetIndex - 1];
+        const nextItem = categoryItems[targetIndex];
+        newSortOrder = Math.floor((prevItem.sort_order + nextItem.sort_order) / 2);
+        // If there's no room between sort_orders, shift to make room
+        if (newSortOrder <= prevItem.sort_order || newSortOrder >= nextItem.sort_order) {
+          newSortOrder = prevItem.sort_order + 1;
+        }
+      }
+
+      // Only update if something changed
+      const categoryChanged = (draggedItem.category_id ?? null) !== targetCategoryId;
+      if (!categoryChanged && draggedItem.sort_order === newSortOrder) {
+        return;
+      }
+
+      // Update the item
+      try {
+        await handleUpdateItem(draggedItemId, {
+          category_id: targetCategoryId,
+          sort_order: newSortOrder,
+        });
+      } catch {
+        invalidateListData();
+      }
     }
   };
 
@@ -776,116 +881,123 @@ export default function ListDetailPage() {
         </div>
       )}
 
-      {/* Grocery List: Uncategorized Items */}
-      {list.list_type === 'grocery' && getItemsByCategory(null).length > 0 && (
-        <div className={styles.categorySection}>
-          <div className={styles.categoryHeader}>
-            <input
-              type="checkbox"
-              checked={isCategoryFullySelected(null)}
-              ref={(el) => {
-                if (el) el.indeterminate = isCategoryPartiallySelected(null);
-              }}
-              onChange={() => toggleCategorySelection(null)}
-              className={styles.categoryCheckbox}
-              title="Select all uncategorized items"
-            />
-            <h2 className={styles.categoryTitle}>
-              Uncategorized
-            </h2>
-            {categories.length > 0 && (
-              <button
-                onClick={handleAutoCategorize}
-                disabled={autoCategorizing}
-                className={styles.autoCategorizeBtn}
-                title="Auto-categorize items using AI"
-              >
-                {autoCategorizing ? (
-                  <>
-                    <span className={styles.spinIcon}>⟳</span>
-                    ...
-                  </>
-                ) : (
-                  <>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-                    </svg>
-                    Auto
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-          <div className={styles.itemList}>
-            {getItemsByCategory(null).map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onToggle={handleToggleCheck}
-                onDelete={handleDeleteItem}
-                onUpdate={handleUpdateItem}
-                categories={categories}
-              />
-            ))}
-            {/* Inline add button/form */}
-            {inlineAddCategory === 'uncategorized' ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleInlineAdd(null);
-                }}
-                className={styles.inlineAddForm}
-              >
-                <input
-                  type="text"
-                  className={styles.inlineInput}
-                  value={inlineItemName}
-                  onChange={(e) => setInlineItemName(e.target.value)}
-                  placeholder="Add item..."
-                  autoFocus
-                  maxLength={NAME_MAX_LENGTH}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setInlineAddCategory(null);
-                      setInlineItemName('');
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!inlineItemName.trim()) {
-                      setInlineAddCategory(null);
-                    }
-                  }}
-                />
-                <button type="submit" className={styles.btnPrimary}>
-                  Add
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => {
-                  setInlineAddCategory('uncategorized');
-                  setInlineItemName('');
-                }}
-                className={styles.inlineAddBtn}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-                Add item
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Grocery List: Categorized Items with dnd-kit */}
+      {/* Grocery List: Items and Categories with dnd-kit */}
       {list.list_type === 'grocery' && (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
+          {/* Uncategorized Items */}
+          {getItemsByCategory(null).length > 0 && (
+            <DroppableZone id="drop-null" className={styles.categorySection}>
+              <div className={styles.categoryHeader}>
+                <input
+                  type="checkbox"
+                  checked={isCategoryFullySelected(null)}
+                  ref={(el) => {
+                    if (el) el.indeterminate = isCategoryPartiallySelected(null);
+                  }}
+                  onChange={() => toggleCategorySelection(null)}
+                  className={styles.categoryCheckbox}
+                  title="Select all uncategorized items"
+                />
+                <h2 className={styles.categoryTitle}>
+                  Uncategorized
+                </h2>
+                {categories.length > 0 && (
+                  <button
+                    onClick={handleAutoCategorize}
+                    disabled={autoCategorizing}
+                    className={styles.autoCategorizeBtn}
+                    title="Auto-categorize items using AI"
+                  >
+                    {autoCategorizing ? (
+                      <>
+                        <span className={styles.spinIcon}>⟳</span>
+                        ...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                        </svg>
+                        Auto
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              <div className={styles.itemList}>
+                <SortableContext
+                  items={getItemsByCategory(null).map((item) => `item-${item.id}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {getItemsByCategory(null).map((item) => (
+                    <SortableItem
+                      key={item.id}
+                      item={item}
+                      onToggle={handleToggleCheck}
+                      onDelete={handleDeleteItem}
+                      onUpdate={handleUpdateItem}
+                      categories={categories}
+                    />
+                  ))}
+                </SortableContext>
+                {/* Inline add button/form */}
+                {inlineAddCategory === 'uncategorized' ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleInlineAdd(null);
+                    }}
+                    className={styles.inlineAddForm}
+                  >
+                    <input
+                      type="text"
+                      className={styles.inlineInput}
+                      value={inlineItemName}
+                      onChange={(e) => setInlineItemName(e.target.value)}
+                      placeholder="Add item..."
+                      autoFocus
+                      maxLength={NAME_MAX_LENGTH}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setInlineAddCategory(null);
+                          setInlineItemName('');
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!inlineItemName.trim()) {
+                          setInlineAddCategory(null);
+                        }
+                      }}
+                    />
+                    <button type="submit" className={styles.btnPrimary}>
+                      Add
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setInlineAddCategory('uncategorized');
+                      setInlineItemName('');
+                    }}
+                    className={styles.inlineAddBtn}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Add item
+                  </button>
+                )}
+              </div>
+            </DroppableZone>
+          )}
+
+          {/* Categorized Items */}
           <SortableContext
             items={categories.map((cat) => cat.id)}
             strategy={verticalListSortingStrategy}
@@ -924,6 +1036,28 @@ export default function ListDetailPage() {
               />
             ))}
           </SortableContext>
+
+          {/* Drag Overlay for visual feedback */}
+          <DragOverlay>
+            {activeId && String(activeId).startsWith('item-') ? (
+              <div className={styles.itemCard} style={{ opacity: 0.8, boxShadow: 'var(--shadow-lg)' }}>
+                <div className={styles.itemDragHandle} style={{ cursor: 'grabbing' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                  </svg>
+                </div>
+                <div className={styles.itemContent}>
+                  <div className={styles.itemName}>
+                    <span>
+                      {items.find((i) => `item-${i.id}` === activeId)?.name || 'Item'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
 
@@ -1116,8 +1250,17 @@ function SortableCategory({
     zIndex: isDragging ? 1000 : undefined,
   };
 
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: `drop-${category.id}` });
+
   return (
-    <div ref={setNodeRef} className={styles.sortableCategory} style={dragStyle}>
+    <div
+      ref={(node) => {
+        setNodeRef(node);
+        setDroppableRef(node);
+      }}
+      className={`${styles.sortableCategory} ${styles.categoryDropZone} ${isOver ? styles.categoryDropZoneActive : ''}`}
+      style={dragStyle}
+    >
       <div className={styles.categoryHeader}>
         {/* Category selection checkbox */}
         {items.length > 0 && (
@@ -1247,16 +1390,21 @@ function SortableCategory({
       </div>
 
       <div className={styles.itemList}>
-        {items.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            onToggle={onToggleItemCheck}
-            onDelete={onDeleteItem}
-            onUpdate={onUpdateItem}
-            categories={allCategories}
-          />
-        ))}
+        <SortableContext
+          items={items.map((item) => `item-${item.id}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          {items.map((item) => (
+            <SortableItem
+              key={item.id}
+              item={item}
+              onToggle={onToggleItemCheck}
+              onDelete={onDeleteItem}
+              onUpdate={onUpdateItem}
+              categories={allCategories}
+            />
+          ))}
+        </SortableContext>
         {/* Inline add button/form */}
         {isInlineAdding ? (
           <form
@@ -1567,6 +1715,367 @@ function ItemRow({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SortableItem({
+  item,
+  onToggle,
+  onDelete,
+  onUpdate,
+  categories,
+}: {
+  item: ItemResponse;
+  onToggle: (item: ItemResponse) => void;
+  onDelete: (id: number) => void;
+  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  categories: CategoryResponse[];
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `item-${item.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? styles.itemDragging : undefined}
+    >
+      <ItemRowWithDragHandle
+        item={item}
+        onToggle={onToggle}
+        onDelete={onDelete}
+        onUpdate={onUpdate}
+        categories={categories}
+        dragHandleProps={{ ...attributes, ...listeners }}
+        isDragging={isDragging}
+      />
+    </div>
+  );
+}
+
+function ItemRowWithDragHandle({
+  item,
+  onToggle,
+  onDelete,
+  onUpdate,
+  categories,
+  dragHandleProps,
+  isDragging,
+}: {
+  item: ItemResponse;
+  onToggle: (item: ItemResponse) => void;
+  onDelete: (id: number) => void;
+  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  categories: CategoryResponse[];
+  dragHandleProps?: Record<string, unknown>;
+  isDragging?: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(item.name);
+  const [editQuantity, setEditQuantity] = useState(item.quantity || '');
+  const [editDescription, setEditDescription] = useState(item.description || '');
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id ?? null);
+  const [saving, setSaving] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const handleStartEdit = () => {
+    setEditName(item.name);
+    setEditQuantity(item.quantity || '');
+    setEditDescription(item.description || '');
+    setEditCategoryId(item.category_id ?? null);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) return;
+    setSaving(true);
+    try {
+      await onUpdate(item.id, {
+        name: editName.trim(),
+        quantity: editQuantity.trim(),
+        description: editDescription.trim(),
+        category_id: editCategoryId,
+      });
+      setIsEditing(false);
+    } catch {
+      // Failed to update item
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className={styles.itemEditCard}>
+        <div className={styles.inputWithCounter}>
+          <input
+            type="text"
+            className={styles.itemEditInput}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Item name"
+            autoFocus
+            maxLength={NAME_MAX_LENGTH}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+          <span className={`${styles.charCounter} ${editName.length >= NAME_MAX_LENGTH - 50 ? styles.charCounterWarning : ''} ${editName.length >= NAME_MAX_LENGTH ? styles.charCounterLimit : ''}`}>
+            {editName.length}/{NAME_MAX_LENGTH}
+          </span>
+        </div>
+        <div className={styles.itemEditRow}>
+          <input
+            type="text"
+            className={`${styles.itemEditInput} ${styles.itemEditQty}`}
+            value={editQuantity}
+            onChange={(e) => setEditQuantity(e.target.value)}
+            placeholder="Qty"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+          />
+          <div className={styles.inputWithCounter}>
+            <input
+              type="text"
+              className={`${styles.itemEditInput} ${styles.itemEditDesc}`}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Description (notes, details...)"
+              maxLength={DESCRIPTION_MAX_LENGTH}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveEdit();
+                if (e.key === 'Escape') handleCancelEdit();
+              }}
+            />
+            <span className={`${styles.charCounter} ${editDescription.length >= DESCRIPTION_MAX_LENGTH - 100 ? styles.charCounterWarning : ''} ${editDescription.length >= DESCRIPTION_MAX_LENGTH ? styles.charCounterLimit : ''}`}>
+              {editDescription.length}/{DESCRIPTION_MAX_LENGTH}
+            </span>
+          </div>
+          <select
+            className={`${styles.itemEditInput} ${styles.itemEditCategory}`}
+            value={editCategoryId || ''}
+            onChange={(e) => setEditCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+          >
+            <option value="">No category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className={styles.itemEditActions}>
+          <button
+            onClick={handleSaveEdit}
+            disabled={saving || !editName.trim()}
+            className={`${styles.itemEditBtn} ${styles.itemEditBtnPrimary}`}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+          <button
+            onClick={handleCancelEdit}
+            disabled={saving}
+            className={`${styles.itemEditBtn} ${styles.itemEditBtnSecondary}`}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${styles.itemCard} ${item.checked ? styles.itemCardChecked : ''}`}>
+      {/* Drag handle */}
+      {dragHandleProps && (
+        <div
+          {...dragHandleProps}
+          className={styles.itemDragHandle}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+          title="Drag to reorder"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </div>
+      )}
+
+      {/* AI refinement spinner */}
+      {item.refinement_status === 'pending' && (
+        <div className={styles.refinementSpinner} title="Refining with AI...">
+          <div className={styles.refinementSpinnerIcon} />
+        </div>
+      )}
+
+      {/* Check/uncheck circle button */}
+      <button
+        onClick={() => onToggle(item)}
+        className={`${styles.checkCircle} ${item.checked ? styles.checkCircleChecked : ''}`}
+      >
+        {item.checked && (
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="white"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        )}
+      </button>
+
+      <div className={styles.itemContent}>
+        <div className={`${styles.itemName} ${item.checked ? styles.itemNameChecked : ''}`}>
+          <span>{item.name}</span>
+          {(item.quantity || item.description) && (
+            <span className={styles.itemMeta}>
+              {item.quantity && formatQuantityTotal(item.quantity)}
+              {item.quantity && item.description && ' · '}
+              {item.description}
+            </span>
+          )}
+          {/* Recipe source badges */}
+          {item.recipe_sources && item.recipe_sources.length > 0 && (
+            <span className={styles.recipeBadges}>
+              {item.recipe_sources.map((source, idx) => {
+                const sourceObj = source as { recipe_id?: number; recipe_name?: string; label_color?: string };
+                const bgColor = sourceObj.label_color || (sourceObj.recipe_id ? '#e6194b' : '#666666');
+                return (
+                  <span
+                    key={sourceObj.recipe_id ?? `adhoc-${idx}`}
+                    className={styles.recipeBadge}
+                    style={{
+                      backgroundColor: bgColor,
+                      color: getContrastTextColor(bgColor),
+                    }}
+                    title={sourceObj.recipe_id ? `From recipe: ${sourceObj.recipe_name}` : 'Manually added'}
+                  >
+                    {sourceObj.recipe_name}
+                  </span>
+                );
+              })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Meatball menu */}
+      <div className={styles.meatballMenu} ref={menuRef}>
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className={styles.meatballBtn}
+          title="More options"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="19" cy="12" r="2"></circle>
+          </svg>
+        </button>
+        {menuOpen && (
+          <div className={styles.meatballDropdown}>
+            <button
+              onClick={() => {
+                handleStartEdit();
+                setMenuOpen(false);
+              }}
+              className={styles.meatballOption}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Edit
+            </button>
+            <button
+              onClick={() => {
+                onDelete(item.id);
+                setMenuOpen(false);
+              }}
+              className={`${styles.meatballOption} ${styles.meatballOptionDanger}`}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DroppableZone({
+  id,
+  children,
+  className,
+}: {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className || ''} ${styles.categoryDropZone} ${isOver ? styles.categoryDropZoneActive : ''}`}
+    >
+      {children}
     </div>
   );
 }

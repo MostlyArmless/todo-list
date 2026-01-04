@@ -843,3 +843,50 @@
     transform: rotate(360deg);
   }
 }
+
+/* Item Drag Handle */
+.itemDragHandle {
+  cursor: grab;
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  flex-shrink: 0;
+  touch-action: none;
+  transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.itemDragHandle:hover {
+  color: var(--text-secondary);
+}
+
+.itemDragHandle:active {
+  cursor: grabbing;
+}
+
+.itemDragging {
+  opacity: 0.5;
+  z-index: 1000;
+}
+
+/* Category drop zone highlight when item is dragged over */
+.categoryDropZone {
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.categoryDropZoneActive {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+}
+
+/* =============================================================================
+   Mobile Responsive Styles
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  /* Always show meatball menu on mobile (no hover on touch devices) */
+  .itemCard .meatballBtn {
+    opacity: 1;
+  }
+}
