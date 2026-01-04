@@ -8,11 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_current_user
+from src.api.items import lookup_category_from_history
 from src.database import get_db
 from src.models.list import List
 from src.models.pending_confirmation import PendingConfirmation
 from src.models.user import User
 from src.models.voice_input import VoiceInput
+from src.schemas.item import ItemResponse
 from src.schemas.voice import (
     ConfirmationAction,
     InProgressVoiceJob,
@@ -23,7 +25,11 @@ from src.schemas.voice import (
     VoiceQueueResponse,
 )
 from src.tasks.reminders import schedule_reminder
-from src.tasks.voice_processing import process_voice_input
+from src.tasks.voice_processing import (
+    _classify_voice_input_heuristic,
+    process_voice_input,
+    refine_voice_items,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +95,130 @@ def create_voice_input(
     logger.info(f"Created voice input {voice_input.id} for user {current_user.id}")
 
     return voice_input
+
+
+@router.post("/instant", response_model=list[ItemResponse], status_code=status.HTTP_201_CREATED)
+def create_voice_items_instant(
+    voice_data: VoiceInputCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Create items immediately using heuristics, queue LLM refinement in background.
+
+    This endpoint:
+    1. Uses deterministic heuristics to parse voice input
+    2. Creates items immediately on the appropriate list
+    3. Queues a background task to refine items with LLM
+    4. Returns created items (with refinement_status='pending')
+    """
+    from src.models.item import Item
+    from src.services.heuristic_parser import HeuristicParser
+
+    parser = HeuristicParser()
+    raw_text = voice_data.raw_text
+
+    # Get user's lists
+    lists = db.query(List).filter(List.owner_id == current_user.id).all()
+    task_lists = [lst for lst in lists if lst.list_type == "task"]
+    grocery_lists = [lst for lst in lists if lst.list_type != "task"]
+
+    # Step 1: Classify as task or grocery using existing heuristic
+    input_type = _classify_voice_input_heuristic(raw_text)
+
+    created_items: list[Item] = []
+    now = datetime.now(UTC)
+
+    if input_type == "task":
+        if not task_lists:
+            raise HTTPException(status_code=400, detail="No task lists available")
+
+        # Find target list
+        target_list_id = parser.parse_list_reference(raw_text, lists, "task")
+        if not target_list_id:
+            # Try to find user's personal list (matching their name)
+            user_name = current_user.name.lower() if current_user.name else None
+            for lst in task_lists:
+                if user_name and lst.name.lower() == user_name:
+                    target_list_id = lst.id
+                    break
+            if not target_list_id:
+                target_list_id = task_lists[0].id
+
+        # Parse task details
+        task_name = parser.parse_task_name(raw_text)
+        due_date = parser.parse_task_due_date(raw_text, now)
+        reminder_info = parser.parse_reminder(raw_text)
+        recurrence = parser.parse_recurrence(raw_text)
+
+        # Calculate reminder_at
+        reminder_at = None
+        reminder_offset = None
+        if reminder_info["is_immediate"] and due_date:
+            reminder_at = due_date
+        elif reminder_info["offset"] and due_date:
+            reminder_offset = reminder_info["offset"]
+            reminder_at = _calculate_reminder_at(due_date, reminder_offset)
+
+        # Create the task item
+        item = Item(
+            list_id=target_list_id,
+            name=task_name or raw_text,  # Fallback to raw text if parsing fails
+            due_date=due_date,
+            reminder_at=reminder_at,
+            reminder_offset=reminder_offset,
+            recurrence_pattern=recurrence,
+            created_by=current_user.id,
+            refinement_status="pending",
+            raw_voice_text=raw_text,
+        )
+        db.add(item)
+        created_items.append(item)
+
+    else:  # grocery
+        if not grocery_lists:
+            raise HTTPException(status_code=400, detail="No grocery lists available")
+
+        # Find target list
+        target_list_id = parser.parse_list_reference(raw_text, lists, "grocery")
+        if not target_list_id:
+            target_list_id = grocery_lists[0].id
+
+        # Parse items
+        item_names = parser.parse_grocery_items(raw_text)
+        if not item_names:
+            item_names = [raw_text]  # Fallback to raw text as single item
+
+        for item_name in item_names:
+            # Try to get category from history (fast, no LLM)
+            category_id = lookup_category_from_history(db, item_name, target_list_id)
+
+            item = Item(
+                list_id=target_list_id,
+                name=item_name,
+                category_id=category_id,
+                created_by=current_user.id,
+                refinement_status="pending",
+                raw_voice_text=raw_text,
+            )
+            db.add(item)
+            created_items.append(item)
+
+    db.commit()
+    for item in created_items:
+        db.refresh(item)
+
+    # Queue background refinement task
+    item_ids = [item.id for item in created_items]
+    refine_voice_items.delay(item_ids, raw_text, current_user.id)
+
+    # Schedule reminders for any task items with due_date or reminder_at
+    for item in created_items:
+        if item.due_date or item.reminder_at:
+            schedule_reminder.delay(item.id)
+
+    logger.info(f"Created {len(created_items)} items via instant voice for user {current_user.id}")
+
+    return created_items
 
 
 @router.get("/{voice_input_id}", response_model=VoiceInputResponse)

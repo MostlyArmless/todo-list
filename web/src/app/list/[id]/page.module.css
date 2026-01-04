@@ -819,3 +819,21 @@
   color: var(--danger);
   font-weight: var(--font-medium);
 }
+
+/* Voice Refinement Spinner */
+.refinementSpinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: var(--space-2);
+  flex-shrink: 0;
+}
+
+.refinementSpinnerIcon {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}

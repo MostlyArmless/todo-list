@@ -305,6 +305,10 @@ export type ItemResponseRecurrenceParentId = number | null;
 
 export type ItemResponseCompletedAt = string | null;
 
+export type ItemResponseRefinementStatus = string | null;
+
+export type ItemResponseRawVoiceText = string | null;
+
 /**
  * Item response (includes all fields, task fields will be null for grocery items).
  */
@@ -327,6 +331,8 @@ export interface ItemResponse {
   recurrence_pattern?: ItemResponseRecurrencePattern;
   recurrence_parent_id?: ItemResponseRecurrenceParentId;
   completed_at?: ItemResponseCompletedAt;
+  refinement_status?: ItemResponseRefinementStatus;
+  raw_voice_text?: ItemResponseRawVoiceText;
 }
 
 export type ItemUpdateName = string | null;
@@ -2949,6 +2955,78 @@ export const useCreateVoiceInputApiV1VoicePost = <TError = HTTPValidationError,
       > => {
 
       const mutationOptions = getCreateVoiceInputApiV1VoicePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Create items immediately using heuristics, queue LLM refinement in background.
+
+This endpoint:
+1. Uses deterministic heuristics to parse voice input
+2. Creates items immediately on the appropriate list
+3. Queues a background task to refine items with LLM
+4. Returns created items (with refinement_status='pending')
+ * @summary Create Voice Items Instant
+ */
+export const createVoiceItemsInstantApiV1VoiceInstantPost = (
+    voiceInputCreate: VoiceInputCreate,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ItemResponse[]>(
+      {url: `/api/v1/voice/instant`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: voiceInputCreate, signal
+    },
+      );
+    }
+
+
+
+export const getCreateVoiceItemsInstantApiV1VoiceInstantPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>, TError,{data: VoiceInputCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>, TError,{data: VoiceInputCreate}, TContext> => {
+
+const mutationKey = ['createVoiceItemsInstantApiV1VoiceInstantPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>, {data: VoiceInputCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createVoiceItemsInstantApiV1VoiceInstantPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateVoiceItemsInstantApiV1VoiceInstantPostMutationResult = NonNullable<Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>>
+    export type CreateVoiceItemsInstantApiV1VoiceInstantPostMutationBody = VoiceInputCreate
+    export type CreateVoiceItemsInstantApiV1VoiceInstantPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Voice Items Instant
+ */
+export const useCreateVoiceItemsInstantApiV1VoiceInstantPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>, TError,{data: VoiceInputCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>,
+        TError,
+        {data: VoiceInputCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateVoiceItemsInstantApiV1VoiceInstantPostMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

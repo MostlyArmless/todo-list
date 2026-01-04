@@ -17,6 +17,7 @@ interface Item {
   reminder_offset?: string | null;
   recurrence_pattern?: string | null;
   completed_at?: string | null;
+  refinement_status?: string | null;
 }
 
 // URL regex that matches http(s) URLs
@@ -361,6 +362,13 @@ export default function TaskItem<T extends Item>({
 
   return (
     <div className={`${styles.taskCard} ${item.checked ? styles.taskCardCompleted : ''} ${overdue ? styles.taskCardOverdue : ''}`}>
+      {/* AI refinement spinner */}
+      {item.refinement_status === 'pending' && (
+        <div className={styles.refinementSpinner} title="Refining with AI...">
+          <div className={styles.refinementSpinnerIcon} />
+        </div>
+      )}
+
       {/* Complete/Uncomplete circle button */}
       <button
         onClick={item.checked ? handleUncheck : handleComplete}

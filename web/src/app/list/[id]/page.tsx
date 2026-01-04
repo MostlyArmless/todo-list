@@ -132,6 +132,12 @@ export default function ListDetailPage() {
   const { data: items = [] } = useGetItemsApiV1ListsListIdItemsGet(listId, { include_checked: showChecked }, {
     query: {
       enabled: !!listId && !!getCurrentUser(),
+      // Poll every 2s when items are being refined by AI
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        const hasPending = data?.some(item => item.refinement_status === 'pending');
+        return hasPending ? 2000 : false;
+      },
     },
   });
 
@@ -1449,6 +1455,13 @@ function ItemRow({
 
   return (
     <div className={`${styles.itemCard} ${item.checked ? styles.itemCardChecked : ''}`}>
+      {/* AI refinement spinner */}
+      {item.refinement_status === 'pending' && (
+        <div className={styles.refinementSpinner} title="Refining with AI...">
+          <div className={styles.refinementSpinnerIcon} />
+        </div>
+      )}
+
       {/* Check/uncheck circle button */}
       <button
         onClick={() => onToggle(item)}

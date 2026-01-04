@@ -43,6 +43,14 @@ class Item(Base, TimestampMixin, SoftDeleteMixin):
     recurrence_parent_id = Column(Integer, ForeignKey("items.id"), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)  # For task completion history
 
+    # Voice processing fields
+    refinement_status = Column(
+        String(20), nullable=True, index=True
+    )  # 'pending' | 'complete' | null
+    raw_voice_text = Column(
+        String(2000), nullable=True
+    )  # Original transcription for LLM refinement
+
     # Relationships
     list = relationship("List", back_populates="items")
     category = relationship("Category", back_populates="items")

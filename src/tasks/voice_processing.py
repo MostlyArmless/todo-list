@@ -363,3 +363,116 @@ def _find_target_list_from_set(lists: list[List], list_name: str) -> List | None
             return lst
 
     return None
+
+
+@celery_app.task(bind=True, max_retries=2)
+def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -> dict:
+    """Background task to refine heuristically-created items using LLM.
+
+    This task:
+    1. Gets the items from DB
+    2. Runs LLM parsing on the original voice text
+    3. Updates items with refined data (name, category, dates)
+    4. Sets refinement_status to 'complete'
+    """
+    db: Session = SessionLocal()
+    try:
+        from src.models.item import Item
+
+        items = db.query(Item).filter(Item.id.in_(item_ids)).all()
+        if not items:
+            return {"error": "No items found"}
+
+        # Determine list type from first item
+        first_item = items[0]
+        list_obj = db.query(List).filter(List.id == first_item.list_id).first()
+        is_task_list = list_obj.list_type == "task"
+
+        llm_service = LLMService()
+
+        if is_task_list:
+            # Get all task lists for context
+            task_lists = (
+                db.query(List).filter(List.owner_id == user_id, List.list_type == "task").all()
+            )
+
+            user = db.query(User).filter(User.id == user_id).first()
+            username = user.name if user and user.name else None
+
+            parsed_data = _parse_task_voice_input(llm_service, raw_text, task_lists, username)
+
+            if (
+                parsed_data
+                and parsed_data.get("items")
+                and len(items) == 1
+                and len(parsed_data["items"]) >= 1
+            ):
+                # For single item, just refine it
+                item = items[0]
+                llm_item = parsed_data["items"][0]
+
+                # Update name if LLM provided a better one
+                if isinstance(llm_item, dict) and llm_item.get("name"):
+                    item.name = llm_item["name"]
+
+                # Update dates if LLM parsed them and heuristic didn't
+                if isinstance(llm_item, dict):
+                    if llm_item.get("due_date") and not item.due_date:
+                        due_date_str = llm_item["due_date"]
+                        item.due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
+                    if llm_item.get("reminder_offset") and not item.reminder_offset:
+                        item.reminder_offset = llm_item["reminder_offset"]
+                    if llm_item.get("recurrence_pattern") and not item.recurrence_pattern:
+                        item.recurrence_pattern = llm_item["recurrence_pattern"]
+        else:
+            # Grocery refinement - mainly category assignment
+            categorization_service = CategorizationService(db, llm_service)
+
+            for item in items:
+                # Only categorize if not already categorized
+                if not item.category_id:
+                    result = categorization_service.categorize_item(
+                        item_name=item.name,
+                        list_id=item.list_id,
+                        user_id=user_id,
+                    )
+                    if result["category_id"]:
+                        item.category_id = result["category_id"]
+                        # Record to history for future fast lookups
+                        categorization_service.record_categorization(
+                            item.name, result["category_id"], item.list_id, user_id
+                        )
+
+        # Mark all items as refined
+        for item in items:
+            item.refinement_status = "complete"
+
+        db.commit()
+
+        logger.info(f"Refined {len(items)} items from voice input")
+        return {"success": True, "refined_count": len(items)}
+
+    except Exception as e:
+        logger.error(f"Error refining voice items: {e}", exc_info=True)
+        db.rollback()
+
+        # Mark items as complete anyway (don't leave them stuck)
+        try:
+            from src.models.item import Item
+
+            for item_id in item_ids:
+                item = db.query(Item).filter(Item.id == item_id).first()
+                if item:
+                    item.refinement_status = "complete"
+            db.commit()
+        except Exception as cleanup_error:
+            logger.warning(
+                f"Failed to mark items as complete after refinement error: {cleanup_error}"
+            )
+
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=e, countdown=30) from e
+
+        return {"error": str(e)}
+    finally:
+        db.close()

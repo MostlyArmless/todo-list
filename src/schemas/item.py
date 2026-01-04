@@ -110,6 +110,9 @@ class ItemResponse(BaseModel):
     recurrence_pattern: str | None = None
     recurrence_parent_id: int | None = None
     completed_at: datetime | None = None
+    # Voice processing fields
+    refinement_status: str | None = None
+    raw_voice_text: str | None = None
 
 
 class TaskItemResponse(ItemResponse):
