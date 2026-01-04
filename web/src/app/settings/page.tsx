@@ -369,6 +369,10 @@ export default function SettingsPage() {
           )}
         </button>
       </form>
+
+      <div className={styles.version}>
+        Build: {process.env.NEXT_PUBLIC_GIT_SHA || 'dev'}
+      </div>
     </div>
   );
 }

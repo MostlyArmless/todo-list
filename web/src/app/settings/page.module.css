@@ -276,3 +276,12 @@
     background-position: -200% 0;
   }
 }
+
+/* Version info */
+.version {
+  text-align: center;
+  padding: var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono, monospace);
+}

@@ -135,6 +135,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NODE_ENV=production
       - npm_config_cache=/tmp/.npm
+      - NEXT_PUBLIC_GIT_SHA=${GIT_SHA:-unknown}
     ports:
       - "3002:3000"
     volumes:

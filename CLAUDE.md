@@ -53,14 +53,15 @@ Located in `/web/` with App Router. Routes: `/lists`, `/list/[id]`, `/recipes`, 
 
 **Production Build**: The PWA runs in production mode. After making frontend changes, restart to rebuild:
 ```bash
-docker compose up -d pwa --force-recreate  # Rebuilds Next.js (~15-20s)
+GIT_SHA=$(git rev-parse --short HEAD) docker compose up -d pwa --force-recreate
 ```
+The git SHA is displayed on `/settings` to verify which version is deployed.
 
 **Development Mode** (hot reloading): For faster iteration during development:
 ```bash
 docker compose --profile dev up pwa-dev    # Runs on port 3003 with hot reload
 ```
-Dev hot-reloads on `todolist.lan`; prod on `thiemnet.ca` needs manual rebuild (`docker compose up -d pwa --force-recreate`) - do this before committing frontend changes.
+Dev hot-reloads on `todolist.lan`; prod on `thiemnet.ca` needs manual rebuild (see Production Build command above) - do this before committing frontend changes.
 
 **Voice Page**: Uses Web Speech API. Brave Desktop blocks Google's speech servers (privacy); code shows warning banner. Other browsers work fine.
 
