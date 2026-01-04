@@ -1222,7 +1222,7 @@ export type HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams = {
 item_id?: number;
 };
 
-export type GetVoiceHistoryDebugVoiceHistoryGetParams = {
+export type GetVoiceHistoryApiV1DebugVoiceHistoryGetParams = {
 /**
  * @maximum 100
  */
@@ -7123,14 +7123,14 @@ Returns items that have raw_voice_text set (i.e., were created via voice input),
 ordered by creation time descending (newest first).
  * @summary Get Voice History
  */
-export const getVoiceHistoryDebugVoiceHistoryGet = (
-    params?: GetVoiceHistoryDebugVoiceHistoryGetParams,
+export const getVoiceHistoryApiV1DebugVoiceHistoryGet = (
+    params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams,
  signal?: AbortSignal
 ) => {
       
       
       return customFetch<VoiceHistoryResponse>(
-      {url: `/debug/voice-history`, method: 'GET',
+      {url: `/api/v1/debug/voice-history`, method: 'GET',
         params, signal
     },
       );
@@ -7139,69 +7139,69 @@ export const getVoiceHistoryDebugVoiceHistoryGet = (
 
 
 
-export const getGetVoiceHistoryDebugVoiceHistoryGetQueryKey = (params?: GetVoiceHistoryDebugVoiceHistoryGetParams,) => {
+export const getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryKey = (params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams,) => {
     return [
-    `/debug/voice-history`, ...(params ? [params]: [])
+    `/api/v1/debug/voice-history`, ...(params ? [params]: [])
     ] as const;
     }
 
     
-export const getGetVoiceHistoryDebugVoiceHistoryGetQueryOptions = <TData = Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError = HTTPValidationError>(params?: GetVoiceHistoryDebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError, TData>>, }
+export const getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryOptions = <TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetVoiceHistoryDebugVoiceHistoryGetQueryKey(params);
+  const queryKey =  queryOptions?.queryKey ?? getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>> = ({ signal }) => getVoiceHistoryDebugVoiceHistoryGet(params, signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>> = ({ signal }) => getVoiceHistoryApiV1DebugVoiceHistoryGet(params, signal);
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type GetVoiceHistoryDebugVoiceHistoryGetQueryResult = NonNullable<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>>
-export type GetVoiceHistoryDebugVoiceHistoryGetQueryError = HTTPValidationError
+export type GetVoiceHistoryApiV1DebugVoiceHistoryGetQueryResult = NonNullable<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>>
+export type GetVoiceHistoryApiV1DebugVoiceHistoryGetQueryError = HTTPValidationError
 
 
-export function useGetVoiceHistoryDebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError = HTTPValidationError>(
- params: undefined |  GetVoiceHistoryDebugVoiceHistoryGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError, TData>> & Pick<
+export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(
+ params: undefined |  GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>,
+          Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>,
           TError,
-          Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>
+          Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>
         > , 'initialData'
       >, }
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetVoiceHistoryDebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError = HTTPValidationError>(
- params?: GetVoiceHistoryDebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError, TData>> & Pick<
+export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(
+ params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>,
+          Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>,
           TError,
-          Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>
+          Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>
         > , 'initialData'
       >, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetVoiceHistoryDebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError = HTTPValidationError>(
- params?: GetVoiceHistoryDebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError, TData>>, }
+export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(
+ params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get Voice History
  */
 
-export function useGetVoiceHistoryDebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError = HTTPValidationError>(
- params?: GetVoiceHistoryDebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryDebugVoiceHistoryGet>>, TError, TData>>, }
+export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(
+ params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>>, }
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetVoiceHistoryDebugVoiceHistoryGetQueryOptions(params,options)
+  const queryOptions = getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

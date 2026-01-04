@@ -13,7 +13,7 @@ from src.models.item import Item
 from src.models.list import List
 from src.models.user import User
 
-router = APIRouter(prefix="/debug", tags=["debug"])
+router = APIRouter(prefix="/api/v1/debug", tags=["debug"])
 
 
 class VoiceDebugItem(BaseModel):

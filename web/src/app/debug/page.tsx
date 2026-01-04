@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  useGetVoiceHistoryDebugVoiceHistoryGet,
+  useGetVoiceHistoryApiV1DebugVoiceHistoryGet,
   VoiceDebugItem,
 } from '@/generated/api';
 import Link from 'next/link';
@@ -36,7 +36,7 @@ interface DebugInfo {
 }
 
 export default function DebugPage() {
-  const { data, isLoading, error } = useGetVoiceHistoryDebugVoiceHistoryGet({
+  const { data, isLoading, error } = useGetVoiceHistoryApiV1DebugVoiceHistoryGet({
     limit: 50,
     offset: 0,
   });
