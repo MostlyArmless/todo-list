@@ -4,6 +4,7 @@ import logging
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.celery_app import app as celery_app
 from src.database import SessionLocal
@@ -444,6 +445,7 @@ def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -
                 debug_info = item.voice_debug_info or {}
                 debug_info["llm"] = llm_debug
                 item.voice_debug_info = debug_info
+                flag_modified(item, "voice_debug_info")
         else:
             # Grocery refinement - name cleanup and category assignment
             grocery_lists = (
@@ -493,6 +495,7 @@ def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -
                 debug_info = item.voice_debug_info or {}
                 debug_info["llm"] = llm_debug
                 item.voice_debug_info = debug_info
+                flag_modified(item, "voice_debug_info")
 
         # Mark all items as refined
         for item in items:

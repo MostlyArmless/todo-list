@@ -1,6 +1,6 @@
 """Tests for voice input endpoints."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -676,3 +676,102 @@ def test_confirm_task_list_with_edits(client, auth_headers, db):
     assert "2025-01-06" in items[0]["due_date"]
     assert items[0]["reminder_offset"] == "30m"
     assert items[0]["recurrence_pattern"] == "weekly"
+
+
+def test_refine_voice_items_saves_llm_debug_info(client, auth_headers, db):
+    """Test that refine_voice_items correctly saves LLM debug info to JSONB column.
+
+    This tests the fix for SQLAlchemy JSONB mutation detection - ensuring
+    flag_modified is called so the llm debug info is persisted.
+    """
+    user_id = auth_headers.user_id
+
+    # Create a grocery list
+    list_response = client.post(
+        "/api/v1/lists",
+        headers=auth_headers,
+        json={"name": "Grocery", "icon": "🛒"},
+    )
+    list_id = list_response.json()["id"]
+
+    # Create a category
+    category_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Pharmacy", "sort_order": 0},
+    )
+    category_id = category_response.json()["id"]
+
+    from src.models.item import Item
+
+    # Create an item with heuristic debug info (simulating what voice.py creates)
+    item = Item(
+        list_id=list_id,
+        name="toothpaste",
+        created_by=user_id,
+        refinement_status="pending",
+        raw_voice_text="add toothpaste",
+        voice_debug_info={
+            "heuristic": {
+                "input_type": "grocery",
+                "list_id": list_id,
+                "name": "toothpaste",
+                "category_id": None,
+            }
+        },
+    )
+    db.add(item)
+    db.commit()
+    item_id = item.id
+
+    # Mock the LLM service to return predictable results
+    mock_llm_response = {"action": "add", "list_name": "Grocery", "items": ["toothpaste"]}
+    mock_categorization = {
+        "category_id": category_id,
+        "confidence": 0.85,
+        "reasoning": "Toothpaste is a pharmacy/health item",
+    }
+
+    # Create a mock session class that returns our test db session
+    mock_session_local = MagicMock(return_value=db)
+
+    with (
+        patch("src.tasks.voice_processing.SessionLocal", mock_session_local),
+        patch("src.tasks.voice_processing.LLMService") as mock_llm_class,
+        patch("src.tasks.voice_processing.CategorizationService") as mock_categorization_class,
+    ):
+        # Setup LLM mock
+        mock_llm = MagicMock()
+        mock_llm.generate_json.return_value = mock_llm_response
+        mock_llm_class.return_value = mock_llm
+
+        # Setup categorization mock
+        mock_cat_service = MagicMock()
+        mock_cat_service.categorize_item.return_value = mock_categorization
+        mock_categorization_class.return_value = mock_cat_service
+
+        # Run the refinement task directly (not via Celery)
+        from src.tasks.voice_processing import refine_voice_items
+
+        result = refine_voice_items([item_id], "add toothpaste", user_id)
+
+        assert result.get("success") is True
+
+    # Refresh the item from DB to verify changes were persisted
+    db.expire_all()
+    updated_item = db.query(Item).filter(Item.id == item_id).first()
+
+    # Verify refinement status is complete
+    assert updated_item.refinement_status == "complete"
+
+    # Verify LLM debug info was saved (this is the key assertion for the fix)
+    assert updated_item.voice_debug_info is not None
+    assert "heuristic" in updated_item.voice_debug_info
+    assert "llm" in updated_item.voice_debug_info
+
+    # Verify LLM debug info contents
+    llm_debug = updated_item.voice_debug_info["llm"]
+    assert "raw_response" in llm_debug
+    assert "refined_at" in llm_debug
+    assert "categorization" in llm_debug
+    assert llm_debug["categorization"]["category_id"] == category_id
