@@ -80,3 +80,7 @@ tsconfig.tsbuildinfo
 
 # Promptfoo
 evals/results/
+
+# Docker Compose local overrides (agent-specific configs)
+docker-compose.override.yml
+docker-compose.override.agent-*.yml

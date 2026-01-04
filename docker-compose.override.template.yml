@@ -1,0 +1,45 @@
+# Multi-Agent Isolation Override Template
+#
+# Copy this file and customize for each parallel agent:
+#   cp docker-compose.override.template.yml docker-compose.override.agent-b.yml
+#
+# Then edit the ports to avoid conflicts (see docs/multi-agent-isolation.md for port assignments)
+#
+# Usage:
+#   COMPOSE_PROJECT_NAME=todo-b docker compose -f docker-compose.yml -f docker-compose.override.agent-b.yml up -d
+#   COMPOSE_PROJECT_NAME=todo-b docker compose -f docker-compose.yml -f docker-compose.override.agent-b.yml exec -T api pytest
+#   COMPOSE_PROJECT_NAME=todo-b docker compose -f docker-compose.yml -f docker-compose.override.agent-b.yml down
+#
+# Note: The `!override` directive (requires Docker Compose 2.24+) ensures ports are replaced, not merged.
+
+services:
+  db:
+    container_name: todo-AGENT-db
+    ports: !override
+      - "5434:5432"  # Default: 5433, Agent B: 5434, Agent C: 5435
+
+  redis:
+    container_name: todo-AGENT-redis
+    ports: !override
+      - "6382:6379"  # Default: 6381, Agent B: 6382, Agent C: 6383
+
+  api:
+    container_name: todo-AGENT-api
+    ports: !override
+      - "8001:8000"  # Default: 8000, Agent B: 8001, Agent C: 8002
+
+  celery-worker:
+    container_name: todo-AGENT-celery-worker
+
+  celery-beat:
+    container_name: todo-AGENT-celery-beat
+
+  pwa:
+    container_name: todo-AGENT-pwa
+    ports: !override
+      - "3004:3000"  # Default: 3002, Agent B: 3004, Agent C: 3006
+
+  pwa-dev:
+    container_name: todo-AGENT-pwa-dev
+    ports: !override
+      - "3005:3000"  # Default: 3003, Agent B: 3005, Agent C: 3007

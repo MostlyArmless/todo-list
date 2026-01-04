@@ -22,7 +22,45 @@ docker compose exec -T db psql -U todo_user -d todo_list
 # Linting (requires `uv sync --extra dev`)
 uv run ruff format .
 uv run ruff check . --fix
+
+# Multi-Agent Isolation (for parallel agent work - see below)
+./scripts/agent-env.sh create              # Create isolated env, prints AGENT_ID
+./scripts/agent-compose.sh <id> up -d      # Start agent's stack
+./scripts/agent-compose.sh <id> exec -T api pytest  # Run tests
+./scripts/agent-compose.sh <id> down       # Stop stack
+./scripts/agent-env.sh destroy <id>        # Clean up when done
 ```
+
+## Multi-Agent Setup
+
+**If you are a parallel agent** (user mentioned "parallel", "concurrent", or multiple agents), you MUST set up an isolated environment before doing any work:
+
+```bash
+# 1. Create isolated environment with git worktree (one command does everything)
+./scripts/agent-env.sh create --worktree
+# Output shows: AGENT_ID=a, WORKTREE=/home/mike/dev/todo-list-agent-a, BRANCH=agent-a-work
+
+# 2. Change to your worktree
+cd /home/mike/dev/todo-list-agent-a  # (use path from output)
+
+# 3. Start your isolated Docker stack
+./scripts/agent-compose.sh a up -d
+
+# 4. Do your work - all docker commands go through agent-compose.sh
+./scripts/agent-compose.sh a exec -T api pytest
+./scripts/agent-compose.sh a logs -f api
+
+# 5. When done, commit and merge
+git add -A && git commit -m "your changes"
+cd /home/mike/dev/todo-list && git merge agent-a-work
+
+# 6. Clean up (stops containers, removes worktree and branch)
+./scripts/agent-env.sh destroy a
+```
+
+**Why**: Multiple agents need isolated git worktrees (for code changes) AND isolated Docker stacks (for databases). The script handles both atomically with locking to prevent races.
+
+**Primary agent** (in `/home/mike/dev/todo-list`): Uses standard `docker compose` commands - no isolation needed.
 
 ## Architecture
 
