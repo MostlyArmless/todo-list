@@ -38,8 +38,10 @@ services:
     container_name: todo-AGENT-pwa
     ports: !override
       - "3004:3000"  # Default: 3002, Agent B: 3004, Agent C: 3006
+    profiles: [disabled]  # Don't start prod PWA for agents
 
   pwa-dev:
     container_name: todo-AGENT-pwa-dev
     ports: !override
-      - "3005:3000"  # Default: 3003, Agent B: 3005, Agent C: 3007
+      - "3004:3000"  # Use same port as pwa would (agent's PWA port)
+    profiles: !override []  # Remove dev profile so it starts by default

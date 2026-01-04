@@ -44,8 +44,7 @@ get_ports_for_agent() {
     echo "DB_PORT=$((BASE_DB_PORT + num))"
     echo "REDIS_PORT=$((BASE_REDIS_PORT + num))"
     echo "API_PORT=$((BASE_API_PORT + num))"
-    echo "PWA_PORT=$((BASE_PWA_PORT + num * 2))"
-    echo "PWA_DEV_PORT=$((BASE_PWA_DEV_PORT + num * 2))"
+    echo "PWA_PORT=$((BASE_PWA_PORT + num * 2))"  # Agents use pwa-dev on this port
 }
 
 list_agents() {
@@ -224,7 +223,6 @@ create_agent() {
         -e "s/\"6382:6379\"/\"${REDIS_PORT}:6379\"/g" \
         -e "s/\"8001:8000\"/\"${API_PORT}:8000\"/g" \
         -e "s/\"3004:3000\"/\"${PWA_PORT}:3000\"/g" \
-        -e "s/\"3005:3000\"/\"${PWA_DEV_PORT}:3000\"/g" \
         "${working_dir}/${TEMPLATE_FILE}" > "$override_file"
 
     # Release lock
@@ -240,8 +238,7 @@ create_agent() {
     echo ""
     echo "Ports:"
     echo "  API:     http://localhost:${API_PORT}"
-    echo "  PWA:     http://localhost:${PWA_PORT}"
-    echo "  PWA-dev: http://localhost:${PWA_DEV_PORT}"
+    echo "  PWA:     http://localhost:${PWA_PORT}  (dev mode with hot reload)"
     echo "  DB:      localhost:${DB_PORT}"
     echo "  Redis:   localhost:${REDIS_PORT}"
     echo ""

@@ -60,6 +60,8 @@ cd /home/mike/dev/todo-list && git merge agent-a-work
 
 **Why**: Multiple agents need isolated git worktrees (for code changes) AND isolated Docker stacks (for databases). The script handles both atomically with locking to prevent races.
 
+**Note**: Agent environments use `pwa-dev` (hot reload) instead of production PWA - faster startup and no rebuild needed for frontend changes.
+
 **Primary agent** (in `/home/mike/dev/todo-list`): Uses standard `docker compose` commands - no isolation needed.
 
 ## Architecture
