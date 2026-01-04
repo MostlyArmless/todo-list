@@ -50,6 +50,9 @@ class Item(Base, TimestampMixin, SoftDeleteMixin):
     raw_voice_text = Column(
         String(2000), nullable=True
     )  # Original transcription for LLM refinement
+    voice_debug_info = Column(
+        JSONB, nullable=True
+    )  # Debug info: heuristic output, LLM output, timing
 
     # Relationships
     list = relationship("List", back_populates="items")

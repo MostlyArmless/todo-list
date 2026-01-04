@@ -159,6 +159,22 @@ def create_voice_items_instant(
             reminder_offset = reminder_info["offset"]
             reminder_at = _calculate_reminder_at(due_date, reminder_offset)
 
+        # Get target list name for debug info
+        target_list = next((lst for lst in task_lists if lst.id == target_list_id), None)
+        target_list_name = target_list.name if target_list else "unknown"
+
+        # Build heuristic debug info
+        heuristic_debug = {
+            "input_type": "task",
+            "list_id": target_list_id,
+            "list_name": target_list_name,
+            "name": task_name or raw_text,
+            "due_date": due_date.isoformat() if due_date else None,
+            "reminder_offset": reminder_offset,
+            "recurrence_pattern": recurrence,
+            "parsed_at": now.isoformat(),
+        }
+
         # Create the task item
         item = Item(
             list_id=target_list_id,
@@ -170,6 +186,7 @@ def create_voice_items_instant(
             created_by=current_user.id,
             refinement_status="pending",
             raw_voice_text=raw_text,
+            voice_debug_info={"heuristic": heuristic_debug},
         )
         db.add(item)
         created_items.append(item)
@@ -183,6 +200,10 @@ def create_voice_items_instant(
         if not target_list_id:
             target_list_id = grocery_lists[0].id
 
+        # Get target list name for debug info
+        target_list = next((lst for lst in grocery_lists if lst.id == target_list_id), None)
+        target_list_name = target_list.name if target_list else "unknown"
+
         # Parse items
         item_names = parser.parse_grocery_items(raw_text)
         if not item_names:
@@ -192,6 +213,16 @@ def create_voice_items_instant(
             # Try to get category from history (fast, no LLM)
             category_id = lookup_category_from_history(db, item_name, target_list_id)
 
+            # Build heuristic debug info
+            heuristic_debug = {
+                "input_type": "grocery",
+                "list_id": target_list_id,
+                "list_name": target_list_name,
+                "name": item_name,
+                "category_id": category_id,
+                "parsed_at": now.isoformat(),
+            }
+
             item = Item(
                 list_id=target_list_id,
                 name=item_name,
@@ -199,6 +230,7 @@ def create_voice_items_instant(
                 created_by=current_user.id,
                 refinement_status="pending",
                 raw_voice_text=raw_text,
+                voice_debug_info={"heuristic": heuristic_debug},
             )
             db.add(item)
             created_items.append(item)

@@ -411,19 +411,39 @@ def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -
                 item = items[0]
                 llm_item = parsed_data["items"][0]
 
+                # Build LLM debug info
+                llm_debug = {
+                    "raw_response": parsed_data,
+                    "refined_at": datetime.now(UTC).isoformat(),
+                }
+
                 # Update name if LLM provided a better one
                 if isinstance(llm_item, dict) and llm_item.get("name"):
+                    llm_debug["name"] = llm_item["name"]
                     item.name = llm_item["name"]
 
                 # Update dates if LLM parsed them and heuristic didn't
                 if isinstance(llm_item, dict):
-                    if llm_item.get("due_date") and not item.due_date:
-                        due_date_str = llm_item["due_date"]
-                        item.due_date = datetime.fromisoformat(due_date_str.replace("Z", "+00:00"))
-                    if llm_item.get("reminder_offset") and not item.reminder_offset:
-                        item.reminder_offset = llm_item["reminder_offset"]
-                    if llm_item.get("recurrence_pattern") and not item.recurrence_pattern:
-                        item.recurrence_pattern = llm_item["recurrence_pattern"]
+                    if llm_item.get("due_date"):
+                        llm_debug["due_date"] = llm_item["due_date"]
+                        if not item.due_date:
+                            due_date_str = llm_item["due_date"]
+                            item.due_date = datetime.fromisoformat(
+                                due_date_str.replace("Z", "+00:00")
+                            )
+                    if llm_item.get("reminder_offset"):
+                        llm_debug["reminder_offset"] = llm_item["reminder_offset"]
+                        if not item.reminder_offset:
+                            item.reminder_offset = llm_item["reminder_offset"]
+                    if llm_item.get("recurrence_pattern"):
+                        llm_debug["recurrence_pattern"] = llm_item["recurrence_pattern"]
+                        if not item.recurrence_pattern:
+                            item.recurrence_pattern = llm_item["recurrence_pattern"]
+
+                # Update voice_debug_info with LLM results
+                debug_info = item.voice_debug_info or {}
+                debug_info["llm"] = llm_debug
+                item.voice_debug_info = debug_info
         else:
             # Grocery refinement - name cleanup and category assignment
             grocery_lists = (
@@ -439,9 +459,16 @@ def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -
             categorization_service = CategorizationService(db, llm_service)
 
             for i, item in enumerate(items):
+                # Build LLM debug info for this item
+                llm_debug = {
+                    "raw_response": parsed_data,
+                    "refined_at": datetime.now(UTC).isoformat(),
+                }
+
                 # Update name if LLM provided a cleaner version
                 if i < len(llm_item_names) and llm_item_names[i]:
                     llm_name = llm_item_names[i]
+                    llm_debug["name"] = llm_name
                     if llm_name != item.name:
                         logger.info(f"Refining item name: '{item.name}' -> '{llm_name}'")
                         item.name = llm_name
@@ -453,12 +480,19 @@ def refine_voice_items(self, item_ids: list[int], raw_text: str, user_id: int) -
                         list_id=item.list_id,
                         user_id=user_id,
                     )
+                    llm_debug["categorization"] = result
                     if result["category_id"]:
                         item.category_id = result["category_id"]
+                        llm_debug["category_id"] = result["category_id"]
                         # Record to history for future fast lookups
                         categorization_service.record_categorization(
                             item.name, result["category_id"], item.list_id, user_id
                         )
+
+                # Update voice_debug_info with LLM results
+                debug_info = item.voice_debug_info or {}
+                debug_info["llm"] = llm_debug
+                item.voice_debug_info = debug_info
 
         # Mark all items as refined
         for item in items:

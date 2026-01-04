@@ -113,6 +113,7 @@ class ItemResponse(BaseModel):
     # Voice processing fields
     refinement_status: str | None = None
     raw_voice_text: str | None = None
+    voice_debug_info: dict | None = None
 
 
 class TaskItemResponse(ItemResponse):
