@@ -60,9 +60,16 @@ cd /home/mike/dev/todo-list && git merge agent-a-work
 
 **Why**: Multiple agents need isolated git worktrees (for code changes) AND isolated Docker stacks (for databases). The script handles both atomically with locking to prevent races.
 
-**Note**: Agent environments use `pwa-dev` (hot reload) instead of production PWA - faster startup and no rebuild needed for frontend changes.
+**Features**:
+- `pwa-dev` (hot reload) instead of production PWA - faster startup
+- Auto-detects port conflicts and skips to next available agent ID
+- Auto-runs database migrations on startup (handles fresh DBs correctly)
+- Pre-commit hooks auto-detect agent stack and run tests there
+- Worktree directories are pre-approved in `.claude/settings.json`
 
-**IMPORTANT**: NEVER use `git commit --no-verify`. Pre-commit hooks automatically detect agent environments and run tests against your isolated stack.
+**Tips**:
+- Shell CWD may reset to main repo between commands - use explicit paths or `cd` to worktree
+- If tests hang, check that your agent stack is running: `./scripts/agent-compose.sh <id> ps`
 
 **Primary agent** (in `/home/mike/dev/todo-list`): Uses standard `docker compose` commands - no isolation needed.
 

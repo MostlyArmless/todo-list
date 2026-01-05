@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../todo-list-agent-a",
+      "../todo-list-agent-b",
+      "../todo-list-agent-c",
+      "../todo-list-agent-d",
+      "../todo-list-agent-e",
+      "../todo-list-agent-f",
+      "../todo-list-agent-g",
+      "../todo-list-agent-h",
+      "../todo-list-agent-i",
+      "../todo-list-agent-j",
+      "../todo-list-agent-k",
+      "../todo-list-agent-l",
+      "../todo-list-agent-m",
+      "../todo-list-agent-n",
+      "../todo-list-agent-o",
+      "../todo-list-agent-p",
+      "../todo-list-agent-q",
+      "../todo-list-agent-r",
+      "../todo-list-agent-s",
+      "../todo-list-agent-t",
+      "../todo-list-agent-u",
+      "../todo-list-agent-v",
+      "../todo-list-agent-w",
+      "../todo-list-agent-x",
+      "../todo-list-agent-y",
+      "../todo-list-agent-z"
+    ]
+  }
+}

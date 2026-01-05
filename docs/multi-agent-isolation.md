@@ -43,12 +43,14 @@ container_name: todo-list-api
 
 ### Ports That Need Remapping
 
+Agent ports use high ranges to avoid conflicts with other projects:
+
 | Service   | Default | Agent A | Agent B |
 |-----------|---------|---------|---------|
-| db        | 5433    | 5434    | 5435    |
-| redis     | 6381    | 6382    | 6383    |
-| api       | 8000    | 8001    | 8002    |
-| pwa       | 3002    | 3004    | 3006    |
+| db        | 5433    | 15433   | 15434   |
+| redis     | 6381    | 16380   | 16381   |
+| api       | 8000    | 18001   | 18002   |
+| pwa       | 3002    | 13002   | 13004   |
 
 **Note**: Agent environments use `pwa-dev` (hot reload) instead of production PWA. The prod `pwa` container is disabled via profiles.
 

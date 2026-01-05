@@ -16,17 +16,17 @@ services:
   db:
     container_name: todo-AGENT-db
     ports: !override
-      - "5434:5432"  # Default: 5433, Agent B: 5434, Agent C: 5435
+      - "15433:5432"  # Agent a=15433, b=15434, etc.
 
   redis:
     container_name: todo-AGENT-redis
     ports: !override
-      - "6382:6379"  # Default: 6381, Agent B: 6382, Agent C: 6383
+      - "16380:6379"  # Agent a=16380, b=16381, etc.
 
   api:
     container_name: todo-AGENT-api
     ports: !override
-      - "8001:8000"  # Default: 8000, Agent B: 8001, Agent C: 8002
+      - "18001:8000"  # Agent a=18001, b=18002, etc.
 
   celery-worker:
     container_name: todo-AGENT-celery-worker
@@ -37,11 +37,11 @@ services:
   pwa:
     container_name: todo-AGENT-pwa
     ports: !override
-      - "3004:3000"  # Default: 3002, Agent B: 3004, Agent C: 3006
+      - "13002:3000"  # Agent a=13002, b=13004, etc.
     profiles: [disabled]  # Don't start prod PWA for agents
 
   pwa-dev:
     container_name: todo-AGENT-pwa-dev
     ports: !override
-      - "3004:3000"  # Use same port as pwa would (agent's PWA port)
+      - "13002:3000"  # Agent a=13002, b=13004, etc. (same as pwa)
     profiles: !override []  # Remove dev profile so it starts by default

@@ -23,13 +23,13 @@ fi
 
 TEMPLATE_FILE="docker-compose.override.template.yml"
 
-# Port calculation: base + (agent_num * 10)
+# Port calculation: base + agent_num
 # Agent a=1, b=2, c=3, etc.
-BASE_DB_PORT=5433
-BASE_REDIS_PORT=6381
-BASE_API_PORT=8000
-BASE_PWA_PORT=3002
-BASE_PWA_DEV_PORT=3003
+# Using higher base ports to avoid conflicts with other projects (habit-bot uses 5434, 8001)
+BASE_DB_PORT=15432      # Agent a=15433, b=15434, etc.
+BASE_REDIS_PORT=16379   # Agent a=16380, b=16381, etc.
+BASE_API_PORT=18000     # Agent a=18001, b=18002, etc.
+BASE_PWA_PORT=13000     # Agent a=13002, b=13004, etc. (increments by 2)
 
 get_agent_num() {
     local id=$1

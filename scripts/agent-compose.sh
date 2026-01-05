@@ -120,15 +120,39 @@ if [ $IS_UP_COMMAND -eq 1 ] && [ $COMPOSE_EXIT_CODE -eq 0 ]; then
         exit 1
     fi
 
-    echo "Running database migrations..."
-    COMPOSE_PROJECT_NAME="todo-${AGENT_NAME}" docker compose \
-        -f docker-compose.yml \
-        -f "$OVERRIDE_FILE" \
-        exec -T api alembic upgrade head 2>&1 || {
-            echo ""
-            echo "Note: If migrations failed due to existing tables, run:"
-            echo "  ./scripts/agent-compose.sh ${AGENT_NAME} exec api alembic stamp head"
-        }
+    # Check if this is a fresh DB with tables created by SQLAlchemy (not alembic)
+    # This happens because the API runs create_all() on startup
+    echo "Checking database migration state..."
+
+    ALEMBIC_VERSION=$(COMPOSE_PROJECT_NAME="todo-${AGENT_NAME}" docker compose \
+        -f docker-compose.yml -f "$OVERRIDE_FILE" \
+        exec -T db psql -U todo_user -d todo_list -tAc \
+        "SELECT version_num FROM alembic_version LIMIT 1" 2>/dev/null || echo "")
+
+    TABLES_EXIST=$(COMPOSE_PROJECT_NAME="todo-${AGENT_NAME}" docker compose \
+        -f docker-compose.yml -f "$OVERRIDE_FILE" \
+        exec -T db psql -U todo_user -d todo_list -tAc \
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')" 2>/dev/null || echo "f")
+
+    if [ -z "$ALEMBIC_VERSION" ] && [ "$TABLES_EXIST" = "t" ]; then
+        # Tables exist but alembic hasn't run - stamp to current head
+        echo "Fresh DB with existing tables detected, stamping alembic to head..."
+        COMPOSE_PROJECT_NAME="todo-${AGENT_NAME}" docker compose \
+            -f docker-compose.yml \
+            -f "$OVERRIDE_FILE" \
+            exec -T api alembic stamp head 2>&1
+    else
+        # Normal migration
+        echo "Running database migrations..."
+        COMPOSE_PROJECT_NAME="todo-${AGENT_NAME}" docker compose \
+            -f docker-compose.yml \
+            -f "$OVERRIDE_FILE" \
+            exec -T api alembic upgrade head 2>&1 || {
+                echo ""
+                echo "Note: If migrations failed, you may need to manually resolve the state:"
+                echo "  ./scripts/agent-compose.sh ${AGENT_NAME} exec api alembic stamp head"
+            }
+    fi
     echo ""
     echo "Agent ${AGENT_NAME} stack is ready!"
 fi

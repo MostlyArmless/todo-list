@@ -71,8 +71,9 @@ web/playwright-report/
 .cloudflared/
 *.deb
 
-# Claude Code
-.claude/
+# Claude Code (allow settings.json for team config)
+.claude/*
+!.claude/settings.json
 
 # TypeScript
 tsconfig.tsbuildinfo
