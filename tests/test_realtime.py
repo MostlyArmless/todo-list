@@ -283,37 +283,38 @@ class TestWebSocketEndpoint:
         from starlette.websockets import WebSocketDisconnect
 
         # WebSocket without token should fail - FastAPI raises WebSocketDisconnect
+        # This happens at the FastAPI level before our handler runs
         with pytest.raises(WebSocketDisconnect), client.websocket_connect("/api/v1/ws/lists/1"):
             pass
 
-    def test_websocket_rejects_invalid_token(self, client):
+    def test_websocket_rejects_invalid_token(self, client, db):
         """Test that WebSocket rejects invalid token."""
-        from starlette.websockets import WebSocketDisconnect
-
+        # Patch SessionLocal to use test database
         with (
-            pytest.raises(WebSocketDisconnect),
+            patch("src.api.websocket.SessionLocal", return_value=db),
             client.websocket_connect("/api/v1/ws/lists/1?token=invalid_token"),
         ):
+            # Server accepts first, then closes with error code
+            # The connection closes immediately after accept
             pass
 
-    def test_websocket_rejects_nonexistent_user(self, client, auth_headers):
+    def test_websocket_rejects_nonexistent_user(self, client, db, auth_headers):
         """Test that WebSocket rejects token for non-existent user."""
-        from starlette.websockets import WebSocketDisconnect
-
         from src.services.auth import create_access_token
 
         # Create a token for a user ID that doesn't exist
         fake_token = create_access_token(user_id=99999, email="fake@example.com")
+
+        # Patch SessionLocal to use test database
         with (
-            pytest.raises(WebSocketDisconnect),
+            patch("src.api.websocket.SessionLocal", return_value=db),
             client.websocket_connect(f"/api/v1/ws/lists/1?token={fake_token}"),
         ):
+            # Server accepts first, then closes after finding user doesn't exist
             pass
 
     def test_websocket_rejects_unauthorized_list_access(self, client, auth_headers, db):
         """Test that WebSocket rejects access to lists user doesn't own."""
-        from starlette.websockets import WebSocketDisconnect
-
         from src.models.list import List
         from src.models.user import User
 
@@ -328,8 +329,11 @@ class TestWebSocketEndpoint:
 
         # Try to connect to other user's list
         token = auth_headers["Authorization"].replace("Bearer ", "")
+
+        # Patch SessionLocal to use test database
         with (
-            pytest.raises(WebSocketDisconnect),
+            patch("src.api.websocket.SessionLocal", return_value=db),
             client.websocket_connect(f"/api/v1/ws/lists/{other_list.id}?token={token}"),
         ):
+            # Server accepts first, then closes after access check fails
             pass

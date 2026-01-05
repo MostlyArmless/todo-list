@@ -16,6 +16,42 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Fetch handler - required for PWA installability
+// Uses network-first strategy: try network, fall back to cache
+// eslint-disable-next-line no-undef
+self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Skip cross-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Clone the response before caching
+        const responseToCache = response.clone();
+
+        // Cache successful responses for offline fallback
+        if (response.ok) {
+          caches.open('app-cache-v1').then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+
+        return response;
+      })
+      .catch(() => {
+        // Network failed, try cache
+        return caches.match(event.request);
+      })
+  );
+});
+
 // eslint-disable-next-line no-undef
 self.addEventListener('push', (event) => {
   console.log('Push event received:', event);
