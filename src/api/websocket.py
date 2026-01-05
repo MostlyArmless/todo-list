@@ -32,6 +32,9 @@ async def websocket_list_sync(
     user_id: int | None = None
 
     try:
+        # Accept connection first (required before closing with custom code)
+        await websocket.accept()
+
         # Authenticate user
         payload = decode_access_token(token)
         if not payload:
@@ -55,8 +58,6 @@ async def websocket_list_sync(
         except Exception:
             await websocket.close(code=4003, reason="Access denied")
             return
-
-        await websocket.accept()
         logger.info(f"WebSocket connected: user={user_id}, list={list_id}")
 
         async def handle_messages() -> None:
