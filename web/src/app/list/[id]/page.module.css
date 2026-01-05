@@ -149,15 +149,11 @@
 }
 
 .addedMessage {
-  position: absolute;
-  left: var(--space-4);
-  top: 100%;
+  display: block;
   margin-top: var(--space-2);
   color: var(--success);
   font-size: var(--text-xs);
-  opacity: 1;
   animation: fadeOut 3s ease-out forwards;
-  white-space: nowrap;
 }
 
 /* Bulk Actions */
