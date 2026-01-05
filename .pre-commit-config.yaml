@@ -58,7 +58,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: docker compose exec -T api pytest --cov=src --cov-fail-under=60 --tb=short -q
+        entry: ./scripts/run-pytest.sh
         language: system
         pass_filenames: false
         stages: [pre-commit]

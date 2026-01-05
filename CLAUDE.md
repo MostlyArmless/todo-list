@@ -50,7 +50,7 @@ cd /home/mike/dev/todo-list-agent-a  # (use path from output)
 ./scripts/agent-compose.sh a exec -T api pytest
 ./scripts/agent-compose.sh a logs -f api
 
-# 5. When done, commit and merge
+# 5. Commit and merge (pre-commit hooks auto-detect agent stack)
 git add -A && git commit -m "your changes"
 cd /home/mike/dev/todo-list && git merge agent-a-work
 
@@ -61,6 +61,8 @@ cd /home/mike/dev/todo-list && git merge agent-a-work
 **Why**: Multiple agents need isolated git worktrees (for code changes) AND isolated Docker stacks (for databases). The script handles both atomically with locking to prevent races.
 
 **Note**: Agent environments use `pwa-dev` (hot reload) instead of production PWA - faster startup and no rebuild needed for frontend changes.
+
+**IMPORTANT**: NEVER use `git commit --no-verify`. Pre-commit hooks automatically detect agent environments and run tests against your isolated stack.
 
 **Primary agent** (in `/home/mike/dev/todo-list`): Uses standard `docker compose` commands - no isolation needed.
 
