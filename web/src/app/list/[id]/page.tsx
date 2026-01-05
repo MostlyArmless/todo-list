@@ -883,6 +883,7 @@ export default function ListDetailPage() {
                 onUncheck={handleUncheckTask}
                 onDelete={handleDeleteItem}
                 onUpdate={handleUpdateTask}
+                showItemId={listId === 86}
               />
             ))}
           </div>

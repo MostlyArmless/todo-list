@@ -105,6 +105,14 @@
   flex-wrap: wrap;
 }
 
+/* Subtle item ID for dev reference */
+.itemId {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
 /* Due Date */
 .dueDate {
   display: flex;
