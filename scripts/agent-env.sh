@@ -270,11 +270,12 @@ create_agent() {
     eval $(get_ports_for_agent "$id")
 
     # Create override file from template
+    # Template has agent-a ports (15433, 16380, 18001, 13002), replace with calculated ports
     sed -e "s/todo-AGENT/todo-${id}/g" \
-        -e "s/\"5434:5432\"/\"${DB_PORT}:5432\"/g" \
-        -e "s/\"6382:6379\"/\"${REDIS_PORT}:6379\"/g" \
-        -e "s/\"8001:8000\"/\"${API_PORT}:8000\"/g" \
-        -e "s/\"3004:3000\"/\"${PWA_PORT}:3000\"/g" \
+        -e "s/\"15433:5432\"/\"${DB_PORT}:5432\"/g" \
+        -e "s/\"16380:6379\"/\"${REDIS_PORT}:6379\"/g" \
+        -e "s/\"18001:8000\"/\"${API_PORT}:8000\"/g" \
+        -e "s/\"13002:3000\"/\"${PWA_PORT}:3000\"/g" \
         "${working_dir}/${TEMPLATE_FILE}" > "$override_file"
 
     # Release lock
