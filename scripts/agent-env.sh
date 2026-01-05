@@ -47,6 +47,40 @@ get_ports_for_agent() {
     echo "PWA_PORT=$((BASE_PWA_PORT + num * 2))"  # Agents use pwa-dev on this port
 }
 
+check_port_available() {
+    local port=$1
+    # Check if port is in use using ss (socket statistics)
+    if ss -tuln 2>/dev/null | grep -q ":${port} "; then
+        return 1  # Port in use
+    fi
+    return 0
+}
+
+check_ports_for_agent() {
+    local id=$1
+    eval $(get_ports_for_agent "$id")
+
+    local conflicts=""
+    if ! check_port_available "$DB_PORT"; then
+        conflicts="${conflicts}  - DB port $DB_PORT is in use\n"
+    fi
+    if ! check_port_available "$REDIS_PORT"; then
+        conflicts="${conflicts}  - Redis port $REDIS_PORT is in use\n"
+    fi
+    if ! check_port_available "$API_PORT"; then
+        conflicts="${conflicts}  - API port $API_PORT is in use\n"
+    fi
+    if ! check_port_available "$PWA_PORT"; then
+        conflicts="${conflicts}  - PWA port $PWA_PORT is in use\n"
+    fi
+
+    if [ -n "$conflicts" ]; then
+        echo -e "$conflicts"
+        return 1
+    fi
+    return 0
+}
+
 list_agents() {
     echo "Existing agent environments:"
     echo ""
@@ -93,7 +127,7 @@ list_agents() {
 
 find_next_available() {
     # Find next available agent ID (a-z)
-    # Check main repo, all worktrees, and running containers
+    # Check main repo, all worktrees, running containers, AND port availability
     for letter in {a..z}; do
         local in_use=0
 
@@ -110,6 +144,13 @@ find_next_available() {
         # Check running containers
         if docker compose ls --format json 2>/dev/null | grep -q "\"todo-${letter}\""; then
             in_use=1
+        fi
+
+        # Check port availability
+        if [ $in_use -eq 0 ]; then
+            if ! check_ports_for_agent "$letter" >/dev/null 2>&1; then
+                in_use=1
+            fi
         fi
 
         if [ $in_use -eq 0 ]; then
@@ -162,6 +203,17 @@ create_agent() {
     # Validate ID is a single lowercase letter
     if ! [[ "$id" =~ ^[a-z]$ ]]; then
         echo "Error: Agent ID must be a single lowercase letter (a-z)" >&2
+        flock -u 200
+        exit 1
+    fi
+
+    # Check port availability
+    local port_conflicts=$(check_ports_for_agent "$id" 2>&1)
+    if [ $? -ne 0 ]; then
+        echo "Error: Port conflicts detected for agent $id:" >&2
+        echo -e "$port_conflicts" >&2
+        echo "" >&2
+        echo "Try a different agent ID, or stop the conflicting services." >&2
         flock -u 200
         exit 1
     fi
