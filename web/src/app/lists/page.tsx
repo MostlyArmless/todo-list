@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,6 +14,112 @@ import {
 import { getCurrentUser } from '@/lib/auth';
 import { useConfirmDialog } from '@/components/ConfirmDialog';
 import styles from './page.module.css';
+
+// ListCard component with meatball menu
+function ListCard({
+  list,
+  onNavigate,
+  onDelete,
+}: {
+  list: ListResponse & { unchecked_count?: number };
+  onNavigate: () => void;
+  onDelete: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
+
+  return (
+    <div className={styles.listCard} onClick={onNavigate}>
+      <div className={styles.listInfo}>
+        <h2>
+          {list.icon && <span className={styles.listIcon}>{list.icon}</span>}
+          {list.name}
+          {list.unchecked_count != null && list.unchecked_count > 0 && (
+            <span className={styles.countBadge}>{list.unchecked_count}</span>
+          )}
+        </h2>
+        <div className={styles.listMeta}>
+          <span
+            className={`${styles.listTypeBadge} ${list.list_type === 'task' ? styles.taskType : styles.groceryType}`}
+          >
+            {list.list_type === 'task' ? '✓ Task' : '🛒 Grocery'}
+          </span>
+          {list.description && <span className={styles.listDescription}>{list.description}</span>}
+        </div>
+      </div>
+      <div className={styles.listActions}>
+        {/* Meatball menu */}
+        <div className={styles.meatballMenu} ref={menuRef}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen(!menuOpen);
+            }}
+            className={styles.meatballBtn}
+            title="More options"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div className={styles.meatballDropdown}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onDelete();
+                }}
+                className={`${styles.meatballOption} ${styles.meatballOptionDanger}`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 export default function ListsPage() {
   const router = useRouter();
@@ -100,65 +206,12 @@ export default function ListsPage() {
 
       <div className={styles.listContainer}>
         {lists.map((list: ListResponse & { unchecked_count?: number }) => (
-          <div
+          <ListCard
             key={list.id}
-            className={styles.listCard}
-            onClick={() => router.push(`/list/${list.id}`)}
-          >
-            <div className={styles.listInfo}>
-              <h2>
-                {list.icon && <span className={styles.listIcon}>{list.icon}</span>}
-                {list.name}
-                {list.unchecked_count != null && list.unchecked_count > 0 && (
-                  <span className={styles.countBadge}>{list.unchecked_count}</span>
-                )}
-              </h2>
-              <div className={styles.listMeta}>
-                <span className={`${styles.listTypeBadge} ${list.list_type === 'task' ? styles.taskType : styles.groceryType}`}>
-                  {list.list_type === 'task' ? '✓ Task' : '🛒 Grocery'}
-                </span>
-                {list.description && (
-                  <span className={styles.listDescription}>{list.description}</span>
-                )}
-              </div>
-            </div>
-            <div className={styles.listActions}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteList(list.id, list.name);
-                }}
-                className={styles.deleteBtn}
-                title="Delete list"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-              </button>
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </div>
-          </div>
+            list={list}
+            onNavigate={() => router.push(`/list/${list.id}`)}
+            onDelete={() => handleDeleteList(list.id, list.name)}
+          />
         ))}
 
         {showNewList ? (
