@@ -73,6 +73,7 @@ interface TaskItemProps<T extends Item = Item> {
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
   }) => Promise<void>;
+  showItemId?: boolean;
 }
 
 // Field length limits for tasks (stricter than backend allows)
@@ -203,6 +204,7 @@ export default function TaskItem<T extends Item>({
   onUncheck,
   onDelete,
   onUpdate,
+  showItemId,
 }: TaskItemProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -402,6 +404,11 @@ export default function TaskItem<T extends Item>({
         )}
 
         <div className={styles.taskMeta}>
+          {/* Subtle item ID for dev reference */}
+          {showItemId && (
+            <span className={styles.itemId}>#{item.id}</span>
+          )}
+
           {/* Due date */}
           {item.due_date && !item.checked && (
             <span className={`${styles.dueDate} ${overdue ? styles.dueDateOverdue : ''}`}>
