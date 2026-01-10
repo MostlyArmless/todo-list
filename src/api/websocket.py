@@ -92,13 +92,25 @@ async def websocket_list_sync(
                 except Exception:
                     break
 
-        # Run all handlers concurrently
-        await asyncio.gather(
-            handle_messages(),
-            handle_ping(),
-            handle_client(),
-            return_exceptions=True,
-        )
+        # Run all handlers concurrently - cancel others when one exits
+        tasks = [
+            asyncio.create_task(handle_messages()),
+            asyncio.create_task(handle_ping()),
+            asyncio.create_task(handle_client()),
+        ]
+        try:
+            # Wait for first task to complete (usually client disconnect)
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            # Cancel remaining tasks to release resources
+            for task in pending:
+                task.cancel()
+            # Wait for cancellation to complete
+            await asyncio.gather(*pending, return_exceptions=True)
+        except Exception:
+            # Cancel all on any error
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected: user={user_id}, list={list_id}")
