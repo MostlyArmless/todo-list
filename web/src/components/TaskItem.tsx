@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import { type ItemUpdateRecurrencePattern } from '@/generated/api';
+import { type ItemUpdateRecurrencePattern, type CategoryResponse } from '@/generated/api';
 import styles from './TaskItem.module.css';
 
 type RecurrencePattern = NonNullable<ItemUpdateRecurrencePattern>;
@@ -18,6 +18,7 @@ interface Item {
   recurrence_pattern?: string | null;
   completed_at?: string | null;
   refinement_status?: string | null;
+  category_id?: number | null;
 }
 
 // URL regex that matches http(s) URLs
@@ -72,8 +73,10 @@ interface TaskItemProps<T extends Item = Item> {
     due_date?: string | null;
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
+    category_id?: number | null;
   }) => Promise<void>;
   showItemId?: boolean;
+  categories?: CategoryResponse[];
 }
 
 // Field length limits for tasks (stricter than backend allows)
@@ -205,6 +208,7 @@ export default function TaskItem<T extends Item>({
   onDelete,
   onUpdate,
   showItemId,
+  categories = [],
 }: TaskItemProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -212,8 +216,12 @@ export default function TaskItem<T extends Item>({
   const [editDueDate, setEditDueDate] = useState(item.due_date ? toLocalDateTimeInput(item.due_date) : '');
   const [editReminderOffset, setEditReminderOffset] = useState(item.reminder_offset || '');
   const [editRecurrence, setEditRecurrence] = useState(item.recurrence_pattern || '');
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id ?? null);
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
+
+  // Get category for display
+  const category = categories.find(c => c.id === item.category_id);
 
   // Real-time countdown update
   useEffect(() => {
@@ -235,6 +243,7 @@ export default function TaskItem<T extends Item>({
       || (item.reminder_at && item.due_date ? '0m' : '');
     setEditReminderOffset(effectiveOffset);
     setEditRecurrence(item.recurrence_pattern || '');
+    setEditCategoryId(item.category_id ?? null);
     setIsEditing(true);
   };
 
@@ -252,6 +261,7 @@ export default function TaskItem<T extends Item>({
         due_date: editDueDate ? new Date(editDueDate).toISOString() : null,
         reminder_offset: editReminderOffset || null,
         recurrence_pattern: (editRecurrence as RecurrencePattern) || null,
+        category_id: editCategoryId,
       });
       setIsEditing(false);
     } catch {
@@ -339,6 +349,21 @@ export default function TaskItem<T extends Item>({
               ))}
             </select>
           </label>
+          {categories.length > 0 && (
+            <label className={styles.fieldLabel}>
+              Category
+              <select
+                className={styles.editSelect}
+                value={editCategoryId || ''}
+                onChange={(e) => setEditCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+              >
+                <option value="">No category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         <div className={styles.editActions}>
           <button
@@ -434,6 +459,16 @@ export default function TaskItem<T extends Item>({
           {item.recurrence_pattern && (
             <span className={styles.recurrenceBadge}>
               {getRecurrenceIcon(item.recurrence_pattern)}
+            </span>
+          )}
+
+          {/* Category badge */}
+          {category && (
+            <span
+              className={styles.categoryBadge}
+              style={category.color ? { borderColor: category.color, color: category.color } : undefined}
+            >
+              {category.name}
             </span>
           )}
 

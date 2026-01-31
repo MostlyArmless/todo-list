@@ -881,9 +881,70 @@
   border-color: var(--accent);
 }
 
+/* Empty category drop zone placeholder */
+.emptyDropZone {
+  padding: var(--space-4);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.emptyDropZoneActive {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
 /* =============================================================================
    Mobile Responsive Styles
    ============================================================================= */
+
+/* Task Sortable Item */
+.sortableTaskItem {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.taskDragHandle {
+  cursor: grab;
+  color: var(--text-tertiary);
+  padding: var(--space-2) var(--space-2);
+  flex-shrink: 0;
+  touch-action: none;
+  transition: color var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.taskDragHandle:hover {
+  color: var(--text-secondary);
+}
+
+.taskDragHandle:active {
+  cursor: grabbing;
+}
+
+.taskItemWrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.taskItemWrapper > div {
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+}
 
 @media (max-width: 640px) {
   /* Always show meatball menu on mobile (no hover on touch devices) */

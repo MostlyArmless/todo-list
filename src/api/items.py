@@ -61,16 +61,11 @@ def validate_item_fields_for_list_type(item_data: ItemCreate | ItemUpdate, list_
     is_task_list = list_obj.list_type == ListType.TASK
 
     if is_task_list:
-        # Task lists don't support grocery-specific fields
+        # Task lists don't support grocery-specific fields (quantity)
         if hasattr(item_data, "quantity") and item_data.quantity is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Task lists do not support quantity field",
-            )
-        if hasattr(item_data, "category_id") and item_data.category_id is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Task lists do not support categories",
             )
     else:
         # Grocery lists don't support task-specific fields
@@ -236,11 +231,18 @@ def create_item(
             if reminder_at is None and item_data.due_date and item_data.reminder_offset:
                 reminder_at = _calculate_reminder_at(item_data.due_date, item_data.reminder_offset)
 
-            # Task list item - no category, no quantity
+            # Determine category_id (task lists now support categories)
+            category_id = item_data.category_id
+            if category_id is not None:
+                category_id = validate_category_id(db, category_id, list_id)
+            if category_id is None:
+                category_id = lookup_category_from_history(db, item_data.name, list_id)
+
             item = Item(
                 list_id=list_id,
                 name=item_data.name,
                 description=item_data.description,
+                category_id=category_id,
                 sort_order=item_data.sort_order,
                 created_by=current_user.id,
                 due_date=item_data.due_date,
@@ -328,6 +330,10 @@ def update_item(
             elif effective_offset == "" and effective_due:
                 # Empty string means "no reminder" - clear reminder_at
                 item.reminder_at = None
+
+        # Task lists support category_id
+        if item_data.category_id is not None:
+            item.category_id = validate_category_id(db, item_data.category_id, item.list_id)
     else:
         # Grocery-specific fields
         if item_data.quantity is not None:
@@ -487,6 +493,7 @@ def complete_task_item(
                 list_id=item.list_id,
                 name=item.name,
                 description=item.description,
+                category_id=item.category_id,
                 sort_order=item.sort_order,
                 created_by=current_user.id,
                 due_date=next_due,
@@ -537,14 +544,7 @@ def auto_categorize_items(
     from src.services.categorization import CategorizationService
 
     # Verify user has access to the list
-    list_obj = get_user_list(db, list_id, current_user)
-
-    # Task lists don't support categories
-    if list_obj.list_type == ListType.TASK:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task lists do not support categories",
-        )
+    get_user_list(db, list_id, current_user)
 
     # Get uncategorized items
     uncategorized = (

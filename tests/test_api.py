@@ -1306,31 +1306,42 @@ def test_create_list_with_type(client, auth_headers):
     assert response.json()["list_type"] == "task"
 
 
-def test_task_list_blocks_categories(client, auth_headers):
-    """Test that task lists don't support categories."""
+def test_task_list_supports_categories(client, auth_headers):
+    """Test that task lists support categories."""
     # Create a task list
     list_response = client.post(
         "/api/v1/lists", headers=auth_headers, json={"name": "Tasks", "list_type": "task"}
     )
     list_id = list_response.json()["id"]
 
-    # Try to create a category - should fail
+    # Create a category - should succeed
     response = client.post(
         f"/api/v1/lists/{list_id}/categories",
         headers=auth_headers,
         json={"name": "Work", "sort_order": 0},
     )
-    assert response.status_code == 400
-    assert "Task lists do not support categories" in response.json()["detail"]
+    assert response.status_code == 201
+    category_id = response.json()["id"]
+    assert response.json()["name"] == "Work"
 
-    # Get categories should return empty list
+    # Get categories should return the created category
     response = client.get(f"/api/v1/lists/{list_id}/categories", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == []
+    assert len(response.json()) == 1
+    assert response.json()[0]["name"] == "Work"
+
+    # Create a task item with category - should succeed
+    response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={"name": "Write report", "category_id": category_id},
+    )
+    assert response.status_code == 201
+    assert response.json()["category_id"] == category_id
 
 
-def test_task_list_blocks_grocery_fields(client, auth_headers):
-    """Test that task lists reject grocery-specific fields."""
+def test_task_list_blocks_quantity_field(client, auth_headers):
+    """Test that task lists reject the quantity field (grocery-specific)."""
     # Create a task list
     list_response = client.post(
         "/api/v1/lists", headers=auth_headers, json={"name": "Tasks", "list_type": "task"}
@@ -1345,15 +1356,6 @@ def test_task_list_blocks_grocery_fields(client, auth_headers):
     )
     assert response.status_code == 400
     assert "quantity" in response.json()["detail"]
-
-    # Try to create item with category_id - should fail
-    response = client.post(
-        f"/api/v1/lists/{list_id}/items",
-        headers=auth_headers,
-        json={"name": "Clean room", "category_id": 1},
-    )
-    assert response.status_code == 400
-    assert "categories" in response.json()["detail"]
 
 
 def test_grocery_list_blocks_task_fields(client, auth_headers):
@@ -1412,11 +1414,11 @@ def test_task_item_with_valid_fields(client, auth_headers):
     assert data["reminder_offset"] == "1h"
     assert data["recurrence_pattern"] == "daily"
     assert data["quantity"] is None
-    assert data["category_id"] is None
+    # category_id may be None or set via history lookup
 
 
-def test_task_list_auto_categorize_blocked(client, auth_headers):
-    """Test that auto-categorize is blocked for task lists."""
+def test_task_list_auto_categorize_allowed(client, auth_headers):
+    """Test that auto-categorize works for task lists."""
     # Create a task list
     list_response = client.post(
         "/api/v1/lists", headers=auth_headers, json={"name": "Tasks", "list_type": "task"}
@@ -1430,10 +1432,10 @@ def test_task_list_auto_categorize_blocked(client, auth_headers):
         json={"name": "Exercise"},
     )
 
-    # Try to auto-categorize - should fail
+    # Auto-categorize should succeed (returns 0 categorized since no categories exist)
     response = client.post(f"/api/v1/lists/{list_id}/items/auto-categorize", headers=auth_headers)
-    assert response.status_code == 400
-    assert "Task lists do not support categories" in response.json()["detail"]
+    assert response.status_code == 200
+    assert "categorized" in response.json()
 
 
 def test_complete_task_item(client, auth_headers):
@@ -1521,3 +1523,50 @@ def test_recurring_task_creates_next_occurrence(client, auth_headers):
     assert "2025-01-16" in new_item["due_date"]
     # recurrence_parent_id should point to the original item
     assert new_item["recurrence_parent_id"] == item_id
+
+
+def test_recurring_task_preserves_category(client, auth_headers):
+    """Test that completing a recurring task preserves the category on the next occurrence."""
+    # Create a task list
+    list_response = client.post(
+        "/api/v1/lists", headers=auth_headers, json={"name": "Tasks", "list_type": "task"}
+    )
+    list_id = list_response.json()["id"]
+
+    # Create a category
+    cat_response = client.post(
+        f"/api/v1/lists/{list_id}/categories",
+        headers=auth_headers,
+        json={"name": "Exercise", "sort_order": 0},
+    )
+    category_id = cat_response.json()["id"]
+
+    # Create a recurring task with category
+    item_response = client.post(
+        f"/api/v1/lists/{list_id}/items",
+        headers=auth_headers,
+        json={
+            "name": "Daily Workout",
+            "due_date": "2025-01-15T10:00:00Z",
+            "recurrence_pattern": "daily",
+            "category_id": category_id,
+        },
+    )
+    item_id = item_response.json()["id"]
+    assert item_response.json()["category_id"] == category_id
+
+    # Complete the task
+    client.post(f"/api/v1/items/{item_id}/complete", headers=auth_headers)
+
+    # Get all items - should see the completed one and the new occurrence
+    response = client.get(
+        f"/api/v1/lists/{list_id}/items?include_checked=true", headers=auth_headers
+    )
+    items = response.json()
+    assert len(items) == 2
+
+    # Find the new (unchecked) item
+    new_item = next(item for item in items if not item["checked"])
+    assert new_item["name"] == "Daily Workout"
+    # The new item should have the same category
+    assert new_item["category_id"] == category_id

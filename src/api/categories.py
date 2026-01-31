@@ -9,7 +9,6 @@ from src.api.dependencies import get_current_user
 from src.api.lists import get_user_list
 from src.database import get_db
 from src.models.category import Category
-from src.models.enums import ListType
 from src.models.item import Item
 from src.models.user import User
 from src.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
@@ -38,11 +37,7 @@ def get_categories(
 ):
     """Get all categories for a list."""
     # Verify user has access to the list
-    list_obj = get_user_list(db, list_id, current_user)
-
-    # Task lists don't have categories
-    if list_obj.list_type == ListType.TASK:
-        return []
+    get_user_list(db, list_id, current_user)
 
     categories = (
         db.query(Category)
@@ -67,14 +62,7 @@ def create_category(
 ):
     """Create a new category in a list."""
     # Verify user has access to the list
-    list_obj = get_user_list(db, list_id, current_user)
-
-    # Task lists don't support categories
-    if list_obj.list_type == ListType.TASK:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Task lists do not support categories",
-        )
+    get_user_list(db, list_id, current_user)
 
     category = Category(
         list_id=list_id,

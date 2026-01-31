@@ -59,6 +59,7 @@ import { CSS } from '@dnd-kit/utilities';
 import styles from './page.module.css';
 
 type RecurrencePattern = 'daily' | 'weekly' | 'monthly';
+type ItemUpdateRecurrencePattern = RecurrencePattern;
 
 // Field length limits (must match backend schemas)
 const NAME_MAX_LENGTH = 500;
@@ -108,6 +109,7 @@ export default function ListDetailPage() {
   const [newItemDueDate, setNewItemDueDate] = useState('');
   const [newItemReminderOffset, setNewItemReminderOffset] = useState('');
   const [newItemRecurrence, setNewItemRecurrence] = useState<RecurrencePattern | ''>('');
+  const [newTaskCategory, setNewTaskCategory] = useState<number | null>(null);
   // Optimistically reordered categories
   const [localCategories, setLocalCategories] = useState<CategoryResponse[] | null>(null);
   // Track active drag item for DragOverlay
@@ -210,8 +212,8 @@ export default function ListDetailPage() {
         listId,
         data: {
           name: newItemName,
-          // Grocery-specific fields
-          category_id: !isTaskList ? (newItemCategory || undefined) : undefined,
+          // Category field - works for both task and grocery lists
+          category_id: isTaskList ? (newTaskCategory || undefined) : (newItemCategory || undefined),
           // Task-specific fields
           due_date: isTaskList && newItemDueDate ? new Date(newItemDueDate).toISOString() : undefined,
           reminder_offset: isTaskList && newItemReminderOffset ? newItemReminderOffset : undefined,
@@ -223,6 +225,7 @@ export default function ListDetailPage() {
           // Reset form
           setNewItemName('');
           setNewItemCategory(null);
+          setNewTaskCategory(null);
           setNewItemDueDate('');
           setNewItemReminderOffset('');
           setNewItemRecurrence('');
@@ -252,6 +255,27 @@ export default function ListDetailPage() {
   };
 
   const handleInlineAdd = (categoryId: number | null) => {
+    if (!inlineItemName.trim()) return;
+
+    createItemMutation.mutate(
+      {
+        listId,
+        data: {
+          name: inlineItemName,
+          category_id: categoryId || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          setInlineItemName('');
+          setInlineAddCategory(null);
+          invalidateListData();
+        },
+      }
+    );
+  };
+
+  const handleInlineAddTask = (categoryId: number | null) => {
     if (!inlineItemName.trim()) return;
 
     createItemMutation.mutate(
@@ -328,6 +352,7 @@ export default function ListDetailPage() {
     due_date?: string | null;
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
+    category_id?: number | null;
   }) => {
     return new Promise<void>((resolve, reject) => {
       updateItemMutation.mutate(
@@ -846,6 +871,23 @@ export default function ListDetailPage() {
                 <option value="monthly">Monthly</option>
               </select>
             </label>
+            {categories.length > 0 && (
+              <label className={styles.taskFieldLabel}>
+                Category
+                <select
+                  className={styles.taskFieldSelect}
+                  value={newTaskCategory || ''}
+                  onChange={(e) => setNewTaskCategory(e.target.value ? parseInt(e.target.value) : null)}
+                >
+                  <option value="">No category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         )}
         {addedItemMessage && (
@@ -871,23 +913,162 @@ export default function ListDetailPage() {
         </div>
       )}
 
-      {/* Task List Items */}
+      {/* Task List Items with DndContext */}
       {list.list_type === 'task' && (
-        <div className={styles.taskListSection}>
-          <div className={styles.itemList}>
-            {items.map((item) => (
-              <TaskItem
-                key={item.id}
-                item={item}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          {/* Uncategorized Tasks */}
+          {getItemsByCategory(null).length > 0 && (
+            <DroppableZone id="drop-null" className={styles.categorySection}>
+              <div className={styles.categoryHeader}>
+                <input
+                  type="checkbox"
+                  checked={isCategoryFullySelected(null)}
+                  ref={(el) => {
+                    if (el) el.indeterminate = isCategoryPartiallySelected(null);
+                  }}
+                  onChange={() => toggleCategorySelection(null)}
+                  className={styles.categoryCheckbox}
+                  title="Select all uncategorized tasks"
+                />
+                <h2 className={styles.categoryTitle}>Uncategorized</h2>
+                {categories.length > 0 && (
+                  <button
+                    onClick={handleAutoCategorize}
+                    disabled={autoCategorizing}
+                    className={styles.autoCategorizeBtn}
+                    title="Auto-categorize tasks using AI"
+                  >
+                    {autoCategorizing ? (
+                      <><span className={styles.spinIcon}>⟳</span>...</>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                        </svg>
+                        Auto
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              <div className={styles.itemList}>
+                <SortableContext
+                  items={getItemsByCategory(null).map((item) => `item-${item.id}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {getItemsByCategory(null).map((item) => (
+                    <SortableTaskItem
+                      key={item.id}
+                      item={item}
+                      onComplete={handleCompleteTask}
+                      onUncheck={handleUncheckTask}
+                      onDelete={handleDeleteItem}
+                      onUpdate={handleUpdateTask}
+                      categories={categories}
+                    />
+                  ))}
+                </SortableContext>
+                {inlineAddCategory === 'uncategorized' ? (
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); handleInlineAddTask(null); }}
+                    className={styles.inlineAddForm}
+                  >
+                    <input
+                      type="text"
+                      className={styles.inlineInput}
+                      value={inlineItemName}
+                      onChange={(e) => setInlineItemName(e.target.value)}
+                      placeholder="Add task..."
+                      autoFocus
+                      maxLength={NAME_MAX_LENGTH}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setInlineAddCategory(null);
+                          setInlineItemName('');
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!inlineItemName.trim()) setInlineAddCategory(null);
+                      }}
+                    />
+                    <button type="submit" className={styles.btnPrimary}>Add</button>
+                  </form>
+                ) : (
+                  <button
+                    onClick={() => { setInlineAddCategory('uncategorized'); setInlineItemName(''); }}
+                    className={styles.inlineAddBtn}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Add task
+                  </button>
+                )}
+              </div>
+            </DroppableZone>
+          )}
+
+          {/* Categorized Tasks */}
+          <SortableContext
+            items={categories.map((cat) => cat.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {categories.map((category) => (
+              <SortableTaskCategory
+                key={category.id}
+                category={category}
+                items={getItemsByCategory(category.id)}
+                isFullySelected={isCategoryFullySelected(category.id)}
+                isPartiallySelected={isCategoryPartiallySelected(category.id)}
+                onToggleCategorySelection={() => toggleCategorySelection(category.id)}
+                isEditing={editingCategoryId === category.id}
+                editName={editCategoryName}
+                onEditNameChange={setEditCategoryName}
+                onSaveEdit={() => handleSaveEditCategory(category.id)}
+                onCancelEdit={handleCancelEditCategory}
+                onStartEdit={() => handleStartEditCategory(category)}
+                onDelete={() => handleDeleteCategory(category.id)}
                 onComplete={handleCompleteTask}
                 onUncheck={handleUncheckTask}
-                onDelete={handleDeleteItem}
-                onUpdate={handleUpdateTask}
-                showItemId={listId === 86}
+                onDeleteItem={handleDeleteItem}
+                onUpdateItem={handleUpdateTask}
+                allCategories={categories}
+                isInlineAdding={inlineAddCategory === category.id}
+                inlineItemName={inlineItemName}
+                onInlineItemNameChange={setInlineItemName}
+                onStartInlineAdd={() => { setInlineAddCategory(category.id); setInlineItemName(''); }}
+                onCancelInlineAdd={() => { setInlineAddCategory(null); setInlineItemName(''); }}
+                onSubmitInlineAdd={() => handleInlineAddTask(category.id)}
               />
             ))}
-          </div>
-        </div>
+          </SortableContext>
+
+          {/* Drag Overlay */}
+          <DragOverlay>
+            {activeId && String(activeId).startsWith('item-') ? (
+              <div className={styles.itemCard} style={{ opacity: 0.8, boxShadow: 'var(--shadow-lg)' }}>
+                <div className={styles.itemDragHandle} style={{ cursor: 'grabbing' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                  </svg>
+                </div>
+                <div className={styles.itemContent}>
+                  <div className={styles.itemName}>
+                    <span>{items.find((i) => `item-${i.id}` === activeId)?.name || 'Task'}</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* Grocery List: Items and Categories with dnd-kit */}
@@ -1081,8 +1262,8 @@ export default function ListDetailPage() {
         </div>
       )}
 
-      {/* Add Category - Grocery lists only */}
-      {list.list_type === 'grocery' && (
+      {/* Add Category - Available for both grocery and task lists */}
+      {(list.list_type === 'grocery' || list.list_type === 'task') && (
         <div className={styles.addCategorySection}>
           {showNewCategory ? (
             <form onSubmit={handleAddCategory} className={styles.addCategoryForm}>
@@ -1414,6 +1595,12 @@ function SortableCategory({
             />
           ))}
         </SortableContext>
+        {/* Empty category drop placeholder */}
+        {items.length === 0 && (
+          <div className={`${styles.emptyDropZone} ${isOver ? styles.emptyDropZoneActive : ''}`}>
+            Drop items here
+          </div>
+        )}
         {/* Inline add button/form */}
         {isInlineAdding ? (
           <form
@@ -2095,6 +2282,323 @@ function DroppableZone({
       className={`${className || ''} ${styles.categoryDropZone} ${isOver ? styles.categoryDropZoneActive : ''}`}
     >
       {children}
+    </div>
+  );
+}
+
+// Task-specific sortable item wrapper
+function SortableTaskItem({
+  item,
+  onComplete,
+  onUncheck,
+  onDelete,
+  onUpdate,
+  categories,
+}: {
+  item: ItemResponse;
+  onComplete: (item: ItemResponse) => void;
+  onUncheck: (item: ItemResponse) => void;
+  onDelete: (id: number) => void;
+  onUpdate: (id: number, data: {
+    name?: string;
+    description?: string | null;
+    due_date?: string | null;
+    reminder_offset?: string | null;
+    recurrence_pattern?: 'daily' | 'weekly' | 'monthly' | null;
+    category_id?: number | null;
+  }) => Promise<void>;
+  categories: CategoryResponse[];
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `item-${item.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`${styles.sortableTaskItem} ${isDragging ? styles.itemDragging : ''}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className={styles.taskDragHandle}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        title="Drag to reorder"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </div>
+      <div className={styles.taskItemWrapper}>
+        <TaskItem
+          item={item}
+          onComplete={onComplete}
+          onUncheck={onUncheck}
+          onDelete={onDelete}
+          onUpdate={onUpdate}
+          categories={categories}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Task-specific sortable category
+function SortableTaskCategory({
+  category,
+  items,
+  isFullySelected,
+  isPartiallySelected,
+  onToggleCategorySelection,
+  isEditing,
+  editName,
+  onEditNameChange,
+  onSaveEdit,
+  onCancelEdit,
+  onStartEdit,
+  onDelete,
+  onComplete,
+  onUncheck,
+  onDeleteItem,
+  onUpdateItem,
+  allCategories,
+  isInlineAdding,
+  inlineItemName,
+  onInlineItemNameChange,
+  onStartInlineAdd,
+  onCancelInlineAdd,
+  onSubmitInlineAdd,
+}: {
+  category: CategoryResponse;
+  items: ItemResponse[];
+  isFullySelected: boolean;
+  isPartiallySelected: boolean;
+  onToggleCategorySelection: () => void;
+  isEditing: boolean;
+  editName: string;
+  onEditNameChange: (name: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onStartEdit: () => void;
+  onDelete: () => void;
+  onComplete: (item: ItemResponse) => void;
+  onUncheck: (item: ItemResponse) => void;
+  onDeleteItem: (id: number) => void;
+  onUpdateItem: (id: number, data: {
+    name?: string;
+    description?: string | null;
+    due_date?: string | null;
+    reminder_offset?: string | null;
+    recurrence_pattern?: 'daily' | 'weekly' | 'monthly' | null;
+    category_id?: number | null;
+  }) => Promise<void>;
+  allCategories: CategoryResponse[];
+  isInlineAdding: boolean;
+  inlineItemName: string;
+  onInlineItemNameChange: (name: string) => void;
+  onStartInlineAdd: () => void;
+  onCancelInlineAdd: () => void;
+  onSubmitInlineAdd: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const dragStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : undefined,
+  };
+
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: `drop-${category.id}` });
+
+  return (
+    <div
+      ref={(node) => {
+        setNodeRef(node);
+        setDroppableRef(node);
+      }}
+      className={`${styles.sortableCategory} ${styles.categoryDropZone} ${isOver ? styles.categoryDropZoneActive : ''}`}
+      style={dragStyle}
+    >
+      <div className={styles.categoryHeader}>
+        {items.length > 0 && (
+          <input
+            type="checkbox"
+            checked={isFullySelected}
+            ref={(el) => {
+              if (el) el.indeterminate = isPartiallySelected;
+            }}
+            onChange={onToggleCategorySelection}
+            className={styles.categoryCheckbox}
+            title={`Select all items in ${category.name}`}
+          />
+        )}
+
+        <div
+          {...attributes}
+          {...listeners}
+          className={styles.dragHandle}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+          title="Drag to reorder"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </div>
+
+        {isEditing ? (
+          <>
+            <input
+              type="text"
+              className={styles.inlineInput}
+              value={editName}
+              onChange={(e) => onEditNameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSaveEdit();
+                if (e.key === 'Escape') onCancelEdit();
+              }}
+              autoFocus
+            />
+            <button onClick={onSaveEdit} className={styles.btnPrimary}>Save</button>
+            <button onClick={onCancelEdit} className={styles.btnSecondary}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <h2
+              className={styles.categoryTitle}
+              style={{ color: category.color || 'var(--text-primary)' }}
+            >
+              {category.name}
+            </h2>
+
+            <div className={styles.meatballMenu} ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className={styles.meatballBtn}
+                title="More options"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="5" cy="12" r="2"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                  <circle cx="19" cy="12" r="2"></circle>
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className={styles.meatballDropdown}>
+                  <button
+                    onClick={() => { onStartEdit(); setMenuOpen(false); }}
+                    className={styles.meatballOption}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => { onDelete(); setMenuOpen(false); }}
+                    className={`${styles.meatballOption} ${styles.meatballOptionDanger}`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className={styles.itemList}>
+        <SortableContext
+          items={items.map((item) => `item-${item.id}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          {items.map((item) => (
+            <SortableTaskItem
+              key={item.id}
+              item={item}
+              onComplete={onComplete}
+              onUncheck={onUncheck}
+              onDelete={onDeleteItem}
+              onUpdate={onUpdateItem}
+              categories={allCategories}
+            />
+          ))}
+        </SortableContext>
+        {/* Empty category drop placeholder */}
+        {items.length === 0 && (
+          <div className={`${styles.emptyDropZone} ${isOver ? styles.emptyDropZoneActive : ''}`}>
+            Drop tasks here
+          </div>
+        )}
+        {isInlineAdding ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); onSubmitInlineAdd(); }}
+            className={styles.inlineAddForm}
+          >
+            <input
+              type="text"
+              className={styles.inlineInput}
+              value={inlineItemName}
+              onChange={(e) => onInlineItemNameChange(e.target.value)}
+              placeholder="Add task..."
+              autoFocus
+              maxLength={NAME_MAX_LENGTH}
+              onKeyDown={(e) => { if (e.key === 'Escape') onCancelInlineAdd(); }}
+              onBlur={() => { if (!inlineItemName.trim()) onCancelInlineAdd(); }}
+            />
+            <button type="submit" className={styles.btnPrimary}>Add</button>
+          </form>
+        ) : (
+          <button onClick={onStartInlineAdd} className={styles.inlineAddBtn}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add task
+          </button>
+        )}
+      </div>
     </div>
   );
 }
