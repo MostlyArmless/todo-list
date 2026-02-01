@@ -142,16 +142,6 @@
   border-radius: var(--radius-sm);
 }
 
-/* Category Badge */
-.categoryBadge {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  background: var(--surface-2);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
 /* Reminder Badge */
 .reminderBadge {
   display: flex;

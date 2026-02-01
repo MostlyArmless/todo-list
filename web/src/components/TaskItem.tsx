@@ -220,9 +220,6 @@ export default function TaskItem<T extends Item>({
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
-  // Get category for display
-  const category = categories.find(c => c.id === item.category_id);
-
   // Real-time countdown update
   useEffect(() => {
     if (item.checked || !item.due_date) return;
@@ -462,15 +459,6 @@ export default function TaskItem<T extends Item>({
             </span>
           )}
 
-          {/* Category badge */}
-          {category && (
-            <span
-              className={styles.categoryBadge}
-              style={category.color ? { borderColor: category.color, color: category.color } : undefined}
-            >
-              {category.name}
-            </span>
-          )}
 
           {/* Reminder indicator - show if reminder_at is set */}
           {item.reminder_at && !item.checked && (() => {
