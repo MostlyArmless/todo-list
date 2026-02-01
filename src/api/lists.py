@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 from src.api.dependencies import get_current_user
 from src.database import get_db
 from src.models.enums import ListType, Permission
+from src.models.family import FamilyMember, ListFamilyShare
 from src.models.item import Item
 from src.models.list import List, ListShare
 from src.models.user import User
+from src.schemas.family import ListFamilyShareCreate, ListFamilyShareResponse
 from src.schemas.list import ListCreate, ListResponse, ListShareCreate, ListUpdate
 from src.services.auth import get_user_by_email
 
@@ -25,7 +27,7 @@ def get_user_list(db: Session, list_id: int, user: User) -> List:
     if list_obj:
         return list_obj
 
-    # Check if list is shared with user
+    # Check if list is shared with user directly
     share = (
         db.query(ListShare)
         .join(List)
@@ -34,6 +36,21 @@ def get_user_list(db: Session, list_id: int, user: User) -> List:
     )
     if share:
         return share.list
+
+    # Check if list is shared with user's family
+    user_family = db.query(FamilyMember).filter(FamilyMember.user_id == user.id).first()
+    if user_family:
+        family_share = (
+            db.query(ListFamilyShare)
+            .join(List)
+            .filter(
+                ListFamilyShare.list_id == list_id,
+                ListFamilyShare.family_id == user_family.family_id,
+            )
+            .first()
+        )
+        if family_share:
+            return family_share.list
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
 
@@ -49,7 +66,7 @@ def get_lists(
         db.query(List).filter(List.owner_id == current_user.id, List.deleted_at.is_(None)).all()
     )
 
-    # Get shared lists
+    # Get directly shared lists
     shared_lists = (
         db.query(List)
         .join(ListShare)
@@ -57,7 +74,21 @@ def get_lists(
         .all()
     )
 
-    all_lists = list(set(owned_lists + shared_lists))  # Remove duplicates
+    # Get family-shared lists
+    family_shared_lists = []
+    user_family = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
+    if user_family:
+        family_shared_lists = (
+            db.query(List)
+            .join(ListFamilyShare)
+            .filter(
+                ListFamilyShare.family_id == user_family.family_id,
+                List.deleted_at.is_(None),
+            )
+            .all()
+        )
+
+    all_lists = list(set(owned_lists + shared_lists + family_shared_lists))  # Remove duplicates
 
     # Get unchecked item counts for all lists in one query
     list_ids = [lst.id for lst in all_lists]
@@ -145,16 +176,34 @@ def update_list(
 
     # Check if user has edit permission
     if list_obj.owner_id != current_user.id:
+        # Check direct share
         share = (
             db.query(ListShare)
             .filter(ListShare.list_id == list_id, ListShare.user_id == current_user.id)
             .first()
         )
-        if not share or not Permission(share.permission).can_edit():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to edit this list",
+        if share and Permission(share.permission).can_edit():
+            pass  # Has edit permission via direct share
+        else:
+            # Check family share
+            user_family = (
+                db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
             )
+            family_share = None
+            if user_family:
+                family_share = (
+                    db.query(ListFamilyShare)
+                    .filter(
+                        ListFamilyShare.list_id == list_id,
+                        ListFamilyShare.family_id == user_family.family_id,
+                    )
+                    .first()
+                )
+            if not family_share or not Permission(family_share.permission).can_edit():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to edit this list",
+                )
 
     # Update fields
     if list_data.name is not None:
@@ -277,3 +326,155 @@ def unshare_list(
 
     db.delete(share)
     db.commit()
+
+
+@router.post(
+    "/{list_id}/share-family",
+    response_model=ListFamilyShareResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def share_list_with_family(
+    list_id: int,
+    share_data: ListFamilyShareCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Share a list with the current user's family (owner only)."""
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner can share this list",
+        )
+
+    # Get the user's family
+    user_family = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
+    if not user_family:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are not in a family. Create or join a family first.",
+        )
+
+    # Check if already shared with family
+    existing_share = (
+        db.query(ListFamilyShare)
+        .filter(
+            ListFamilyShare.list_id == list_id,
+            ListFamilyShare.family_id == user_family.family_id,
+        )
+        .first()
+    )
+    if existing_share:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="List already shared with your family",
+        )
+
+    # Create family share
+    family_share = ListFamilyShare(
+        list_id=list_id,
+        family_id=user_family.family_id,
+        permission=share_data.permission,
+    )
+    db.add(family_share)
+    db.commit()
+    db.refresh(family_share)
+
+    return ListFamilyShareResponse(
+        id=family_share.id,
+        list_id=family_share.list_id,
+        family_id=family_share.family_id,
+        family_name=user_family.family.name,
+        permission=family_share.permission,
+        created_at=family_share.created_at,
+    )
+
+
+@router.delete("/{list_id}/share-family", status_code=status.HTTP_204_NO_CONTENT)
+def unshare_list_from_family(
+    list_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Remove a list's family share (owner only)."""
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner can manage sharing",
+        )
+
+    # Get the user's family
+    user_family = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
+    if not user_family:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are not in a family",
+        )
+
+    # Find the share
+    family_share = (
+        db.query(ListFamilyShare)
+        .filter(
+            ListFamilyShare.list_id == list_id,
+            ListFamilyShare.family_id == user_family.family_id,
+        )
+        .first()
+    )
+    if not family_share:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Family share not found",
+        )
+
+    db.delete(family_share)
+    db.commit()
+
+
+@router.get("/{list_id}/shares")
+def get_list_shares(
+    list_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Get all shares for a list (owner only)."""
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner can view sharing details",
+        )
+
+    # Get individual shares
+    individual_shares = db.query(ListShare).filter(ListShare.list_id == list_id).all()
+
+    # Get family shares
+    family_shares = db.query(ListFamilyShare).filter(ListFamilyShare.list_id == list_id).all()
+
+    return {
+        "individual_shares": [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "user_email": s.user.email,
+                "user_name": s.user.name,
+                "permission": s.permission,
+                "created_at": s.created_at,
+            }
+            for s in individual_shares
+        ],
+        "family_shares": [
+            ListFamilyShareResponse(
+                id=fs.id,
+                list_id=fs.list_id,
+                family_id=fs.family_id,
+                family_name=fs.family.name,
+                permission=fs.permission,
+                created_at=fs.created_at,
+            )
+            for fs in family_shares
+        ],
+    }

@@ -11,6 +11,7 @@ from src.api import (
     auth,
     categories,
     debug,
+    families,
     items,
     lists,
     notifications,
@@ -63,6 +64,7 @@ if settings.is_development:
 # Register routers
 app.include_router(auth.router)
 app.include_router(lists.router)
+app.include_router(families.router)
 app.include_router(categories.router)
 app.include_router(items.router)
 app.include_router(voice.router)

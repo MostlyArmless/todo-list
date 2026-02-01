@@ -25,6 +25,14 @@ import type {
 } from '@tanstack/react-query';
 
 import { customFetch } from '../lib/api-fetcher';
+/**
+ * Add a member to a family by email.
+ */
+export interface AddFamilyMember {
+  /** @maxLength 255 */
+  email: string;
+}
+
 export type AddToListRequestIngredientOverrides = IngredientOverride[] | null;
 
 /**
@@ -181,6 +189,63 @@ export type ConfirmationEditsItems = ItemEdit[] | null;
 export interface ConfirmationEdits {
   list_id?: ConfirmationEditsListId;
   items?: ConfirmationEditsItems;
+}
+
+/**
+ * Create a new family.
+ */
+export interface FamilyCreate {
+  /** @maxLength 255 */
+  name: string;
+}
+
+/**
+ * Family response with members.
+ */
+export interface FamilyDetailResponse {
+  id: number;
+  name: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  members?: FamilyMemberResponse[];
+}
+
+export type FamilyMemberResponseUserName = string | null;
+
+export type FamilyMemberResponseUserEmail = string | null;
+
+/**
+ * Family member response.
+ */
+export interface FamilyMemberResponse {
+  id: number;
+  user_id: number;
+  role: string;
+  created_at: string;
+  user_name?: FamilyMemberResponseUserName;
+  user_email?: FamilyMemberResponseUserEmail;
+}
+
+/**
+ * Family response.
+ */
+export interface FamilyResponse {
+  id: number;
+  name: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  member_count?: number;
+}
+
+export type FamilyUpdateName = string | null;
+
+/**
+ * Update a family.
+ */
+export interface FamilyUpdate {
+  name?: FamilyUpdateName;
 }
 
 export interface HTTPValidationError {
@@ -398,6 +463,37 @@ export interface ListCreate {
   description?: ListCreateDescription;
   icon?: ListCreateIcon;
   list_type?: ListCreateListType;
+}
+
+export type ListFamilyShareCreatePermission = typeof ListFamilyShareCreatePermission[keyof typeof ListFamilyShareCreatePermission];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ListFamilyShareCreatePermission = {
+  view: 'view',
+  edit: 'edit',
+  admin: 'admin',
+} as const;
+
+/**
+ * Share a list with a family.
+ */
+export interface ListFamilyShareCreate {
+  permission?: ListFamilyShareCreatePermission;
+}
+
+export type ListFamilyShareResponseFamilyName = string | null;
+
+/**
+ * List family share response.
+ */
+export interface ListFamilyShareResponse {
+  id: number;
+  list_id: number;
+  family_id: number;
+  family_name?: ListFamilyShareResponseFamilyName;
+  permission: string;
+  created_at: string;
 }
 
 export type ListResponseDescription = string | null;
@@ -1049,6 +1145,22 @@ export interface StepToggleResponse {
   completed: boolean;
 }
 
+export type UpdateFamilyMemberRoleRole = typeof UpdateFamilyMemberRoleRole[keyof typeof UpdateFamilyMemberRoleRole];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UpdateFamilyMemberRoleRole = {
+  admin: 'admin',
+  member: 'member',
+} as const;
+
+/**
+ * Update a family member's role.
+ */
+export interface UpdateFamilyMemberRole {
+  role: UpdateFamilyMemberRoleRole;
+}
+
 /**
  * User login request.
  */
@@ -1189,6 +1301,8 @@ export interface VoiceQueueResponse {
   pending_confirmations: PendingConfirmationResponse[];
 }
 
+export type GetMyFamilyApiV1FamiliesMeGet200 = FamilyDetailResponse | null;
+
 export type GetItemsApiV1ListsListIdItemsGetParams = {
 /**
  * Include checked items
@@ -1241,8 +1355,8 @@ export const registerApiV1AuthRegisterPost = (
     userRegister: UserRegister,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<AuthResponse>(
       {url: `/api/v1/auth/register`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -1250,7 +1364,7 @@ export const registerApiV1AuthRegisterPost = (
     },
       );
     }
-  
+
 
 
 export const getRegisterApiV1AuthRegisterPostMutationOptions = <TError = HTTPValidationError,
@@ -1264,7 +1378,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerApiV1AuthRegisterPost>>, {data: UserRegister}> = (props) => {
@@ -1273,7 +1387,7 @@ const {mutation: mutationOptions} = options ?
           return  registerApiV1AuthRegisterPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1298,7 +1412,7 @@ export const useRegisterApiV1AuthRegisterPost = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Login with email and password.
  * @summary Login
@@ -1307,8 +1421,8 @@ export const loginApiV1AuthLoginPost = (
     userLogin: UserLogin,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<AuthResponse>(
       {url: `/api/v1/auth/login`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -1316,7 +1430,7 @@ export const loginApiV1AuthLoginPost = (
     },
       );
     }
-  
+
 
 
 export const getLoginApiV1AuthLoginPostMutationOptions = <TError = HTTPValidationError,
@@ -1330,7 +1444,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginApiV1AuthLoginPost>>, {data: UserLogin}> = (props) => {
@@ -1339,7 +1453,7 @@ const {mutation: mutationOptions} = options ?
           return  loginApiV1AuthLoginPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1364,23 +1478,23 @@ export const useLoginApiV1AuthLoginPost = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get current user information.
  * @summary Get Me
  */
 export const getMeApiV1AuthMeGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<UserResponse>(
       {url: `/api/v1/auth/me`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -1390,7 +1504,7 @@ export const getGetMeApiV1AuthMeGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getGetMeApiV1AuthMeGetQueryOptions = <TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>>, }
 ) => {
 
@@ -1398,13 +1512,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetMeApiV1AuthMeGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>> = ({ signal }) => getMeApiV1AuthMeGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -1443,7 +1557,7 @@ export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeAp
 
 export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMeApiV1AuthMeGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetMeApiV1AuthMeGetQueryOptions(options)
@@ -1463,17 +1577,17 @@ export function useGetMeApiV1AuthMeGet<TData = Awaited<ReturnType<typeof getMeAp
  * @summary Logout
  */
 export const logoutApiV1AuthLogoutPost = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/auth/logout`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getLogoutApiV1AuthLogoutPostMutationOptions = <TError = unknown,
@@ -1487,22 +1601,22 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>, void> = () => {
-          
+
 
           return  logoutApiV1AuthLogoutPost()
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type LogoutApiV1AuthLogoutPostMutationResult = NonNullable<Awaited<ReturnType<typeof logoutApiV1AuthLogoutPost>>>
-    
+
     export type LogoutApiV1AuthLogoutPostMutationError = unknown
 
     /**
@@ -1521,23 +1635,23 @@ export const useLogoutApiV1AuthLogoutPost = <TError = unknown,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get all lists owned by or shared with the current user.
  * @summary Get Lists
  */
 export const getListsApiV1ListsGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ListResponse[]>(
       {url: `/api/v1/lists`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -1547,7 +1661,7 @@ export const getGetListsApiV1ListsGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getGetListsApiV1ListsGetQueryOptions = <TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
 ) => {
 
@@ -1555,13 +1669,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetListsApiV1ListsGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getListsApiV1ListsGet>>> = ({ signal }) => getListsApiV1ListsGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -1600,7 +1714,7 @@ export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getLi
 
 export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetListsApiV1ListsGetQueryOptions(options)
@@ -1623,8 +1737,8 @@ export const createListApiV1ListsPost = (
     listCreate: ListCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ListResponse>(
       {url: `/api/v1/lists`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -1632,7 +1746,7 @@ export const createListApiV1ListsPost = (
     },
       );
     }
-  
+
 
 
 export const getCreateListApiV1ListsPostMutationOptions = <TError = HTTPValidationError,
@@ -1646,7 +1760,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createListApiV1ListsPost>>, {data: ListCreate}> = (props) => {
@@ -1655,7 +1769,7 @@ const {mutation: mutationOptions} = options ?
           return  createListApiV1ListsPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1680,7 +1794,7 @@ export const useCreateListApiV1ListsPost = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get a specific list.
  * @summary Get List
@@ -1689,14 +1803,14 @@ export const getListApiV1ListsListIdGet = (
     listId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ListResponse>(
       {url: `/api/v1/lists/${listId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -1706,7 +1820,7 @@ export const getGetListApiV1ListsListIdGetQueryKey = (listId?: number,) => {
     ] as const;
     }
 
-    
+
 export const getGetListApiV1ListsListIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>>, }
 ) => {
 
@@ -1714,13 +1828,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetListApiV1ListsListIdGetQueryKey(listId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>> = ({ signal }) => getListApiV1ListsListIdGet(listId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -1759,7 +1873,7 @@ export function useGetListApiV1ListsListIdGet<TData = Awaited<ReturnType<typeof 
 
 export function useGetListApiV1ListsListIdGet<TData = Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError = HTTPValidationError>(
  listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListApiV1ListsListIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetListApiV1ListsListIdGetQueryOptions(listId,options)
@@ -1782,8 +1896,8 @@ export const updateListApiV1ListsListIdPut = (
     listId: number,
     listUpdate: ListUpdate,
  ) => {
-      
-      
+
+
       return customFetch<ListResponse>(
       {url: `/api/v1/lists/${listId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -1791,7 +1905,7 @@ export const updateListApiV1ListsListIdPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdateListApiV1ListsListIdPutMutationOptions = <TError = HTTPValidationError,
@@ -1805,7 +1919,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateListApiV1ListsListIdPut>>, {listId: number;data: ListUpdate}> = (props) => {
@@ -1814,7 +1928,7 @@ const {mutation: mutationOptions} = options ?
           return  updateListApiV1ListsListIdPut(listId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1839,7 +1953,7 @@ export const useUpdateListApiV1ListsListIdPut = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Soft delete a list (owner only).
  * @summary Delete List
@@ -1847,14 +1961,14 @@ export const useUpdateListApiV1ListsListIdPut = <TError = HTTPValidationError,
 export const deleteListApiV1ListsListIdDelete = (
     listId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/lists/${listId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteListApiV1ListsListIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -1868,7 +1982,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>, {listId: number}> = (props) => {
@@ -1877,13 +1991,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteListApiV1ListsListIdDelete(listId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteListApiV1ListsListIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteListApiV1ListsListIdDelete>>>
-    
+
     export type DeleteListApiV1ListsListIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -1902,7 +2016,7 @@ export const useDeleteListApiV1ListsListIdDelete = <TError = HTTPValidationError
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Share a list with another user (owner only).
  * @summary Share List
@@ -1912,8 +2026,8 @@ export const shareListApiV1ListsListIdSharePost = (
     listShareCreate: ListShareCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/lists/${listId}/share`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -1921,7 +2035,7 @@ export const shareListApiV1ListsListIdSharePost = (
     },
       );
     }
-  
+
 
 
 export const getShareListApiV1ListsListIdSharePostMutationOptions = <TError = HTTPValidationError,
@@ -1935,7 +2049,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof shareListApiV1ListsListIdSharePost>>, {listId: number;data: ListShareCreate}> = (props) => {
@@ -1944,7 +2058,7 @@ const {mutation: mutationOptions} = options ?
           return  shareListApiV1ListsListIdSharePost(listId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -1969,7 +2083,7 @@ export const useShareListApiV1ListsListIdSharePost = <TError = HTTPValidationErr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Remove a user's access to a list (owner only).
  * @summary Unshare List
@@ -1978,14 +2092,14 @@ export const unshareListApiV1ListsListIdShareUserIdDelete = (
     listId: number,
     userId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/lists/${listId}/share/${userId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getUnshareListApiV1ListsListIdShareUserIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -1999,7 +2113,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>, {listId: number;userId: number}> = (props) => {
@@ -2008,13 +2122,13 @@ const {mutation: mutationOptions} = options ?
           return  unshareListApiV1ListsListIdShareUserIdDelete(listId,userId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type UnshareListApiV1ListsListIdShareUserIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof unshareListApiV1ListsListIdShareUserIdDelete>>>
-    
+
     export type UnshareListApiV1ListsListIdShareUserIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -2033,7 +2147,809 @@ export const useUnshareListApiV1ListsListIdShareUserIdDelete = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
+/**
+ * Share a list with the current user's family (owner only).
+ * @summary Share List With Family
+ */
+export const shareListWithFamilyApiV1ListsListIdShareFamilyPost = (
+    listId: number,
+    listFamilyShareCreate: ListFamilyShareCreate,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ListFamilyShareResponse>(
+      {url: `/api/v1/lists/${listId}/share-family`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: listFamilyShareCreate, signal
+    },
+      );
+    }
+
+
+
+export const getShareListWithFamilyApiV1ListsListIdShareFamilyPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shareListWithFamilyApiV1ListsListIdShareFamilyPost>>, TError,{listId: number;data: ListFamilyShareCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof shareListWithFamilyApiV1ListsListIdShareFamilyPost>>, TError,{listId: number;data: ListFamilyShareCreate}, TContext> => {
+
+const mutationKey = ['shareListWithFamilyApiV1ListsListIdShareFamilyPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof shareListWithFamilyApiV1ListsListIdShareFamilyPost>>, {listId: number;data: ListFamilyShareCreate}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  shareListWithFamilyApiV1ListsListIdShareFamilyPost(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ShareListWithFamilyApiV1ListsListIdShareFamilyPostMutationResult = NonNullable<Awaited<ReturnType<typeof shareListWithFamilyApiV1ListsListIdShareFamilyPost>>>
+    export type ShareListWithFamilyApiV1ListsListIdShareFamilyPostMutationBody = ListFamilyShareCreate
+    export type ShareListWithFamilyApiV1ListsListIdShareFamilyPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Share List With Family
+ */
+export const useShareListWithFamilyApiV1ListsListIdShareFamilyPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shareListWithFamilyApiV1ListsListIdShareFamilyPost>>, TError,{listId: number;data: ListFamilyShareCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof shareListWithFamilyApiV1ListsListIdShareFamilyPost>>,
+        TError,
+        {listId: number;data: ListFamilyShareCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getShareListWithFamilyApiV1ListsListIdShareFamilyPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Remove a list's family share (owner only).
+ * @summary Unshare List From Family
+ */
+export const unshareListFromFamilyApiV1ListsListIdShareFamilyDelete = (
+    listId: number,
+ ) => {
+
+
+      return customFetch<void>(
+      {url: `/api/v1/lists/${listId}/share-family`, method: 'DELETE'
+    },
+      );
+    }
+
+
+
+export const getUnshareListFromFamilyApiV1ListsListIdShareFamilyDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unshareListFromFamilyApiV1ListsListIdShareFamilyDelete>>, TError,{listId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof unshareListFromFamilyApiV1ListsListIdShareFamilyDelete>>, TError,{listId: number}, TContext> => {
+
+const mutationKey = ['unshareListFromFamilyApiV1ListsListIdShareFamilyDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unshareListFromFamilyApiV1ListsListIdShareFamilyDelete>>, {listId: number}> = (props) => {
+          const {listId} = props ?? {};
+
+          return  unshareListFromFamilyApiV1ListsListIdShareFamilyDelete(listId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnshareListFromFamilyApiV1ListsListIdShareFamilyDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof unshareListFromFamilyApiV1ListsListIdShareFamilyDelete>>>
+
+    export type UnshareListFromFamilyApiV1ListsListIdShareFamilyDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Unshare List From Family
+ */
+export const useUnshareListFromFamilyApiV1ListsListIdShareFamilyDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unshareListFromFamilyApiV1ListsListIdShareFamilyDelete>>, TError,{listId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unshareListFromFamilyApiV1ListsListIdShareFamilyDelete>>,
+        TError,
+        {listId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getUnshareListFromFamilyApiV1ListsListIdShareFamilyDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Get all shares for a list (owner only).
+ * @summary Get List Shares
+ */
+export const getListSharesApiV1ListsListIdSharesGet = (
+    listId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/lists/${listId}/shares`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetListSharesApiV1ListsListIdSharesGetQueryKey = (listId?: number,) => {
+    return [
+    `/api/v1/lists/${listId}/shares`
+    ] as const;
+    }
+
+
+export const getGetListSharesApiV1ListsListIdSharesGetQueryOptions = <TData = Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError = HTTPValidationError>(listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetListSharesApiV1ListsListIdSharesGetQueryKey(listId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>> = ({ signal }) => getListSharesApiV1ListsListIdSharesGet(listId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetListSharesApiV1ListsListIdSharesGetQueryResult = NonNullable<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>>
+export type GetListSharesApiV1ListsListIdSharesGetQueryError = HTTPValidationError
+
+
+export function useGetListSharesApiV1ListsListIdSharesGet<TData = Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError = HTTPValidationError>(
+ listId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetListSharesApiV1ListsListIdSharesGet<TData = Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetListSharesApiV1ListsListIdSharesGet<TData = Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get List Shares
+ */
+
+export function useGetListSharesApiV1ListsListIdSharesGet<TData = Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError = HTTPValidationError>(
+ listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListSharesApiV1ListsListIdSharesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetListSharesApiV1ListsListIdSharesGetQueryOptions(listId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Create a new family. The creator becomes an admin member.
+ * @summary Create Family
+ */
+export const createFamilyApiV1FamiliesPost = (
+    familyCreate: FamilyCreate,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<FamilyResponse>(
+      {url: `/api/v1/families`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: familyCreate, signal
+    },
+      );
+    }
+
+
+
+export const getCreateFamilyApiV1FamiliesPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyApiV1FamiliesPost>>, TError,{data: FamilyCreate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createFamilyApiV1FamiliesPost>>, TError,{data: FamilyCreate}, TContext> => {
+
+const mutationKey = ['createFamilyApiV1FamiliesPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFamilyApiV1FamiliesPost>>, {data: FamilyCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFamilyApiV1FamiliesPost(data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFamilyApiV1FamiliesPostMutationResult = NonNullable<Awaited<ReturnType<typeof createFamilyApiV1FamiliesPost>>>
+    export type CreateFamilyApiV1FamiliesPostMutationBody = FamilyCreate
+    export type CreateFamilyApiV1FamiliesPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Family
+ */
+export const useCreateFamilyApiV1FamiliesPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFamilyApiV1FamiliesPost>>, TError,{data: FamilyCreate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createFamilyApiV1FamiliesPost>>,
+        TError,
+        {data: FamilyCreate},
+        TContext
+      > => {
+
+      const mutationOptions = getCreateFamilyApiV1FamiliesPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Get the current user's family, or null if not in a family.
+ * @summary Get My Family
+ */
+export const getMyFamilyApiV1FamiliesMeGet = (
+
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<GetMyFamilyApiV1FamiliesMeGet200>(
+      {url: `/api/v1/families/me`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetMyFamilyApiV1FamiliesMeGetQueryKey = () => {
+    return [
+    `/api/v1/families/me`
+    ] as const;
+    }
+
+
+export const getGetMyFamilyApiV1FamiliesMeGetQueryOptions = <TData = Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyFamilyApiV1FamiliesMeGetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>> = ({ signal }) => getMyFamilyApiV1FamiliesMeGet(signal);
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMyFamilyApiV1FamiliesMeGetQueryResult = NonNullable<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>>
+export type GetMyFamilyApiV1FamiliesMeGetQueryError = unknown
+
+
+export function useGetMyFamilyApiV1FamiliesMeGet<TData = Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>,
+          TError,
+          Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyFamilyApiV1FamiliesMeGet<TData = Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>,
+          TError,
+          Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyFamilyApiV1FamiliesMeGet<TData = Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get My Family
+ */
+
+export function useGetMyFamilyApiV1FamiliesMeGet<TData = Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyFamilyApiV1FamiliesMeGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMyFamilyApiV1FamiliesMeGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Update a family's name. Admin only.
+ * @summary Update Family
+ */
+export const updateFamilyApiV1FamiliesFamilyIdPut = (
+    familyId: number,
+    familyUpdate: FamilyUpdate,
+ ) => {
+
+
+      return customFetch<FamilyResponse>(
+      {url: `/api/v1/families/${familyId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: familyUpdate
+    },
+      );
+    }
+
+
+
+export const getUpdateFamilyApiV1FamiliesFamilyIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFamilyApiV1FamiliesFamilyIdPut>>, TError,{familyId: number;data: FamilyUpdate}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateFamilyApiV1FamiliesFamilyIdPut>>, TError,{familyId: number;data: FamilyUpdate}, TContext> => {
+
+const mutationKey = ['updateFamilyApiV1FamiliesFamilyIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFamilyApiV1FamiliesFamilyIdPut>>, {familyId: number;data: FamilyUpdate}> = (props) => {
+          const {familyId,data} = props ?? {};
+
+          return  updateFamilyApiV1FamiliesFamilyIdPut(familyId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFamilyApiV1FamiliesFamilyIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateFamilyApiV1FamiliesFamilyIdPut>>>
+    export type UpdateFamilyApiV1FamiliesFamilyIdPutMutationBody = FamilyUpdate
+    export type UpdateFamilyApiV1FamiliesFamilyIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Family
+ */
+export const useUpdateFamilyApiV1FamiliesFamilyIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFamilyApiV1FamiliesFamilyIdPut>>, TError,{familyId: number;data: FamilyUpdate}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateFamilyApiV1FamiliesFamilyIdPut>>,
+        TError,
+        {familyId: number;data: FamilyUpdate},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateFamilyApiV1FamiliesFamilyIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Delete a family. Admin only.
+ * @summary Delete Family
+ */
+export const deleteFamilyApiV1FamiliesFamilyIdDelete = (
+    familyId: number,
+ ) => {
+
+
+      return customFetch<void>(
+      {url: `/api/v1/families/${familyId}`, method: 'DELETE'
+    },
+      );
+    }
+
+
+
+export const getDeleteFamilyApiV1FamiliesFamilyIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFamilyApiV1FamiliesFamilyIdDelete>>, TError,{familyId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteFamilyApiV1FamiliesFamilyIdDelete>>, TError,{familyId: number}, TContext> => {
+
+const mutationKey = ['deleteFamilyApiV1FamiliesFamilyIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteFamilyApiV1FamiliesFamilyIdDelete>>, {familyId: number}> = (props) => {
+          const {familyId} = props ?? {};
+
+          return  deleteFamilyApiV1FamiliesFamilyIdDelete(familyId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteFamilyApiV1FamiliesFamilyIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteFamilyApiV1FamiliesFamilyIdDelete>>>
+
+    export type DeleteFamilyApiV1FamiliesFamilyIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Delete Family
+ */
+export const useDeleteFamilyApiV1FamiliesFamilyIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFamilyApiV1FamiliesFamilyIdDelete>>, TError,{familyId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteFamilyApiV1FamiliesFamilyIdDelete>>,
+        TError,
+        {familyId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteFamilyApiV1FamiliesFamilyIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Get all members of a family. Must be a member to view.
+ * @summary Get Family Members
+ */
+export const getFamilyMembersApiV1FamiliesFamilyIdMembersGet = (
+    familyId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<FamilyMemberResponse[]>(
+      {url: `/api/v1/families/${familyId}/members`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetFamilyMembersApiV1FamiliesFamilyIdMembersGetQueryKey = (familyId?: number,) => {
+    return [
+    `/api/v1/families/${familyId}/members`
+    ] as const;
+    }
+
+
+export const getGetFamilyMembersApiV1FamiliesFamilyIdMembersGetQueryOptions = <TData = Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError = HTTPValidationError>(familyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFamilyMembersApiV1FamiliesFamilyIdMembersGetQueryKey(familyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>> = ({ signal }) => getFamilyMembersApiV1FamiliesFamilyIdMembersGet(familyId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(familyId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetFamilyMembersApiV1FamiliesFamilyIdMembersGetQueryResult = NonNullable<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>>
+export type GetFamilyMembersApiV1FamiliesFamilyIdMembersGetQueryError = HTTPValidationError
+
+
+export function useGetFamilyMembersApiV1FamiliesFamilyIdMembersGet<TData = Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError = HTTPValidationError>(
+ familyId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>,
+          TError,
+          Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetFamilyMembersApiV1FamiliesFamilyIdMembersGet<TData = Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError = HTTPValidationError>(
+ familyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>,
+          TError,
+          Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetFamilyMembersApiV1FamiliesFamilyIdMembersGet<TData = Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError = HTTPValidationError>(
+ familyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Family Members
+ */
+
+export function useGetFamilyMembersApiV1FamiliesFamilyIdMembersGet<TData = Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError = HTTPValidationError>(
+ familyId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFamilyMembersApiV1FamiliesFamilyIdMembersGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetFamilyMembersApiV1FamiliesFamilyIdMembersGetQueryOptions(familyId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Add a member to the family by email. Admin only.
+ * @summary Add Family Member
+ */
+export const addFamilyMemberApiV1FamiliesFamilyIdMembersPost = (
+    familyId: number,
+    addFamilyMember: AddFamilyMember,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<FamilyMemberResponse>(
+      {url: `/api/v1/families/${familyId}/members`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: addFamilyMember, signal
+    },
+      );
+    }
+
+
+
+export const getAddFamilyMemberApiV1FamiliesFamilyIdMembersPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addFamilyMemberApiV1FamiliesFamilyIdMembersPost>>, TError,{familyId: number;data: AddFamilyMember}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof addFamilyMemberApiV1FamiliesFamilyIdMembersPost>>, TError,{familyId: number;data: AddFamilyMember}, TContext> => {
+
+const mutationKey = ['addFamilyMemberApiV1FamiliesFamilyIdMembersPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addFamilyMemberApiV1FamiliesFamilyIdMembersPost>>, {familyId: number;data: AddFamilyMember}> = (props) => {
+          const {familyId,data} = props ?? {};
+
+          return  addFamilyMemberApiV1FamiliesFamilyIdMembersPost(familyId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddFamilyMemberApiV1FamiliesFamilyIdMembersPostMutationResult = NonNullable<Awaited<ReturnType<typeof addFamilyMemberApiV1FamiliesFamilyIdMembersPost>>>
+    export type AddFamilyMemberApiV1FamiliesFamilyIdMembersPostMutationBody = AddFamilyMember
+    export type AddFamilyMemberApiV1FamiliesFamilyIdMembersPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Add Family Member
+ */
+export const useAddFamilyMemberApiV1FamiliesFamilyIdMembersPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addFamilyMemberApiV1FamiliesFamilyIdMembersPost>>, TError,{familyId: number;data: AddFamilyMember}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addFamilyMemberApiV1FamiliesFamilyIdMembersPost>>,
+        TError,
+        {familyId: number;data: AddFamilyMember},
+        TContext
+      > => {
+
+      const mutationOptions = getAddFamilyMemberApiV1FamiliesFamilyIdMembersPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Remove a member from the family. Admins can remove anyone, members can only remove themselves.
+ * @summary Remove Family Member
+ */
+export const removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete = (
+    familyId: number,
+    userId: number,
+ ) => {
+
+
+      return customFetch<void>(
+      {url: `/api/v1/families/${familyId}/members/${userId}`, method: 'DELETE'
+    },
+      );
+    }
+
+
+
+export const getRemoveFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDeleteMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete>>, TError,{familyId: number;userId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete>>, TError,{familyId: number;userId: number}, TContext> => {
+
+const mutationKey = ['removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete>>, {familyId: number;userId: number}> = (props) => {
+          const {familyId,userId} = props ?? {};
+
+          return  removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete(familyId,userId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete>>>
+
+    export type RemoveFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDeleteMutationError = HTTPValidationError
+
+    /**
+ * @summary Remove Family Member
+ */
+export const useRemoveFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete>>, TError,{familyId: number;userId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removeFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDelete>>,
+        TError,
+        {familyId: number;userId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getRemoveFamilyMemberApiV1FamiliesFamilyIdMembersUserIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Update a member's role. Admin only.
+ * @summary Update Member Role
+ */
+export const updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut = (
+    familyId: number,
+    userId: number,
+    updateFamilyMemberRole: UpdateFamilyMemberRole,
+ ) => {
+
+
+      return customFetch<FamilyMemberResponse>(
+      {url: `/api/v1/families/${familyId}/members/${userId}`, method: 'PUT',
+      headers: {'Content-Type': 'application/json', },
+      data: updateFamilyMemberRole
+    },
+      );
+    }
+
+
+
+export const getUpdateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPutMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut>>, TError,{familyId: number;userId: number;data: UpdateFamilyMemberRole}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut>>, TError,{familyId: number;userId: number;data: UpdateFamilyMemberRole}, TContext> => {
+
+const mutationKey = ['updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut>>, {familyId: number;userId: number;data: UpdateFamilyMemberRole}> = (props) => {
+          const {familyId,userId,data} = props ?? {};
+
+          return  updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut(familyId,userId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPutMutationResult = NonNullable<Awaited<ReturnType<typeof updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut>>>
+    export type UpdateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPutMutationBody = UpdateFamilyMemberRole
+    export type UpdateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPutMutationError = HTTPValidationError
+
+    /**
+ * @summary Update Member Role
+ */
+export const useUpdateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut>>, TError,{familyId: number;userId: number;data: UpdateFamilyMemberRole}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPut>>,
+        TError,
+        {familyId: number;userId: number;data: UpdateFamilyMemberRole},
+        TContext
+      > => {
+
+      const mutationOptions = getUpdateMemberRoleApiV1FamiliesFamilyIdMembersUserIdPutMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
 /**
  * Get all categories for a list.
  * @summary Get Categories
@@ -2042,14 +2958,14 @@ export const getCategoriesApiV1ListsListIdCategoriesGet = (
     listId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<CategoryResponse[]>(
       {url: `/api/v1/lists/${listId}/categories`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -2059,7 +2975,7 @@ export const getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey = (listId?: n
     ] as const;
     }
 
-    
+
 export const getGetCategoriesApiV1ListsListIdCategoriesGetQueryOptions = <TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>>, }
 ) => {
 
@@ -2067,13 +2983,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey(listId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>> = ({ signal }) => getCategoriesApiV1ListsListIdCategoriesGet(listId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -2112,7 +3028,7 @@ export function useGetCategoriesApiV1ListsListIdCategoriesGet<TData = Awaited<Re
 
 export function useGetCategoriesApiV1ListsListIdCategoriesGet<TData = Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError = HTTPValidationError>(
  listId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCategoriesApiV1ListsListIdCategoriesGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetCategoriesApiV1ListsListIdCategoriesGetQueryOptions(listId,options)
@@ -2136,8 +3052,8 @@ export const createCategoryApiV1ListsListIdCategoriesPost = (
     categoryCreate: CategoryCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<CategoryResponse>(
       {url: `/api/v1/lists/${listId}/categories`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -2145,7 +3061,7 @@ export const createCategoryApiV1ListsListIdCategoriesPost = (
     },
       );
     }
-  
+
 
 
 export const getCreateCategoryApiV1ListsListIdCategoriesPostMutationOptions = <TError = HTTPValidationError,
@@ -2159,7 +3075,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCategoryApiV1ListsListIdCategoriesPost>>, {listId: number;data: CategoryCreate}> = (props) => {
@@ -2168,7 +3084,7 @@ const {mutation: mutationOptions} = options ?
           return  createCategoryApiV1ListsListIdCategoriesPost(listId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -2193,7 +3109,7 @@ export const useCreateCategoryApiV1ListsListIdCategoriesPost = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Update a category.
  * @summary Update Category
@@ -2202,8 +3118,8 @@ export const updateCategoryApiV1CategoriesCategoryIdPut = (
     categoryId: number,
     categoryUpdate: CategoryUpdate,
  ) => {
-      
-      
+
+
       return customFetch<CategoryResponse>(
       {url: `/api/v1/categories/${categoryId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -2211,7 +3127,7 @@ export const updateCategoryApiV1CategoriesCategoryIdPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdateCategoryApiV1CategoriesCategoryIdPutMutationOptions = <TError = HTTPValidationError,
@@ -2225,7 +3141,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCategoryApiV1CategoriesCategoryIdPut>>, {categoryId: number;data: CategoryUpdate}> = (props) => {
@@ -2234,7 +3150,7 @@ const {mutation: mutationOptions} = options ?
           return  updateCategoryApiV1CategoriesCategoryIdPut(categoryId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -2259,7 +3175,7 @@ export const useUpdateCategoryApiV1CategoriesCategoryIdPut = <TError = HTTPValid
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Soft delete a category. Items in the category become uncategorized.
  * @summary Delete Category
@@ -2267,14 +3183,14 @@ export const useUpdateCategoryApiV1CategoriesCategoryIdPut = <TError = HTTPValid
 export const deleteCategoryApiV1CategoriesCategoryIdDelete = (
     categoryId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/categories/${categoryId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteCategoryApiV1CategoriesCategoryIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -2288,7 +3204,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>, {categoryId: number}> = (props) => {
@@ -2297,13 +3213,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteCategoryApiV1CategoriesCategoryIdDelete(categoryId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteCategoryApiV1CategoriesCategoryIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCategoryApiV1CategoriesCategoryIdDelete>>>
-    
+
     export type DeleteCategoryApiV1CategoriesCategoryIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -2322,7 +3238,7 @@ export const useDeleteCategoryApiV1CategoriesCategoryIdDelete = <TError = HTTPVa
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get all items for a list.
  * @summary Get Items
@@ -2332,15 +3248,15 @@ export const getItemsApiV1ListsListIdItemsGet = (
     params?: GetItemsApiV1ListsListIdItemsGetParams,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ItemResponse[]>(
       {url: `/api/v1/lists/${listId}/items`, method: 'GET',
         params, signal
     },
       );
     }
-  
+
 
 
 
@@ -2351,7 +3267,7 @@ export const getGetItemsApiV1ListsListIdItemsGetQueryKey = (listId?: number,
     ] as const;
     }
 
-    
+
 export const getGetItemsApiV1ListsListIdItemsGetQueryOptions = <TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(listId: number,
     params?: GetItemsApiV1ListsListIdItemsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>>, }
 ) => {
@@ -2360,13 +3276,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetItemsApiV1ListsListIdItemsGetQueryKey(listId,params);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>> = ({ signal }) => getItemsApiV1ListsListIdItemsGet(listId,params, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(listId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -2409,7 +3325,7 @@ export function useGetItemsApiV1ListsListIdItemsGet<TData = Awaited<ReturnType<t
 export function useGetItemsApiV1ListsListIdItemsGet<TData = Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError = HTTPValidationError>(
  listId: number,
     params?: GetItemsApiV1ListsListIdItemsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getItemsApiV1ListsListIdItemsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetItemsApiV1ListsListIdItemsGetQueryOptions(listId,params,options)
@@ -2433,8 +3349,8 @@ export const createItemApiV1ListsListIdItemsPost = (
     itemCreate: ItemCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ItemResponse>(
       {url: `/api/v1/lists/${listId}/items`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -2442,7 +3358,7 @@ export const createItemApiV1ListsListIdItemsPost = (
     },
       );
     }
-  
+
 
 
 export const getCreateItemApiV1ListsListIdItemsPostMutationOptions = <TError = HTTPValidationError,
@@ -2456,7 +3372,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createItemApiV1ListsListIdItemsPost>>, {listId: number;data: ItemCreate}> = (props) => {
@@ -2465,7 +3381,7 @@ const {mutation: mutationOptions} = options ?
           return  createItemApiV1ListsListIdItemsPost(listId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -2490,7 +3406,7 @@ export const useCreateItemApiV1ListsListIdItemsPost = <TError = HTTPValidationEr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Update an item.
  * @summary Update Item
@@ -2499,8 +3415,8 @@ export const updateItemApiV1ItemsItemIdPut = (
     itemId: number,
     itemUpdate: ItemUpdate,
  ) => {
-      
-      
+
+
       return customFetch<ItemResponse>(
       {url: `/api/v1/items/${itemId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -2508,7 +3424,7 @@ export const updateItemApiV1ItemsItemIdPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdateItemApiV1ItemsItemIdPutMutationOptions = <TError = HTTPValidationError,
@@ -2522,7 +3438,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateItemApiV1ItemsItemIdPut>>, {itemId: number;data: ItemUpdate}> = (props) => {
@@ -2531,7 +3447,7 @@ const {mutation: mutationOptions} = options ?
           return  updateItemApiV1ItemsItemIdPut(itemId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -2556,7 +3472,7 @@ export const useUpdateItemApiV1ItemsItemIdPut = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Soft delete an item.
  * @summary Delete Item
@@ -2564,14 +3480,14 @@ export const useUpdateItemApiV1ItemsItemIdPut = <TError = HTTPValidationError,
 export const deleteItemApiV1ItemsItemIdDelete = (
     itemId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/items/${itemId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteItemApiV1ItemsItemIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -2585,7 +3501,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>, {itemId: number}> = (props) => {
@@ -2594,13 +3510,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteItemApiV1ItemsItemIdDelete(itemId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteItemApiV1ItemsItemIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteItemApiV1ItemsItemIdDelete>>>
-    
+
     export type DeleteItemApiV1ItemsItemIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -2619,7 +3535,7 @@ export const useDeleteItemApiV1ItemsItemIdDelete = <TError = HTTPValidationError
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Check off an item.
  * @summary Check Item
@@ -2628,14 +3544,14 @@ export const checkItemApiV1ItemsItemIdCheckPost = (
     itemId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ItemResponse>(
       {url: `/api/v1/items/${itemId}/check`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getCheckItemApiV1ItemsItemIdCheckPostMutationOptions = <TError = HTTPValidationError,
@@ -2649,7 +3565,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>, {itemId: number}> = (props) => {
@@ -2658,13 +3574,13 @@ const {mutation: mutationOptions} = options ?
           return  checkItemApiV1ItemsItemIdCheckPost(itemId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type CheckItemApiV1ItemsItemIdCheckPostMutationResult = NonNullable<Awaited<ReturnType<typeof checkItemApiV1ItemsItemIdCheckPost>>>
-    
+
     export type CheckItemApiV1ItemsItemIdCheckPostMutationError = HTTPValidationError
 
     /**
@@ -2683,7 +3599,7 @@ export const useCheckItemApiV1ItemsItemIdCheckPost = <TError = HTTPValidationErr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Uncheck an item.
  * @summary Uncheck Item
@@ -2692,14 +3608,14 @@ export const uncheckItemApiV1ItemsItemIdUncheckPost = (
     itemId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ItemResponse>(
       {url: `/api/v1/items/${itemId}/uncheck`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getUncheckItemApiV1ItemsItemIdUncheckPostMutationOptions = <TError = HTTPValidationError,
@@ -2713,7 +3629,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>, {itemId: number}> = (props) => {
@@ -2722,13 +3638,13 @@ const {mutation: mutationOptions} = options ?
           return  uncheckItemApiV1ItemsItemIdUncheckPost(itemId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type UncheckItemApiV1ItemsItemIdUncheckPostMutationResult = NonNullable<Awaited<ReturnType<typeof uncheckItemApiV1ItemsItemIdUncheckPost>>>
-    
+
     export type UncheckItemApiV1ItemsItemIdUncheckPostMutationError = HTTPValidationError
 
     /**
@@ -2747,7 +3663,7 @@ export const useUncheckItemApiV1ItemsItemIdUncheckPost = <TError = HTTPValidatio
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Complete a task item (for task lists only).
 
@@ -2759,14 +3675,14 @@ export const completeTaskItemApiV1ItemsItemIdCompletePost = (
     itemId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ItemResponse>(
       {url: `/api/v1/items/${itemId}/complete`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getCompleteTaskItemApiV1ItemsItemIdCompletePostMutationOptions = <TError = HTTPValidationError,
@@ -2780,7 +3696,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>, {itemId: number}> = (props) => {
@@ -2789,13 +3705,13 @@ const {mutation: mutationOptions} = options ?
           return  completeTaskItemApiV1ItemsItemIdCompletePost(itemId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type CompleteTaskItemApiV1ItemsItemIdCompletePostMutationResult = NonNullable<Awaited<ReturnType<typeof completeTaskItemApiV1ItemsItemIdCompletePost>>>
-    
+
     export type CompleteTaskItemApiV1ItemsItemIdCompletePostMutationError = HTTPValidationError
 
     /**
@@ -2814,7 +3730,7 @@ export const useCompleteTaskItemApiV1ItemsItemIdCompletePost = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Bulk soft delete items.
  * @summary Bulk Delete Items
@@ -2824,8 +3740,8 @@ export const bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost = (
     bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostBody: number[],
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/lists/${listId}/items/bulk-delete`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -2833,7 +3749,7 @@ export const bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost = (
     },
       );
     }
-  
+
 
 
 export const getBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePostMutationOptions = <TError = HTTPValidationError,
@@ -2847,7 +3763,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost>>, {listId: number;data: number[]}> = (props) => {
@@ -2856,7 +3772,7 @@ const {mutation: mutationOptions} = options ?
           return  bulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost(listId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -2881,7 +3797,7 @@ export const useBulkDeleteItemsApiV1ListsListIdItemsBulkDeletePost = <TError = H
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Auto-categorize uncategorized items using history and LLM.
  * @summary Auto Categorize Items
@@ -2890,14 +3806,14 @@ export const autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost = (
     listId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/lists/${listId}/items/auto-categorize`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationOptions = <TError = HTTPValidationError,
@@ -2911,7 +3827,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>, {listId: number}> = (props) => {
@@ -2920,13 +3836,13 @@ const {mutation: mutationOptions} = options ?
           return  autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost(listId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type AutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationResult = NonNullable<Awaited<ReturnType<typeof autoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost>>>
-    
+
     export type AutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationError = HTTPValidationError
 
     /**
@@ -2945,7 +3861,7 @@ export const useAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost = <TE
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Submit voice input for async processing.
  * @summary Create Voice Input
@@ -2954,8 +3870,8 @@ export const createVoiceInputApiV1VoicePost = (
     voiceInputCreate: VoiceInputCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<VoiceInputResponse>(
       {url: `/api/v1/voice`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -2963,7 +3879,7 @@ export const createVoiceInputApiV1VoicePost = (
     },
       );
     }
-  
+
 
 
 export const getCreateVoiceInputApiV1VoicePostMutationOptions = <TError = HTTPValidationError,
@@ -2977,7 +3893,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVoiceInputApiV1VoicePost>>, {data: VoiceInputCreate}> = (props) => {
@@ -2986,7 +3902,7 @@ const {mutation: mutationOptions} = options ?
           return  createVoiceInputApiV1VoicePost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -3011,7 +3927,7 @@ export const useCreateVoiceInputApiV1VoicePost = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Create items immediately using heuristics, queue LLM refinement in background.
 
@@ -3026,8 +3942,8 @@ export const createVoiceItemsInstantApiV1VoiceInstantPost = (
     voiceInputCreate: VoiceInputCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ItemResponse[]>(
       {url: `/api/v1/voice/instant`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -3035,7 +3951,7 @@ export const createVoiceItemsInstantApiV1VoiceInstantPost = (
     },
       );
     }
-  
+
 
 
 export const getCreateVoiceItemsInstantApiV1VoiceInstantPostMutationOptions = <TError = HTTPValidationError,
@@ -3049,7 +3965,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVoiceItemsInstantApiV1VoiceInstantPost>>, {data: VoiceInputCreate}> = (props) => {
@@ -3058,7 +3974,7 @@ const {mutation: mutationOptions} = options ?
           return  createVoiceItemsInstantApiV1VoiceInstantPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -3083,7 +3999,7 @@ export const useCreateVoiceItemsInstantApiV1VoiceInstantPost = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get voice input by ID.
  * @summary Get Voice Input
@@ -3092,14 +4008,14 @@ export const getVoiceInputApiV1VoiceVoiceInputIdGet = (
     voiceInputId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<VoiceInputResponse>(
       {url: `/api/v1/voice/${voiceInputId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -3109,7 +4025,7 @@ export const getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryKey = (voiceInputId?:
     ] as const;
     }
 
-    
+
 export const getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(voiceInputId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>>, }
 ) => {
 
@@ -3117,13 +4033,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryKey(voiceInputId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>> = ({ signal }) => getVoiceInputApiV1VoiceVoiceInputIdGet(voiceInputId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(voiceInputId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -3162,7 +4078,7 @@ export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<Return
 
 export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError = HTTPValidationError>(
  voiceInputId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceInputApiV1VoiceVoiceInputIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetVoiceInputApiV1VoiceVoiceInputIdGetQueryOptions(voiceInputId,options)
@@ -3184,14 +4100,14 @@ export function useGetVoiceInputApiV1VoiceVoiceInputIdGet<TData = Awaited<Return
 export const deleteVoiceInputApiV1VoiceVoiceInputIdDelete = (
     voiceInputId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/voice/${voiceInputId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -3205,7 +4121,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>, {voiceInputId: number}> = (props) => {
@@ -3214,13 +4130,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteVoiceInputApiV1VoiceVoiceInputIdDelete(voiceInputId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVoiceInputApiV1VoiceVoiceInputIdDelete>>>
-    
+
     export type DeleteVoiceInputApiV1VoiceVoiceInputIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -3239,23 +4155,23 @@ export const useDeleteVoiceInputApiV1VoiceVoiceInputIdDelete = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * List in-progress voice jobs and pending confirmations for the current user.
  * @summary List Pending Confirmations
  */
 export const listPendingConfirmationsApiV1VoicePendingListGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<VoiceQueueResponse>(
       {url: `/api/v1/voice/pending/list`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -3265,7 +4181,7 @@ export const getListPendingConfirmationsApiV1VoicePendingListGetQueryKey = () =>
     ] as const;
     }
 
-    
+
 export const getListPendingConfirmationsApiV1VoicePendingListGetQueryOptions = <TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>>, }
 ) => {
 
@@ -3273,13 +4189,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListPendingConfirmationsApiV1VoicePendingListGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>> = ({ signal }) => listPendingConfirmationsApiV1VoicePendingListGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -3318,7 +4234,7 @@ export function useListPendingConfirmationsApiV1VoicePendingListGet<TData = Awai
 
 export function useListPendingConfirmationsApiV1VoicePendingListGet<TData = Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPendingConfirmationsApiV1VoicePendingListGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListPendingConfirmationsApiV1VoicePendingListGetQueryOptions(options)
@@ -3341,14 +4257,14 @@ export const getPendingConfirmationApiV1VoicePendingConfirmationIdGet = (
     confirmationId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PendingConfirmationResponse>(
       {url: `/api/v1/voice/pending/${confirmationId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -3358,7 +4274,7 @@ export const getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryKey
     ] as const;
     }
 
-    
+
 export const getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(confirmationId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>>, }
 ) => {
 
@@ -3366,13 +4282,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryKey(confirmationId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>> = ({ signal }) => getPendingConfirmationApiV1VoicePendingConfirmationIdGet(confirmationId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(confirmationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -3411,7 +4327,7 @@ export function useGetPendingConfirmationApiV1VoicePendingConfirmationIdGet<TDat
 
 export function useGetPendingConfirmationApiV1VoicePendingConfirmationIdGet<TData = Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError = HTTPValidationError>(
  confirmationId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPendingConfirmationApiV1VoicePendingConfirmationIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetPendingConfirmationApiV1VoicePendingConfirmationIdGetQueryOptions(confirmationId,options)
@@ -3435,8 +4351,8 @@ export const actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost 
     confirmationAction: ConfirmationAction,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PendingConfirmationResponse>(
       {url: `/api/v1/voice/pending/${confirmationId}/action`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -3444,7 +4360,7 @@ export const actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost 
     },
       );
     }
-  
+
 
 
 export const getActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPostMutationOptions = <TError = HTTPValidationError,
@@ -3458,7 +4374,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost>>, {confirmationId: number;data: ConfirmationAction}> = (props) => {
@@ -3467,7 +4383,7 @@ const {mutation: mutationOptions} = options ?
           return  actionPendingConfirmationApiV1VoicePendingConfirmationIdActionPost(confirmationId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -3492,7 +4408,7 @@ export const useActionPendingConfirmationApiV1VoicePendingConfirmationIdActionPo
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Retry a failed voice input with optionally edited text.
  * @summary Retry Voice Input
@@ -3502,8 +4418,8 @@ export const retryVoiceInputApiV1VoiceVoiceInputIdRetryPost = (
     voiceInputRetry: VoiceInputRetry,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<VoiceInputResponse>(
       {url: `/api/v1/voice/${voiceInputId}/retry`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -3511,7 +4427,7 @@ export const retryVoiceInputApiV1VoiceVoiceInputIdRetryPost = (
     },
       );
     }
-  
+
 
 
 export const getRetryVoiceInputApiV1VoiceVoiceInputIdRetryPostMutationOptions = <TError = HTTPValidationError,
@@ -3525,7 +4441,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryVoiceInputApiV1VoiceVoiceInputIdRetryPost>>, {voiceInputId: number;data: VoiceInputRetry}> = (props) => {
@@ -3534,7 +4450,7 @@ const {mutation: mutationOptions} = options ?
           return  retryVoiceInputApiV1VoiceVoiceInputIdRetryPost(voiceInputId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -3559,23 +4475,23 @@ export const useRetryVoiceInputApiV1VoiceVoiceInputIdRetryPost = <TError = HTTPV
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get available label colors for recipes.
  * @summary Get Label Colors
  */
 export const getLabelColorsApiV1RecipesColorsGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/recipes/colors`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -3585,7 +4501,7 @@ export const getGetLabelColorsApiV1RecipesColorsGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getGetLabelColorsApiV1RecipesColorsGetQueryOptions = <TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>>, }
 ) => {
 
@@ -3593,13 +4509,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetLabelColorsApiV1RecipesColorsGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>> = ({ signal }) => getLabelColorsApiV1RecipesColorsGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -3638,7 +4554,7 @@ export function useGetLabelColorsApiV1RecipesColorsGet<TData = Awaited<ReturnTyp
 
 export function useGetLabelColorsApiV1RecipesColorsGet<TData = Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLabelColorsApiV1RecipesColorsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetLabelColorsApiV1RecipesColorsGetQueryOptions(options)
@@ -3665,7 +4581,7 @@ export const uploadRecipeImageApiV1RecipesRecipeIdImagePost = (
     bodyUploadRecipeImageApiV1RecipesRecipeIdImagePost: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost,
  signal?: AbortSignal
 ) => {
-      
+
       const formData = new FormData();
 formData.append(`file`, bodyUploadRecipeImageApiV1RecipesRecipeIdImagePost.file)
 
@@ -3676,7 +4592,7 @@ formData.append(`file`, bodyUploadRecipeImageApiV1RecipesRecipeIdImagePost.file)
     },
       );
     }
-  
+
 
 
 export const getUploadRecipeImageApiV1RecipesRecipeIdImagePostMutationOptions = <TError = HTTPValidationError,
@@ -3690,7 +4606,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadRecipeImageApiV1RecipesRecipeIdImagePost>>, {recipeId: number;data: BodyUploadRecipeImageApiV1RecipesRecipeIdImagePost}> = (props) => {
@@ -3699,7 +4615,7 @@ const {mutation: mutationOptions} = options ?
           return  uploadRecipeImageApiV1RecipesRecipeIdImagePost(recipeId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -3724,7 +4640,7 @@ export const useUploadRecipeImageApiV1RecipesRecipeIdImagePost = <TError = HTTPV
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Delete the image for a recipe.
  * @summary Delete Image
@@ -3732,14 +4648,14 @@ export const useUploadRecipeImageApiV1RecipesRecipeIdImagePost = <TError = HTTPV
 export const deleteImageApiV1RecipesRecipeIdImageDelete = (
     recipeId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/recipes/${recipeId}/image`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteImageApiV1RecipesRecipeIdImageDeleteMutationOptions = <TError = HTTPValidationError,
@@ -3753,7 +4669,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>, {recipeId: number}> = (props) => {
@@ -3762,13 +4678,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteImageApiV1RecipesRecipeIdImageDelete(recipeId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteImageApiV1RecipesRecipeIdImageDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteImageApiV1RecipesRecipeIdImageDelete>>>
-    
+
     export type DeleteImageApiV1RecipesRecipeIdImageDeleteMutationError = HTTPValidationError
 
     /**
@@ -3787,7 +4703,7 @@ export const useDeleteImageApiV1RecipesRecipeIdImageDelete = <TError = HTTPValid
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Trigger nutrition computation for a recipe.
 
@@ -3799,14 +4715,14 @@ export const computeNutritionApiV1RecipesRecipeIdComputeNutritionPost = (
     recipeId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/recipes/${recipeId}/compute-nutrition`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationOptions = <TError = HTTPValidationError,
@@ -3820,7 +4736,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>, {recipeId: number}> = (props) => {
@@ -3829,13 +4745,13 @@ const {mutation: mutationOptions} = options ?
           return  computeNutritionApiV1RecipesRecipeIdComputeNutritionPost(recipeId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type ComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationResult = NonNullable<Awaited<ReturnType<typeof computeNutritionApiV1RecipesRecipeIdComputeNutritionPost>>>
-    
+
     export type ComputeNutritionApiV1RecipesRecipeIdComputeNutritionPostMutationError = HTTPValidationError
 
     /**
@@ -3854,7 +4770,7 @@ export const useComputeNutritionApiV1RecipesRecipeIdComputeNutritionPost = <TErr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * List all recipes for the current user's household.
  * @summary List Recipes
@@ -3863,15 +4779,15 @@ export const listRecipesApiV1RecipesGet = (
     params?: ListRecipesApiV1RecipesGetParams,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeListResponse[]>(
       {url: `/api/v1/recipes`, method: 'GET',
         params, signal
     },
       );
     }
-  
+
 
 
 
@@ -3881,7 +4797,7 @@ export const getListRecipesApiV1RecipesGetQueryKey = (params?: ListRecipesApiV1R
     ] as const;
     }
 
-    
+
 export const getListRecipesApiV1RecipesGetQueryOptions = <TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(params?: ListRecipesApiV1RecipesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>>, }
 ) => {
 
@@ -3889,13 +4805,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListRecipesApiV1RecipesGetQueryKey(params);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>> = ({ signal }) => listRecipesApiV1RecipesGet(params, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -3934,7 +4850,7 @@ export function useListRecipesApiV1RecipesGet<TData = Awaited<ReturnType<typeof 
 
 export function useListRecipesApiV1RecipesGet<TData = Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError = HTTPValidationError>(
  params?: ListRecipesApiV1RecipesGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listRecipesApiV1RecipesGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListRecipesApiV1RecipesGetQueryOptions(params,options)
@@ -3957,8 +4873,8 @@ export const createRecipeApiV1RecipesPost = (
     recipeCreate: RecipeCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeResponse>(
       {url: `/api/v1/recipes`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -3966,7 +4882,7 @@ export const createRecipeApiV1RecipesPost = (
     },
       );
     }
-  
+
 
 
 export const getCreateRecipeApiV1RecipesPostMutationOptions = <TError = HTTPValidationError,
@@ -3980,7 +4896,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRecipeApiV1RecipesPost>>, {data: RecipeCreate}> = (props) => {
@@ -3989,7 +4905,7 @@ const {mutation: mutationOptions} = options ?
           return  createRecipeApiV1RecipesPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -4014,7 +4930,7 @@ export const useCreateRecipeApiV1RecipesPost = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Add ingredients from recipe(s) to appropriate shopping lists.
  * @summary Add Recipes To List
@@ -4023,8 +4939,8 @@ export const addRecipesToListApiV1RecipesAddToListPost = (
     addToListRequest: AddToListRequest,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<AddToListResult>(
       {url: `/api/v1/recipes/add-to-list`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -4032,7 +4948,7 @@ export const addRecipesToListApiV1RecipesAddToListPost = (
     },
       );
     }
-  
+
 
 
 export const getAddRecipesToListApiV1RecipesAddToListPostMutationOptions = <TError = HTTPValidationError,
@@ -4046,7 +4962,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof addRecipesToListApiV1RecipesAddToListPost>>, {data: AddToListRequest}> = (props) => {
@@ -4055,7 +4971,7 @@ const {mutation: mutationOptions} = options ?
           return  addRecipesToListApiV1RecipesAddToListPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -4080,23 +4996,23 @@ export const useAddRecipesToListApiV1RecipesAddToListPost = <TError = HTTPValida
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * List recent add events (for undo UI).
  * @summary List Add Events
  */
 export const listAddEventsApiV1RecipesAddEventsGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeAddEventResponse[]>(
       {url: `/api/v1/recipes/add-events`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -4106,7 +5022,7 @@ export const getListAddEventsApiV1RecipesAddEventsGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getListAddEventsApiV1RecipesAddEventsGetQueryOptions = <TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>>, }
 ) => {
 
@@ -4114,13 +5030,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListAddEventsApiV1RecipesAddEventsGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>> = ({ signal }) => listAddEventsApiV1RecipesAddEventsGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -4159,7 +5075,7 @@ export function useListAddEventsApiV1RecipesAddEventsGet<TData = Awaited<ReturnT
 
 export function useListAddEventsApiV1RecipesAddEventsGet<TData = Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAddEventsApiV1RecipesAddEventsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListAddEventsApiV1RecipesAddEventsGetQueryOptions(options)
@@ -4182,14 +5098,14 @@ export const undoAddEventApiV1RecipesAddEventsEventIdUndoPost = (
     eventId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/recipes/add-events/${eventId}/undo`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getUndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationOptions = <TError = HTTPValidationError,
@@ -4203,7 +5119,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>, {eventId: number}> = (props) => {
@@ -4212,13 +5128,13 @@ const {mutation: mutationOptions} = options ?
           return  undoAddEventApiV1RecipesAddEventsEventIdUndoPost(eventId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type UndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationResult = NonNullable<Awaited<ReturnType<typeof undoAddEventApiV1RecipesAddEventsEventIdUndoPost>>>
-    
+
     export type UndoAddEventApiV1RecipesAddEventsEventIdUndoPostMutationError = HTTPValidationError
 
     /**
@@ -4237,23 +5153,23 @@ export const useUndoAddEventApiV1RecipesAddEventsEventIdUndoPost = <TError = HTT
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * List all ingredient store defaults for the user.
  * @summary List Store Defaults
  */
 export const listStoreDefaultsApiV1RecipesStoreDefaultsGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<IngredientStoreDefaultResponse[]>(
       {url: `/api/v1/recipes/store-defaults`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -4263,7 +5179,7 @@ export const getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryOptions = <TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>>, }
 ) => {
 
@@ -4271,13 +5187,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>> = ({ signal }) => listStoreDefaultsApiV1RecipesStoreDefaultsGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -4316,7 +5232,7 @@ export function useListStoreDefaultsApiV1RecipesStoreDefaultsGet<TData = Awaited
 
 export function useListStoreDefaultsApiV1RecipesStoreDefaultsGet<TData = Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStoreDefaultsApiV1RecipesStoreDefaultsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListStoreDefaultsApiV1RecipesStoreDefaultsGetQueryOptions(options)
@@ -4339,8 +5255,8 @@ export const setStoreDefaultApiV1RecipesStoreDefaultsPost = (
     ingredientStoreDefaultCreate: IngredientStoreDefaultCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<IngredientStoreDefaultResponse>(
       {url: `/api/v1/recipes/store-defaults`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -4348,7 +5264,7 @@ export const setStoreDefaultApiV1RecipesStoreDefaultsPost = (
     },
       );
     }
-  
+
 
 
 export const getSetStoreDefaultApiV1RecipesStoreDefaultsPostMutationOptions = <TError = HTTPValidationError,
@@ -4362,7 +5278,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof setStoreDefaultApiV1RecipesStoreDefaultsPost>>, {data: IngredientStoreDefaultCreate}> = (props) => {
@@ -4371,7 +5287,7 @@ const {mutation: mutationOptions} = options ?
           return  setStoreDefaultApiV1RecipesStoreDefaultsPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -4396,7 +5312,7 @@ export const useSetStoreDefaultApiV1RecipesStoreDefaultsPost = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Check all recipes against pantry to get ingredient counts.
 
@@ -4406,17 +5322,17 @@ Uses simple matching only (no LLM) for speed.
  * @summary Bulk Check Pantry
  */
 export const bulkCheckPantryApiV1RecipesPantryStatusGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<BulkPantryCheckResponse>(
       {url: `/api/v1/recipes/pantry-status`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -4426,7 +5342,7 @@ export const getBulkCheckPantryApiV1RecipesPantryStatusGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getBulkCheckPantryApiV1RecipesPantryStatusGetQueryOptions = <TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>>, }
 ) => {
 
@@ -4434,13 +5350,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getBulkCheckPantryApiV1RecipesPantryStatusGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>> = ({ signal }) => bulkCheckPantryApiV1RecipesPantryStatusGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -4479,7 +5395,7 @@ export function useBulkCheckPantryApiV1RecipesPantryStatusGet<TData = Awaited<Re
 
 export function useBulkCheckPantryApiV1RecipesPantryStatusGet<TData = Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof bulkCheckPantryApiV1RecipesPantryStatusGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getBulkCheckPantryApiV1RecipesPantryStatusGetQueryOptions(options)
@@ -4502,8 +5418,8 @@ export const createRecipeImportApiV1RecipesImportPost = (
     recipeImportCreate: RecipeImportCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeImportResponse>(
       {url: `/api/v1/recipes/import`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -4511,7 +5427,7 @@ export const createRecipeImportApiV1RecipesImportPost = (
     },
       );
     }
-  
+
 
 
 export const getCreateRecipeImportApiV1RecipesImportPostMutationOptions = <TError = HTTPValidationError,
@@ -4525,7 +5441,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRecipeImportApiV1RecipesImportPost>>, {data: RecipeImportCreate}> = (props) => {
@@ -4534,7 +5450,7 @@ const {mutation: mutationOptions} = options ?
           return  createRecipeImportApiV1RecipesImportPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -4559,7 +5475,7 @@ export const useCreateRecipeImportApiV1RecipesImportPost = <TError = HTTPValidat
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get import status and parsed recipe.
  * @summary Get Recipe Import
@@ -4568,14 +5484,14 @@ export const getRecipeImportApiV1RecipesImportImportIdGet = (
     importId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeImportResponse>(
       {url: `/api/v1/recipes/import/${importId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -4585,7 +5501,7 @@ export const getGetRecipeImportApiV1RecipesImportImportIdGetQueryKey = (importId
     ] as const;
     }
 
-    
+
 export const getGetRecipeImportApiV1RecipesImportImportIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(importId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>>, }
 ) => {
 
@@ -4593,13 +5509,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetRecipeImportApiV1RecipesImportImportIdGetQueryKey(importId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>> = ({ signal }) => getRecipeImportApiV1RecipesImportImportIdGet(importId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(importId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -4638,7 +5554,7 @@ export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<
 
 export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError = HTTPValidationError>(
  importId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeImportApiV1RecipesImportImportIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetRecipeImportApiV1RecipesImportImportIdGetQueryOptions(importId,options)
@@ -4660,14 +5576,14 @@ export function useGetRecipeImportApiV1RecipesImportImportIdGet<TData = Awaited<
 export const deleteRecipeImportApiV1RecipesImportImportIdDelete = (
     importId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/recipes/import/${importId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -4681,7 +5597,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>, {importId: number}> = (props) => {
@@ -4690,13 +5606,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteRecipeImportApiV1RecipesImportImportIdDelete(importId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRecipeImportApiV1RecipesImportImportIdDelete>>>
-    
+
     export type DeleteRecipeImportApiV1RecipesImportImportIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -4715,7 +5631,7 @@ export const useDeleteRecipeImportApiV1RecipesImportImportIdDelete = <TError = H
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Create recipe from parsed import with optional edits.
  * @summary Confirm Recipe Import
@@ -4725,8 +5641,8 @@ export const confirmRecipeImportApiV1RecipesImportImportIdConfirmPost = (
     recipeImportConfirm: RecipeImportConfirm,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeResponse>(
       {url: `/api/v1/recipes/import/${importId}/confirm`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -4734,7 +5650,7 @@ export const confirmRecipeImportApiV1RecipesImportImportIdConfirmPost = (
     },
       );
     }
-  
+
 
 
 export const getConfirmRecipeImportApiV1RecipesImportImportIdConfirmPostMutationOptions = <TError = HTTPValidationError,
@@ -4748,7 +5664,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmRecipeImportApiV1RecipesImportImportIdConfirmPost>>, {importId: number;data: RecipeImportConfirm}> = (props) => {
@@ -4757,7 +5673,7 @@ const {mutation: mutationOptions} = options ?
           return  confirmRecipeImportApiV1RecipesImportImportIdConfirmPost(importId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -4782,7 +5698,7 @@ export const useConfirmRecipeImportApiV1RecipesImportImportIdConfirmPost = <TErr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Update an ingredient.
  * @summary Update Ingredient
@@ -4791,8 +5707,8 @@ export const updateIngredientApiV1RecipesIngredientsIngredientIdPut = (
     ingredientId: number,
     recipeIngredientUpdate: RecipeIngredientUpdate,
  ) => {
-      
-      
+
+
       return customFetch<RecipeIngredientResponse>(
       {url: `/api/v1/recipes/ingredients/${ingredientId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -4800,7 +5716,7 @@ export const updateIngredientApiV1RecipesIngredientsIngredientIdPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdateIngredientApiV1RecipesIngredientsIngredientIdPutMutationOptions = <TError = HTTPValidationError,
@@ -4814,7 +5730,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateIngredientApiV1RecipesIngredientsIngredientIdPut>>, {ingredientId: number;data: RecipeIngredientUpdate}> = (props) => {
@@ -4823,7 +5739,7 @@ const {mutation: mutationOptions} = options ?
           return  updateIngredientApiV1RecipesIngredientsIngredientIdPut(ingredientId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -4848,7 +5764,7 @@ export const useUpdateIngredientApiV1RecipesIngredientsIngredientIdPut = <TError
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Delete an ingredient from a recipe.
  * @summary Delete Ingredient
@@ -4856,14 +5772,14 @@ export const useUpdateIngredientApiV1RecipesIngredientsIngredientIdPut = <TError
 export const deleteIngredientApiV1RecipesIngredientsIngredientIdDelete = (
     ingredientId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/recipes/ingredients/${ingredientId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -4877,7 +5793,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>, {ingredientId: number}> = (props) => {
@@ -4886,13 +5802,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteIngredientApiV1RecipesIngredientsIngredientIdDelete(ingredientId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteIngredientApiV1RecipesIngredientsIngredientIdDelete>>>
-    
+
     export type DeleteIngredientApiV1RecipesIngredientsIngredientIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -4911,7 +5827,7 @@ export const useDeleteIngredientApiV1RecipesIngredientsIngredientIdDelete = <TEr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Check recipe ingredients against user's pantry.
  * @summary Check Recipe Pantry
@@ -4920,14 +5836,14 @@ export const checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost = (
     recipeId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<CheckPantryResponse>(
       {url: `/api/v1/recipes/${recipeId}/check-pantry`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationOptions = <TError = HTTPValidationError,
@@ -4941,7 +5857,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>, {recipeId: number}> = (props) => {
@@ -4950,13 +5866,13 @@ const {mutation: mutationOptions} = options ?
           return  checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost(recipeId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type CheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationResult = NonNullable<Awaited<ReturnType<typeof checkRecipePantryApiV1RecipesRecipeIdCheckPantryPost>>>
-    
+
     export type CheckRecipePantryApiV1RecipesRecipeIdCheckPantryPostMutationError = HTTPValidationError
 
     /**
@@ -4975,7 +5891,7 @@ export const useCheckRecipePantryApiV1RecipesRecipeIdCheckPantryPost = <TError =
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get a specific recipe with all ingredients.
  * @summary Get Recipe
@@ -4984,14 +5900,14 @@ export const getRecipeApiV1RecipesRecipeIdGet = (
     recipeId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeResponse>(
       {url: `/api/v1/recipes/${recipeId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -5001,7 +5917,7 @@ export const getGetRecipeApiV1RecipesRecipeIdGetQueryKey = (recipeId?: number,) 
     ] as const;
     }
 
-    
+
 export const getGetRecipeApiV1RecipesRecipeIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>>, }
 ) => {
 
@@ -5009,13 +5925,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetRecipeApiV1RecipesRecipeIdGetQueryKey(recipeId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>> = ({ signal }) => getRecipeApiV1RecipesRecipeIdGet(recipeId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(recipeId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -5054,7 +5970,7 @@ export function useGetRecipeApiV1RecipesRecipeIdGet<TData = Awaited<ReturnType<t
 
 export function useGetRecipeApiV1RecipesRecipeIdGet<TData = Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError = HTTPValidationError>(
  recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRecipeApiV1RecipesRecipeIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetRecipeApiV1RecipesRecipeIdGetQueryOptions(recipeId,options)
@@ -5077,8 +5993,8 @@ export const updateRecipeApiV1RecipesRecipeIdPut = (
     recipeId: number,
     recipeUpdate: RecipeUpdate,
  ) => {
-      
-      
+
+
       return customFetch<RecipeResponse>(
       {url: `/api/v1/recipes/${recipeId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -5086,7 +6002,7 @@ export const updateRecipeApiV1RecipesRecipeIdPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdateRecipeApiV1RecipesRecipeIdPutMutationOptions = <TError = HTTPValidationError,
@@ -5100,7 +6016,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRecipeApiV1RecipesRecipeIdPut>>, {recipeId: number;data: RecipeUpdate}> = (props) => {
@@ -5109,7 +6025,7 @@ const {mutation: mutationOptions} = options ?
           return  updateRecipeApiV1RecipesRecipeIdPut(recipeId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -5134,7 +6050,7 @@ export const useUpdateRecipeApiV1RecipesRecipeIdPut = <TError = HTTPValidationEr
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Soft delete a recipe.
  * @summary Delete Recipe
@@ -5142,14 +6058,14 @@ export const useUpdateRecipeApiV1RecipesRecipeIdPut = <TError = HTTPValidationEr
 export const deleteRecipeApiV1RecipesRecipeIdDelete = (
     recipeId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/recipes/${recipeId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeleteRecipeApiV1RecipesRecipeIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -5163,7 +6079,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>, {recipeId: number}> = (props) => {
@@ -5172,13 +6088,13 @@ const {mutation: mutationOptions} = options ?
           return  deleteRecipeApiV1RecipesRecipeIdDelete(recipeId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteRecipeApiV1RecipesRecipeIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteRecipeApiV1RecipesRecipeIdDelete>>>
-    
+
     export type DeleteRecipeApiV1RecipesRecipeIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -5197,7 +6113,7 @@ export const useDeleteRecipeApiV1RecipesRecipeIdDelete = <TError = HTTPValidatio
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Add an ingredient to a recipe.
  * @summary Add Ingredient
@@ -5207,8 +6123,8 @@ export const addIngredientApiV1RecipesRecipeIdIngredientsPost = (
     recipeIngredientCreate: RecipeIngredientCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<RecipeIngredientResponse>(
       {url: `/api/v1/recipes/${recipeId}/ingredients`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -5216,7 +6132,7 @@ export const addIngredientApiV1RecipesRecipeIdIngredientsPost = (
     },
       );
     }
-  
+
 
 
 export const getAddIngredientApiV1RecipesRecipeIdIngredientsPostMutationOptions = <TError = HTTPValidationError,
@@ -5230,7 +6146,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof addIngredientApiV1RecipesRecipeIdIngredientsPost>>, {recipeId: number;data: RecipeIngredientCreate}> = (props) => {
@@ -5239,7 +6155,7 @@ const {mutation: mutationOptions} = options ?
           return  addIngredientApiV1RecipesRecipeIdIngredientsPost(recipeId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -5264,7 +6180,7 @@ export const useAddIngredientApiV1RecipesRecipeIdIngredientsPost = <TError = HTT
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get list of completed step indices.
  * @summary Get Step Completions
@@ -5273,14 +6189,14 @@ export const getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet = (
     recipeId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<StepCompletionsResponse>(
       {url: `/api/v1/recipes/${recipeId}/step-completions`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -5290,7 +6206,7 @@ export const getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryKey
     ] as const;
     }
 
-    
+
 export const getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryOptions = <TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>>, }
 ) => {
 
@@ -5298,13 +6214,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryKey(recipeId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>> = ({ signal }) => getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet(recipeId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(recipeId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -5343,7 +6259,7 @@ export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TDat
 
 export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TData = Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError = HTTPValidationError>(
  recipeId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGetQueryOptions(recipeId,options)
@@ -5365,14 +6281,14 @@ export function useGetStepCompletionsApiV1RecipesRecipeIdStepCompletionsGet<TDat
 export const resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete = (
     recipeId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/recipes/${recipeId}/step-completions`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationOptions = <TError = HTTPValidationError,
@@ -5386,7 +6302,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>, {recipeId: number}> = (props) => {
@@ -5395,13 +6311,13 @@ const {mutation: mutationOptions} = options ?
           return  resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete(recipeId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type ResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof resetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete>>>
-    
+
     export type ResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDeleteMutationError = HTTPValidationError
 
     /**
@@ -5420,7 +6336,7 @@ export const useResetStepCompletionsApiV1RecipesRecipeIdStepCompletionsDelete = 
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Toggle a step's completion state.
  * @summary Toggle Step Completion
@@ -5430,14 +6346,14 @@ export const toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost = 
     stepIndex: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<StepToggleResponse>(
       {url: `/api/v1/recipes/${recipeId}/steps/${stepIndex}/toggle`, method: 'POST', signal
     },
       );
     }
-  
+
 
 
 export const getToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationOptions = <TError = HTTPValidationError,
@@ -5451,7 +6367,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>, {recipeId: number;stepIndex: number}> = (props) => {
@@ -5460,13 +6376,13 @@ const {mutation: mutationOptions} = options ?
           return  toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost(recipeId,stepIndex,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type ToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationResult = NonNullable<Awaited<ReturnType<typeof toggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost>>>
-    
+
     export type ToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePostMutationError = HTTPValidationError
 
     /**
@@ -5485,23 +6401,23 @@ export const useToggleStepCompletionApiV1RecipesRecipeIdStepsStepIndexTogglePost
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * List all pantry items for the current user's household.
  * @summary List Pantry Items
  */
 export const listPantryItemsApiV1PantryGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PantryItemResponse[]>(
       {url: `/api/v1/pantry`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -5511,7 +6427,7 @@ export const getListPantryItemsApiV1PantryGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getListPantryItemsApiV1PantryGetQueryOptions = <TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>>, }
 ) => {
 
@@ -5519,13 +6435,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListPantryItemsApiV1PantryGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>> = ({ signal }) => listPantryItemsApiV1PantryGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -5564,7 +6480,7 @@ export function useListPantryItemsApiV1PantryGet<TData = Awaited<ReturnType<type
 
 export function useListPantryItemsApiV1PantryGet<TData = Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsApiV1PantryGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListPantryItemsApiV1PantryGetQueryOptions(options)
@@ -5587,8 +6503,8 @@ export const createPantryItemApiV1PantryPost = (
     pantryItemCreate: PantryItemCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PantryItemResponse>(
       {url: `/api/v1/pantry`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -5596,7 +6512,7 @@ export const createPantryItemApiV1PantryPost = (
     },
       );
     }
-  
+
 
 
 export const getCreatePantryItemApiV1PantryPostMutationOptions = <TError = HTTPValidationError,
@@ -5610,7 +6526,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPantryItemApiV1PantryPost>>, {data: PantryItemCreate}> = (props) => {
@@ -5619,7 +6535,7 @@ const {mutation: mutationOptions} = options ?
           return  createPantryItemApiV1PantryPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -5644,7 +6560,7 @@ export const useCreatePantryItemApiV1PantryPost = <TError = HTTPValidationError,
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * List pantry items with recipe participation data.
 
@@ -5653,17 +6569,17 @@ Matching is done by normalized ingredient name (case-insensitive, trimmed).
  * @summary List Pantry Items With Recipes
  */
 export const listPantryItemsWithRecipesApiV1PantryWithRecipesGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PantryItemWithRecipesResponse[]>(
       {url: `/api/v1/pantry/with-recipes`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -5673,7 +6589,7 @@ export const getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey = ()
     ] as const;
     }
 
-    
+
 export const getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryOptions = <TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>>, }
 ) => {
 
@@ -5681,13 +6597,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>> = ({ signal }) => listPantryItemsWithRecipesApiV1PantryWithRecipesGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -5726,7 +6642,7 @@ export function useListPantryItemsWithRecipesApiV1PantryWithRecipesGet<TData = A
 
 export function useListPantryItemsWithRecipesApiV1PantryWithRecipesGet<TData = Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listPantryItemsWithRecipesApiV1PantryWithRecipesGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListPantryItemsWithRecipesApiV1PantryWithRecipesGetQueryOptions(options)
@@ -5749,14 +6665,14 @@ export const getPantryItemApiV1PantryItemIdGet = (
     itemId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PantryItemResponse>(
       {url: `/api/v1/pantry/${itemId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -5766,7 +6682,7 @@ export const getGetPantryItemApiV1PantryItemIdGetQueryKey = (itemId?: number,) =
     ] as const;
     }
 
-    
+
 export const getGetPantryItemApiV1PantryItemIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(itemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>>, }
 ) => {
 
@@ -5774,13 +6690,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetPantryItemApiV1PantryItemIdGetQueryKey(itemId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>> = ({ signal }) => getPantryItemApiV1PantryItemIdGet(itemId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(itemId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -5819,7 +6735,7 @@ export function useGetPantryItemApiV1PantryItemIdGet<TData = Awaited<ReturnType<
 
 export function useGetPantryItemApiV1PantryItemIdGet<TData = Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError = HTTPValidationError>(
  itemId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPantryItemApiV1PantryItemIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetPantryItemApiV1PantryItemIdGetQueryOptions(itemId,options)
@@ -5842,8 +6758,8 @@ export const updatePantryItemApiV1PantryItemIdPut = (
     itemId: number,
     pantryItemUpdate: PantryItemUpdate,
  ) => {
-      
-      
+
+
       return customFetch<PantryItemResponse>(
       {url: `/api/v1/pantry/${itemId}`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -5851,7 +6767,7 @@ export const updatePantryItemApiV1PantryItemIdPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdatePantryItemApiV1PantryItemIdPutMutationOptions = <TError = HTTPValidationError,
@@ -5865,7 +6781,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePantryItemApiV1PantryItemIdPut>>, {itemId: number;data: PantryItemUpdate}> = (props) => {
@@ -5874,7 +6790,7 @@ const {mutation: mutationOptions} = options ?
           return  updatePantryItemApiV1PantryItemIdPut(itemId,data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -5899,7 +6815,7 @@ export const useUpdatePantryItemApiV1PantryItemIdPut = <TError = HTTPValidationE
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Remove an item from the pantry.
  * @summary Delete Pantry Item
@@ -5907,14 +6823,14 @@ export const useUpdatePantryItemApiV1PantryItemIdPut = <TError = HTTPValidationE
 export const deletePantryItemApiV1PantryItemIdDelete = (
     itemId: number,
  ) => {
-      
-      
+
+
       return customFetch<void>(
       {url: `/api/v1/pantry/${itemId}`, method: 'DELETE'
     },
       );
     }
-  
+
 
 
 export const getDeletePantryItemApiV1PantryItemIdDeleteMutationOptions = <TError = HTTPValidationError,
@@ -5928,7 +6844,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>, {itemId: number}> = (props) => {
@@ -5937,13 +6853,13 @@ const {mutation: mutationOptions} = options ?
           return  deletePantryItemApiV1PantryItemIdDelete(itemId,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type DeletePantryItemApiV1PantryItemIdDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deletePantryItemApiV1PantryItemIdDelete>>>
-    
+
     export type DeletePantryItemApiV1PantryItemIdDeleteMutationError = HTTPValidationError
 
     /**
@@ -5962,7 +6878,7 @@ export const useDeletePantryItemApiV1PantryItemIdDelete = <TError = HTTPValidati
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Bulk add items to household pantry (for post-shopping flow).
  * @summary Bulk Add Pantry Items
@@ -5971,8 +6887,8 @@ export const bulkAddPantryItemsApiV1PantryBulkPost = (
     pantryBulkAddRequest: PantryBulkAddRequest,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PantryBulkAddResponse>(
       {url: `/api/v1/pantry/bulk`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -5980,7 +6896,7 @@ export const bulkAddPantryItemsApiV1PantryBulkPost = (
     },
       );
     }
-  
+
 
 
 export const getBulkAddPantryItemsApiV1PantryBulkPostMutationOptions = <TError = HTTPValidationError,
@@ -5994,7 +6910,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof bulkAddPantryItemsApiV1PantryBulkPost>>, {data: PantryBulkAddRequest}> = (props) => {
@@ -6003,7 +6919,7 @@ const {mutation: mutationOptions} = options ?
           return  bulkAddPantryItemsApiV1PantryBulkPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6028,7 +6944,7 @@ export const useBulkAddPantryItemsApiV1PantryBulkPost = <TError = HTTPValidation
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Upload a receipt image for scanning.
 
@@ -6042,7 +6958,7 @@ export const scanReceiptApiV1PantryScanReceiptPost = (
     bodyScanReceiptApiV1PantryScanReceiptPost: BodyScanReceiptApiV1PantryScanReceiptPost,
  signal?: AbortSignal
 ) => {
-      
+
       const formData = new FormData();
 formData.append(`file`, bodyScanReceiptApiV1PantryScanReceiptPost.file)
 
@@ -6053,7 +6969,7 @@ formData.append(`file`, bodyScanReceiptApiV1PantryScanReceiptPost.file)
     },
       );
     }
-  
+
 
 
 export const getScanReceiptApiV1PantryScanReceiptPostMutationOptions = <TError = HTTPValidationError,
@@ -6067,7 +6983,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanReceiptApiV1PantryScanReceiptPost>>, {data: BodyScanReceiptApiV1PantryScanReceiptPost}> = (props) => {
@@ -6076,7 +6992,7 @@ const {mutation: mutationOptions} = options ?
           return  scanReceiptApiV1PantryScanReceiptPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6101,7 +7017,7 @@ export const useScanReceiptApiV1PantryScanReceiptPost = <TError = HTTPValidation
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get the status and results of a receipt scan.
  * @summary Get Receipt Scan
@@ -6110,14 +7026,14 @@ export const getReceiptScanApiV1PantryScanReceiptScanIdGet = (
     scanId: number,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ReceiptScanResponse>(
       {url: `/api/v1/pantry/scan-receipt/${scanId}`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -6127,7 +7043,7 @@ export const getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryKey = (scanId?
     ] as const;
     }
 
-    
+
 export const getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(scanId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>>, }
 ) => {
 
@@ -6135,13 +7051,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryKey(scanId);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>> = ({ signal }) => getReceiptScanApiV1PantryScanReceiptScanIdGet(scanId, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, enabled: !!(scanId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -6180,7 +7096,7 @@ export function useGetReceiptScanApiV1PantryScanReceiptScanIdGet<TData = Awaited
 
 export function useGetReceiptScanApiV1PantryScanReceiptScanIdGet<TData = Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError = HTTPValidationError>(
  scanId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getReceiptScanApiV1PantryScanReceiptScanIdGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetReceiptScanApiV1PantryScanReceiptScanIdGetQueryOptions(scanId,options)
@@ -6203,15 +7119,15 @@ export const listReceiptScansApiV1PantryScanReceiptsGet = (
     params?: ListReceiptScansApiV1PantryScanReceiptsGetParams,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ReceiptScanResponse[]>(
       {url: `/api/v1/pantry/scan-receipts`, method: 'GET',
         params, signal
     },
       );
     }
-  
+
 
 
 
@@ -6221,7 +7137,7 @@ export const getListReceiptScansApiV1PantryScanReceiptsGetQueryKey = (params?: L
     ] as const;
     }
 
-    
+
 export const getListReceiptScansApiV1PantryScanReceiptsGetQueryOptions = <TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(params?: ListReceiptScansApiV1PantryScanReceiptsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>>, }
 ) => {
 
@@ -6229,13 +7145,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getListReceiptScansApiV1PantryScanReceiptsGetQueryKey(params);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>> = ({ signal }) => listReceiptScansApiV1PantryScanReceiptsGet(params, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -6274,7 +7190,7 @@ export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<Re
 
 export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError = HTTPValidationError>(
  params?: ListReceiptScansApiV1PantryScanReceiptsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listReceiptScansApiV1PantryScanReceiptsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListReceiptScansApiV1PantryScanReceiptsGetQueryOptions(params,options)
@@ -6294,17 +7210,17 @@ export function useListReceiptScansApiV1PantryScanReceiptsGet<TData = Awaited<Re
  * @summary Get Vapid Public Key
  */
 export const getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<VapidPublicKeyResponse>(
       {url: `/api/v1/notifications/vapid-public-key`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -6314,7 +7230,7 @@ export const getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryKey = (
     ] as const;
     }
 
-    
+
 export const getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryOptions = <TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>>, }
 ) => {
 
@@ -6322,13 +7238,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>> = ({ signal }) => getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -6367,7 +7283,7 @@ export function useGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGet<TData = 
 
 export function useGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGet<TData = Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKeyApiV1NotificationsVapidPublicKeyGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetVapidPublicKeyApiV1NotificationsVapidPublicKeyGetQueryOptions(options)
@@ -6390,8 +7306,8 @@ export const subscribePushApiV1NotificationsSubscribePost = (
     pushSubscriptionCreate: PushSubscriptionCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<PushSubscriptionResponse>(
       {url: `/api/v1/notifications/subscribe`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -6399,7 +7315,7 @@ export const subscribePushApiV1NotificationsSubscribePost = (
     },
       );
     }
-  
+
 
 
 export const getSubscribePushApiV1NotificationsSubscribePostMutationOptions = <TError = HTTPValidationError,
@@ -6413,7 +7329,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof subscribePushApiV1NotificationsSubscribePost>>, {data: PushSubscriptionCreate}> = (props) => {
@@ -6422,7 +7338,7 @@ const {mutation: mutationOptions} = options ?
           return  subscribePushApiV1NotificationsSubscribePost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6447,7 +7363,7 @@ export const useSubscribePushApiV1NotificationsSubscribePost = <TError = HTTPVal
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Unsubscribe from push notifications.
  * @summary Unsubscribe Push
@@ -6455,15 +7371,15 @@ export const useSubscribePushApiV1NotificationsSubscribePost = <TError = HTTPVal
 export const unsubscribePushApiV1NotificationsSubscribeDelete = (
     params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams,
  ) => {
-      
-      
+
+
       return customFetch<UnsubscribePushApiV1NotificationsSubscribeDelete200>(
       {url: `/api/v1/notifications/subscribe`, method: 'DELETE',
         params
     },
       );
     }
-  
+
 
 
 export const getUnsubscribePushApiV1NotificationsSubscribeDeleteMutationOptions = <TError = HTTPValidationError,
@@ -6477,7 +7393,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>, {params: UnsubscribePushApiV1NotificationsSubscribeDeleteParams}> = (props) => {
@@ -6486,13 +7402,13 @@ const {mutation: mutationOptions} = options ?
           return  unsubscribePushApiV1NotificationsSubscribeDelete(params,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type UnsubscribePushApiV1NotificationsSubscribeDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof unsubscribePushApiV1NotificationsSubscribeDelete>>>
-    
+
     export type UnsubscribePushApiV1NotificationsSubscribeDeleteMutationError = HTTPValidationError
 
     /**
@@ -6511,23 +7427,23 @@ export const useUnsubscribePushApiV1NotificationsSubscribeDelete = <TError = HTT
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get notification settings for the current user.
  * @summary Get Notification Settings
  */
 export const getNotificationSettingsApiV1NotificationsSettingsGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<NotificationSettingsResponse>(
       {url: `/api/v1/notifications/settings`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -6537,7 +7453,7 @@ export const getGetNotificationSettingsApiV1NotificationsSettingsGetQueryKey = (
     ] as const;
     }
 
-    
+
 export const getGetNotificationSettingsApiV1NotificationsSettingsGetQueryOptions = <TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>>, }
 ) => {
 
@@ -6545,13 +7461,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetNotificationSettingsApiV1NotificationsSettingsGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>> = ({ signal }) => getNotificationSettingsApiV1NotificationsSettingsGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -6590,7 +7506,7 @@ export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = 
 
 export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getNotificationSettingsApiV1NotificationsSettingsGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetNotificationSettingsApiV1NotificationsSettingsGetQueryOptions(options)
@@ -6612,8 +7528,8 @@ export function useGetNotificationSettingsApiV1NotificationsSettingsGet<TData = 
 export const updateNotificationSettingsApiV1NotificationsSettingsPut = (
     notificationSettingsUpdate: NotificationSettingsUpdate,
  ) => {
-      
-      
+
+
       return customFetch<NotificationSettingsResponse>(
       {url: `/api/v1/notifications/settings`, method: 'PUT',
       headers: {'Content-Type': 'application/json', },
@@ -6621,7 +7537,7 @@ export const updateNotificationSettingsApiV1NotificationsSettingsPut = (
     },
       );
     }
-  
+
 
 
 export const getUpdateNotificationSettingsApiV1NotificationsSettingsPutMutationOptions = <TError = HTTPValidationError,
@@ -6635,7 +7551,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateNotificationSettingsApiV1NotificationsSettingsPut>>, {data: NotificationSettingsUpdate}> = (props) => {
@@ -6644,7 +7560,7 @@ const {mutation: mutationOptions} = options ?
           return  updateNotificationSettingsApiV1NotificationsSettingsPut(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6669,7 +7585,7 @@ export const useUpdateNotificationSettingsApiV1NotificationsSettingsPut = <TErro
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Submit a response to a task reminder from the app.
  * @summary Respond To Reminder
@@ -6678,8 +7594,8 @@ export const respondToReminderApiV1NotificationsRespondPost = (
     reminderResponseCreate: ReminderResponseCreate,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<ReminderResponseResult>(
       {url: `/api/v1/notifications/respond`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
@@ -6687,7 +7603,7 @@ export const respondToReminderApiV1NotificationsRespondPost = (
     },
       );
     }
-  
+
 
 
 export const getRespondToReminderApiV1NotificationsRespondPostMutationOptions = <TError = HTTPValidationError,
@@ -6701,7 +7617,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToReminderApiV1NotificationsRespondPost>>, {data: ReminderResponseCreate}> = (props) => {
@@ -6710,7 +7626,7 @@ const {mutation: mutationOptions} = options ?
           return  respondToReminderApiV1NotificationsRespondPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6735,7 +7651,7 @@ export const useRespondToReminderApiV1NotificationsRespondPost = <TError = HTTPV
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Handle incoming SMS responses from Twilio.
 
@@ -6748,7 +7664,7 @@ export const handleSmsResponseApiV1WebhooksTwilioSmsPost = (
     bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost,
  signal?: AbortSignal
 ) => {
-      
+
       const formUrlEncoded = new URLSearchParams();
 formUrlEncoded.append(`From`, bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost.From)
 formUrlEncoded.append(`Body`, bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost.Body)
@@ -6760,7 +7676,7 @@ formUrlEncoded.append(`Body`, bodyHandleSmsResponseApiV1WebhooksTwilioSmsPost.Bo
     },
       );
     }
-  
+
 
 
 export const getHandleSmsResponseApiV1WebhooksTwilioSmsPostMutationOptions = <TError = HTTPValidationError,
@@ -6774,7 +7690,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleSmsResponseApiV1WebhooksTwilioSmsPost>>, {data: BodyHandleSmsResponseApiV1WebhooksTwilioSmsPost}> = (props) => {
@@ -6783,7 +7699,7 @@ const {mutation: mutationOptions} = options ?
           return  handleSmsResponseApiV1WebhooksTwilioSmsPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6808,7 +7724,7 @@ export const useHandleSmsResponseApiV1WebhooksTwilioSmsPost = <TError = HTTPVali
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Generate TwiML for voice call that reads the task and records response.
 
@@ -6819,15 +7735,15 @@ export const getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost = (
     params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/api/v1/webhooks/twilio/voice/twiml`, method: 'POST',
         params, signal
     },
       );
     }
-  
+
 
 
 export const getGetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationOptions = <TError = HTTPValidationError,
@@ -6841,7 +7757,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>, {params: GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostParams}> = (props) => {
@@ -6850,13 +7766,13 @@ const {mutation: mutationOptions} = options ?
           return  getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost(params,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
 
     export type GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationResult = NonNullable<Awaited<ReturnType<typeof getVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost>>>
-    
+
     export type GetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPostMutationError = HTTPValidationError
 
     /**
@@ -6875,7 +7791,7 @@ export const useGetVoiceTwimlApiV1WebhooksTwilioVoiceTwimlPost = <TError = HTTPV
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Handle voice call status callbacks from Twilio.
  * @summary Handle Voice Status
@@ -6884,7 +7800,7 @@ export const handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost = (
     bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost,
  signal?: AbortSignal
 ) => {
-      
+
       const formUrlEncoded = new URLSearchParams();
 if(bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.CallSid !== undefined) {
  formUrlEncoded.append(`CallSid`, bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.CallSid)
@@ -6906,7 +7822,7 @@ if(bodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost.RecordingSid !== unde
     },
       );
     }
-  
+
 
 
 export const getHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPostMutationOptions = <TError = HTTPValidationError,
@@ -6920,7 +7836,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost>>, {data: BodyHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost}> = (props) => {
@@ -6929,7 +7845,7 @@ const {mutation: mutationOptions} = options ?
           return  handleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost(data,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -6954,7 +7870,7 @@ export const useHandleVoiceStatusApiV1WebhooksTwilioVoiceStatusPost = <TError = 
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Handle voice transcription callbacks from Twilio.
 
@@ -6968,7 +7884,7 @@ export const handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost =
     params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams,
  signal?: AbortSignal
 ) => {
-      
+
       const formUrlEncoded = new URLSearchParams();
 if(bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.TranscriptionText !== undefined) {
  formUrlEncoded.append(`TranscriptionText`, bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.TranscriptionText)
@@ -6985,7 +7901,7 @@ if(bodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost.Recordi
     },
       );
     }
-  
+
 
 
 export const getHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostMutationOptions = <TError = HTTPValidationError,
@@ -6999,7 +7915,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost>>, {data: BodyHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost;params?: HandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPostParams}> = (props) => {
@@ -7008,7 +7924,7 @@ const {mutation: mutationOptions} = options ?
           return  handleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPost(data,params,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -7033,7 +7949,7 @@ export const useHandleVoiceTranscriptionApiV1WebhooksTwilioVoiceTranscriptionPos
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Handle recording completion callback.
 
@@ -7050,7 +7966,7 @@ export const handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost = (
     params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams,
  signal?: AbortSignal
 ) => {
-      
+
       const formUrlEncoded = new URLSearchParams();
 if(bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingUrl !== undefined) {
  formUrlEncoded.append(`RecordingUrl`, bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingUrl)
@@ -7067,7 +7983,7 @@ if(bodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost.RecordingSid !== 
     },
       );
     }
-  
+
 
 
 export const getHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostMutationOptions = <TError = HTTPValidationError,
@@ -7081,7 +7997,7 @@ const {mutation: mutationOptions} = options ?
       : {...options, mutation: {...options.mutation, mutationKey}}
       : {mutation: { mutationKey, }};
 
-      
+
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost>>, {data: BodyHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost;params?: HandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPostParams}> = (props) => {
@@ -7090,7 +8006,7 @@ const {mutation: mutationOptions} = options ?
           return  handleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost(data,params,)
         }
 
-        
+
 
 
   return  { mutationFn, ...mutationOptions }}
@@ -7115,7 +8031,7 @@ export const useHandleVoiceRecordedApiV1WebhooksTwilioVoiceRecordedPost = <TErro
 
       return useMutation(mutationOptions, queryClient);
     }
-    
+
 /**
  * Get recent voice-added items with debug info.
 
@@ -7127,15 +8043,15 @@ export const getVoiceHistoryApiV1DebugVoiceHistoryGet = (
     params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams,
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<VoiceHistoryResponse>(
       {url: `/api/v1/debug/voice-history`, method: 'GET',
         params, signal
     },
       );
     }
-  
+
 
 
 
@@ -7145,7 +8061,7 @@ export const getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryKey = (params?: Get
     ] as const;
     }
 
-    
+
 export const getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryOptions = <TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>>, }
 ) => {
 
@@ -7153,13 +8069,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryKey(params);
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>> = ({ signal }) => getVoiceHistoryApiV1DebugVoiceHistoryGet(params, signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -7198,7 +8114,7 @@ export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<Retu
 
 export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError = HTTPValidationError>(
  params?: GetVoiceHistoryApiV1DebugVoiceHistoryGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getVoiceHistoryApiV1DebugVoiceHistoryGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetVoiceHistoryApiV1DebugVoiceHistoryGetQueryOptions(params,options)
@@ -7218,17 +8134,17 @@ export function useGetVoiceHistoryApiV1DebugVoiceHistoryGet<TData = Awaited<Retu
  * @summary Health Check
  */
 export const healthCheckHealthGet = (
-    
+
  signal?: AbortSignal
 ) => {
-      
-      
+
+
       return customFetch<unknown>(
       {url: `/health`, method: 'GET', signal
     },
       );
     }
-  
+
 
 
 
@@ -7238,7 +8154,7 @@ export const getHealthCheckHealthGetQueryKey = () => {
     ] as const;
     }
 
-    
+
 export const getHealthCheckHealthGetQueryOptions = <TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>>, }
 ) => {
 
@@ -7246,13 +8162,13 @@ const {query: queryOptions} = options ?? {};
 
   const queryKey =  queryOptions?.queryKey ?? getHealthCheckHealthGetQueryKey();
 
-  
+
 
     const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheckHealthGet>>> = ({ signal }) => healthCheckHealthGet(signal);
 
-      
 
-      
+
+
 
    return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
@@ -7291,7 +8207,7 @@ export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof health
 
 export function useHealthCheckHealthGet<TData = Awaited<ReturnType<typeof healthCheckHealthGet>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheckHealthGet>>, TError, TData>>, }
- , queryClient?: QueryClient 
+ , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getHealthCheckHealthGetQueryOptions(options)

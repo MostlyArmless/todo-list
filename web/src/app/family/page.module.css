@@ -1,0 +1,474 @@
+/* =============================================================================
+   Family Page Styles - Family management
+   ============================================================================= */
+
+.container {
+  min-height: 100vh;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  padding-bottom: var(--space-20);
+}
+
+.header {
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.subtitle {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+/* Edit name inline */
+.editNameRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.editNameInput {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+}
+
+.editNameInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.editNameBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.editNameBtn:hover {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.saveNameBtn,
+.cancelNameBtn {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.saveNameBtn {
+  background: var(--accent);
+  color: white;
+}
+
+.saveNameBtn:hover {
+  background: var(--accent-dark);
+}
+
+.cancelNameBtn {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.cancelNameBtn:hover {
+  background: var(--surface-3);
+}
+
+/* Section Cards */
+.section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.sectionTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+/* Form Fields */
+.field {
+  margin-bottom: var(--space-4);
+}
+
+.label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  transition: all var(--transition-fast);
+}
+
+.input:hover:not(:focus) {
+  border-color: var(--border-light);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Form Buttons */
+.formButtons {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.btn {
+  flex: 1;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-medium);
+  font-size: var(--text-sm);
+  transition: all var(--transition-base);
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btnPrimary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), var(--glow-accent);
+}
+
+.btnSecondary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+.btnSecondary:hover {
+  background: var(--surface-3);
+  border-color: var(--accent);
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+}
+
+.emptyIcon {
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+}
+
+.emptyTitle {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.emptyText {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  max-width: 300px;
+  margin: 0 auto var(--space-6);
+}
+
+.createBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
+}
+
+.createBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), var(--glow-accent);
+}
+
+/* Members List */
+.membersList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.memberCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-fast);
+}
+
+.memberCard:hover {
+  background: var(--surface-3);
+}
+
+.memberAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--accent) 0%, #4a9a93 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-semibold);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
+.memberInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.memberName {
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.memberEmail {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.youBadge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  padding: var(--space-0) var(--space-2);
+  background: var(--accent-muted);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+}
+
+.adminBadge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  padding: var(--space-1) var(--space-2);
+  background: var(--warning-muted);
+  color: var(--warning);
+  border-radius: var(--radius-md);
+}
+
+.memberBadge {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+}
+
+.memberActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.roleBtn,
+.removeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.roleBtn:hover {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.removeBtn:hover {
+  color: var(--danger);
+  background: var(--danger-muted);
+}
+
+.leaveBtn {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  padding: var(--space-1) var(--space-2);
+  background: var(--danger-muted);
+  color: var(--danger);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.leaveBtn:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* Add Member */
+.addMemberBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent-muted);
+  color: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addMemberBtn:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.addMemberForm {
+  margin-bottom: var(--space-4);
+}
+
+.addMemberInputRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.addMemberInputRow .input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.addBtn {
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.addBtn:hover:not(:disabled) {
+  background: var(--accent-dark);
+}
+
+.addBtn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.cancelBtn {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cancelBtn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.errorText {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+}
+
+/* Danger Button */
+.dangerBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger-muted);
+  color: var(--danger);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dangerBtn:hover {
+  background: var(--danger);
+  color: white;
+}

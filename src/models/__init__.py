@@ -2,6 +2,7 @@
 
 from src.models.category import Category
 from src.models.enums import NotificationChannel, Permission, ReminderStatus
+from src.models.family import Family, FamilyMember, ListFamilyShare
 from src.models.ingredient_store_default import IngredientStoreDefault
 from src.models.item import Item
 from src.models.item_history import ItemHistory
@@ -25,6 +26,9 @@ __all__ = [
     "User",
     "List",
     "ListShare",
+    "Family",
+    "FamilyMember",
+    "ListFamilyShare",
     "Category",
     "Item",
     "ItemHistory",

@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.database import get_db
+from src.models.family import FamilyMember
 from src.models.list import List, ListShare
 from src.models.user import User
 from src.services.auth import decode_access_token
@@ -21,7 +22,8 @@ security = HTTPBearer()
 def get_household_user_ids(db: Session, user: User) -> list[int]:
     """Get IDs of all users in the same household.
 
-    A household is defined as users who share lists with each other.
+    A household is defined as users who share lists with each other,
+    plus users in the same family.
     Returns a list including the current user's ID.
     """
     user_ids = {user.id}
@@ -45,6 +47,16 @@ def get_household_user_ids(db: Session, user: User) -> list[int]:
         .all()
     )
     user_ids.update(uid for (uid,) in shared_users)
+
+    # Include family members
+    user_family = db.query(FamilyMember).filter(FamilyMember.user_id == user.id).first()
+    if user_family:
+        family_members = (
+            db.query(FamilyMember.user_id)
+            .filter(FamilyMember.family_id == user_family.family_id)
+            .all()
+        )
+        user_ids.update(uid for (uid,) in family_members)
 
     return list(user_ids)
 

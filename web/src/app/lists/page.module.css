@@ -103,6 +103,16 @@
   text-align: center;
 }
 
+.familyBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  background: var(--success-muted);
+  color: var(--success);
+  border-radius: var(--radius-md);
+}
+
 .listActions {
   display: flex;
   align-items: center;
