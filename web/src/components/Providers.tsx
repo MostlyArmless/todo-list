@@ -1,10 +1,18 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfirmDialogProvider } from './ConfirmDialog';
 
 export default function Providers({ children }: { children: ReactNode }) {
+  // Register service worker on mount for PWA installability
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // Service worker registration failed - not critical
+      });
+    }
+  }, []);
   // Create QueryClient instance that persists across renders
   const [queryClient] = useState(
     () =>

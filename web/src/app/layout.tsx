@@ -6,7 +6,7 @@ import Providers from '@/components/Providers';
 export const metadata: Metadata = {
   title: 'Family Todo List',
   description: 'Self-hosted family todo list with voice input',
-  manifest: '/manifest.json',
+  // manifest link is added manually in <head> with crossorigin for Cloudflare Access
   themeColor: '#63b3ab',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   icons: {
@@ -25,6 +25,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
+      </head>
       <body>
         <Providers>
           <Navbar />
