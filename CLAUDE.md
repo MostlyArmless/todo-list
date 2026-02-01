@@ -100,11 +100,12 @@ cd /home/mike/dev/todo-list && git merge agent-a-work
 
 Located in `/web/` with App Router. Routes: `/lists`, `/list/[id]`, `/recipes`, `/recipes/[id]`, `/pantry`, `/voice`, `/confirm`
 
-**Production Build**: The PWA runs in production mode. After making frontend changes, restart to rebuild:
+**Production Build**: The PWA runs in production mode. After making frontend changes, **commit first**, then rebuild:
 ```bash
+git add <files> && git commit -m "message"  # ALWAYS commit before rebuilding
 GIT_SHA=$(git rev-parse --short HEAD) docker compose up -d pwa --force-recreate
 ```
-The git SHA is displayed on `/settings` to verify which version is deployed.
+The git SHA is displayed on `/settings` to verify which version is deployed. Committing first ensures the displayed SHA matches the actual deployed code.
 
 **Development Mode** (hot reloading): For faster iteration during development:
 ```bash
