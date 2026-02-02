@@ -641,7 +641,24 @@ export default function ListDetailPage() {
   };
 
   const getItemsByCategory = (categoryId: number | null) => {
-    return items.filter((item) => item.category_id === categoryId);
+    const categoryItems = items.filter((item) => item.category_id === categoryId);
+
+    // For task lists, sort by due_date (soonest first)
+    if (list?.list_type === 'task') {
+      return [...categoryItems].sort((a, b) => {
+        // Items with due dates come before items without
+        if (a.due_date && !b.due_date) return -1;
+        if (!a.due_date && b.due_date) return 1;
+        // Both have due dates: sort by date (soonest first)
+        if (a.due_date && b.due_date) {
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        }
+        // Neither has due date: maintain sort_order
+        return a.sort_order - b.sort_order;
+      });
+    }
+
+    return categoryItems;
   };
 
   const toggleItemSelection = (itemId: number) => {
