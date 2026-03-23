@@ -646,9 +646,9 @@ def get_deduplication_status(
     # Verify access
     get_user_list(db, list_id, current_user)
 
-    from celery.result import AsyncResult
+    from src.celery_app import app as celery_app
 
-    result = AsyncResult(task_id)
+    result = celery_app.AsyncResult(task_id)
 
     if result.state == "PENDING":
         return {"status": "pending"}
