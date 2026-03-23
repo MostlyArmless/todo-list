@@ -14,7 +14,12 @@ from src.models.item import Item
 from src.models.item_history import ItemHistory
 from src.models.list import List
 from src.models.user import User
-from src.schemas.item import ItemCreate, ItemResponse, ItemUpdate
+from src.schemas.item import (
+    DeduplicateApplyRequest,
+    ItemCreate,
+    ItemResponse,
+    ItemUpdate,
+)
 from src.services.realtime import ListEventType, publish_list_event
 from src.tasks.reminders import schedule_reminder
 
@@ -607,3 +612,139 @@ def auto_categorize_items(
 
     categorized = sum(1 for r in results if r["category_id"])
     return {"categorized": categorized, "failed": len(results) - categorized, "results": results}
+
+
+@router.post("/lists/{list_id}/deduplicate")
+def start_deduplication(
+    list_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Start a background deduplication job for checked items in a grocery list."""
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.list_type != ListType.GROCERY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deduplication is only available for grocery lists",
+        )
+
+    from src.tasks.deduplication import find_duplicates
+
+    task = find_duplicates.delay(list_id, current_user.id)
+    return {"task_id": task.id}
+
+
+@router.get("/lists/{list_id}/deduplicate/{task_id}")
+def get_deduplication_status(
+    list_id: int,
+    task_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Poll for deduplication task status."""
+    # Verify access
+    get_user_list(db, list_id, current_user)
+
+    from celery.result import AsyncResult
+
+    result = AsyncResult(task_id)
+
+    if result.state == "PENDING":
+        return {"status": "pending"}
+    elif result.state == "STARTED":
+        return {"status": "running"}
+    elif result.state == "SUCCESS":
+        return {"status": "complete", "result": result.result}
+    elif result.state == "FAILURE":
+        return {"status": "failed", "error": str(result.result)}
+    else:
+        return {"status": result.state.lower()}
+
+
+@router.post("/lists/{list_id}/deduplicate/apply", status_code=status.HTTP_200_OK)
+def apply_deduplication(
+    list_id: int,
+    request: DeduplicateApplyRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Apply approved deduplication: keep one item per group, delete the rest, strip labels.
+
+    For each group the client sends:
+    - keep_id: the item to keep (renamed to canonical_name)
+    - delete_ids: items to soft-delete
+    - canonical_name: the merged name to use
+    """
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.list_type != ListType.GROCERY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Deduplication is only available for grocery lists",
+        )
+
+    total_deleted = 0
+    total_updated = 0
+
+    for group in request.groups:
+        # Update the keeper: set canonical name, strip labels and quantity/description
+        keeper = (
+            db.query(Item)
+            .filter(
+                Item.id == group.keep_id,
+                Item.list_id == list_id,
+                Item.deleted_at.is_(None),
+            )
+            .first()
+        )
+        if keeper:
+            keeper.name = group.canonical_name
+            keeper.recipe_sources = None
+            keeper.quantity = None
+            keeper.description = None
+            total_updated += 1
+
+        # Soft-delete the duplicates
+        dupes = (
+            db.query(Item)
+            .filter(
+                Item.id.in_(group.delete_ids),
+                Item.list_id == list_id,
+                Item.deleted_at.is_(None),
+            )
+            .all()
+        )
+        for item in dupes:
+            item.soft_delete()
+            total_deleted += 1
+
+    # Also strip labels from ALL remaining checked items (not just deduped ones)
+    # Future: Instead of stripping, intelligently match checked items to recipe
+    # ingredients using fuzzy matching (e.g., "onion" checked off should show tags
+    # for recipes containing "onions", "yellow onion", etc.)
+    remaining_checked = (
+        db.query(Item)
+        .filter(
+            Item.list_id == list_id,
+            Item.checked.is_(True),
+            Item.deleted_at.is_(None),
+            Item.recipe_sources.isnot(None),
+        )
+        .all()
+    )
+    labels_stripped = 0
+    for item in remaining_checked:
+        item.recipe_sources = None
+        item.quantity = None
+        item.description = None
+        labels_stripped += 1
+
+    db.commit()
+    publish_list_event(list_id, ListEventType.ITEMS_BULK_DELETED, {"action": "deduplicate"})
+
+    return {
+        "deleted": total_deleted,
+        "updated": total_updated,
+        "labels_stripped": labels_stripped,
+    }

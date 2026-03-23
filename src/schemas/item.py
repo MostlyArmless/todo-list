@@ -117,6 +117,20 @@ class ItemResponse(BaseModel):
     voice_debug_info: dict | None = None
 
 
+class DeduplicateGroupApply(BaseModel):
+    """A single dedup group to apply."""
+
+    keep_id: int
+    delete_ids: list[int]
+    canonical_name: str = Field(..., max_length=500)
+
+
+class DeduplicateApplyRequest(BaseModel):
+    """Request body for applying deduplication results."""
+
+    groups: list[DeduplicateGroupApply]
+
+
 class TaskItemResponse(ItemResponse):
     """Task item response with computed fields."""
 

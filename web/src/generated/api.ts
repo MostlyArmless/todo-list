@@ -192,6 +192,23 @@ export interface ConfirmationEdits {
 }
 
 /**
+ * Request body for applying deduplication results.
+ */
+export interface DeduplicateApplyRequest {
+  groups: DeduplicateGroupApply[];
+}
+
+/**
+ * A single dedup group to apply.
+ */
+export interface DeduplicateGroupApply {
+  keep_id: number;
+  delete_ids: number[];
+  /** @maxLength 500 */
+  canonical_name: string;
+}
+
+/**
  * Create a new family.
  */
 export interface FamilyCreate {
@@ -4000,6 +4017,242 @@ export const useAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost = <TE
       > => {
 
       const mutationOptions = getAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Start a background deduplication job for checked items in a grocery list.
+ * @summary Start Deduplication
+ */
+export const startDeduplicationApiV1ListsListIdDeduplicatePost = (
+    listId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/lists/${listId}/deduplicate`, method: 'POST', signal
+    },
+      );
+    }
+
+
+
+export const getStartDeduplicationApiV1ListsListIdDeduplicatePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startDeduplicationApiV1ListsListIdDeduplicatePost>>, TError,{listId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof startDeduplicationApiV1ListsListIdDeduplicatePost>>, TError,{listId: number}, TContext> => {
+
+const mutationKey = ['startDeduplicationApiV1ListsListIdDeduplicatePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startDeduplicationApiV1ListsListIdDeduplicatePost>>, {listId: number}> = (props) => {
+          const {listId} = props ?? {};
+
+          return  startDeduplicationApiV1ListsListIdDeduplicatePost(listId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartDeduplicationApiV1ListsListIdDeduplicatePostMutationResult = NonNullable<Awaited<ReturnType<typeof startDeduplicationApiV1ListsListIdDeduplicatePost>>>
+
+    export type StartDeduplicationApiV1ListsListIdDeduplicatePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Start Deduplication
+ */
+export const useStartDeduplicationApiV1ListsListIdDeduplicatePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startDeduplicationApiV1ListsListIdDeduplicatePost>>, TError,{listId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startDeduplicationApiV1ListsListIdDeduplicatePost>>,
+        TError,
+        {listId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getStartDeduplicationApiV1ListsListIdDeduplicatePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Poll for deduplication task status.
+ * @summary Get Deduplication Status
+ */
+export const getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet = (
+    listId: number,
+    taskId: string,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/lists/${listId}/deduplicate/${taskId}`, method: 'GET', signal
+    },
+      );
+    }
+
+
+
+
+export const getGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGetQueryKey = (listId?: number,
+    taskId?: string,) => {
+    return [
+    `/api/v1/lists/${listId}/deduplicate/${taskId}`
+    ] as const;
+    }
+
+
+export const getGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGetQueryOptions = <TData = Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError = HTTPValidationError>(listId: number,
+    taskId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGetQueryKey(listId,taskId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>> = ({ signal }) => getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet(listId,taskId, signal);
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(listId && taskId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGetQueryResult = NonNullable<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>>
+export type GetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGetQueryError = HTTPValidationError
+
+
+export function useGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet<TData = Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError = HTTPValidationError>(
+ listId: number,
+    taskId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet<TData = Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError = HTTPValidationError>(
+ listId: number,
+    taskId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>,
+          TError,
+          Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet<TData = Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError = HTTPValidationError>(
+ listId: number,
+    taskId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Deduplication Status
+ */
+
+export function useGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet<TData = Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError = HTTPValidationError>(
+ listId: number,
+    taskId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDeduplicationStatusApiV1ListsListIdDeduplicateTaskIdGetQueryOptions(listId,taskId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Apply approved deduplication: keep one item per group, delete the rest, strip labels.
+
+For each group the client sends:
+- keep_id: the item to keep (renamed to canonical_name)
+- delete_ids: items to soft-delete
+- canonical_name: the merged name to use
+ * @summary Apply Deduplication
+ */
+export const applyDeduplicationApiV1ListsListIdDeduplicateApplyPost = (
+    listId: number,
+    deduplicateApplyRequest: DeduplicateApplyRequest,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<unknown>(
+      {url: `/api/v1/lists/${listId}/deduplicate/apply`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: deduplicateApplyRequest, signal
+    },
+      );
+    }
+
+
+
+export const getApplyDeduplicationApiV1ListsListIdDeduplicateApplyPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyDeduplicationApiV1ListsListIdDeduplicateApplyPost>>, TError,{listId: number;data: DeduplicateApplyRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof applyDeduplicationApiV1ListsListIdDeduplicateApplyPost>>, TError,{listId: number;data: DeduplicateApplyRequest}, TContext> => {
+
+const mutationKey = ['applyDeduplicationApiV1ListsListIdDeduplicateApplyPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyDeduplicationApiV1ListsListIdDeduplicateApplyPost>>, {listId: number;data: DeduplicateApplyRequest}> = (props) => {
+          const {listId,data} = props ?? {};
+
+          return  applyDeduplicationApiV1ListsListIdDeduplicateApplyPost(listId,data,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyDeduplicationApiV1ListsListIdDeduplicateApplyPostMutationResult = NonNullable<Awaited<ReturnType<typeof applyDeduplicationApiV1ListsListIdDeduplicateApplyPost>>>
+    export type ApplyDeduplicationApiV1ListsListIdDeduplicateApplyPostMutationBody = DeduplicateApplyRequest
+    export type ApplyDeduplicationApiV1ListsListIdDeduplicateApplyPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Apply Deduplication
+ */
+export const useApplyDeduplicationApiV1ListsListIdDeduplicateApplyPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyDeduplicationApiV1ListsListIdDeduplicateApplyPost>>, TError,{listId: number;data: DeduplicateApplyRequest}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof applyDeduplicationApiV1ListsListIdDeduplicateApplyPost>>,
+        TError,
+        {listId: number;data: DeduplicateApplyRequest},
+        TContext
+      > => {
+
+      const mutationOptions = getApplyDeduplicationApiV1ListsListIdDeduplicateApplyPostMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

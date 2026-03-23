@@ -34,6 +34,7 @@ import {
 } from '@/generated/api';
 import TaskItem from '@/components/TaskItem';
 import { MoveSectionModal, MoveToListModal } from '@/components/MoveItemModal';
+import { DeduplicateModal } from '@/components/DeduplicateModal';
 import { formatQuantityTotal } from '@/lib/formatQuantity';
 import { useListSync } from '@/hooks/useListSync';
 import IconButton from '@/components/IconButton';
@@ -116,6 +117,8 @@ export default function ListDetailPage() {
   const [newTaskCategory, setNewTaskCategory] = useState<number | null>(null);
   // Optimistically reordered categories
   const [localCategories, setLocalCategories] = useState<CategoryResponse[] | null>(null);
+  // Deduplication modal
+  const [showDeduplicateModal, setShowDeduplicateModal] = useState(false);
   // Track active drag item for DragOverlay
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   // Track if component is mounted (for hydration safety)
@@ -822,7 +825,26 @@ export default function ListDetailPage() {
               Show checked
             </span>
           </label>
+          {showChecked && list.list_type === 'grocery' && (
+            <button
+              onClick={() => setShowDeduplicateModal(true)}
+              className={styles.deduplicateBtn}
+              title="Find and merge duplicate checked items"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="9" r="7"></circle>
+                <circle cx="15" cy="15" r="7"></circle>
+              </svg>
+              Dedupe
+            </button>
+          )}
         </div>
+        {showDeduplicateModal && (
+          <DeduplicateModal
+            listId={listId}
+            onClose={() => setShowDeduplicateModal(false)}
+          />
+        )}
         <h1 className={styles.title}>
           {list.icon && <span className={styles.titleIcon}>{list.icon}</span>}
           {list.name}

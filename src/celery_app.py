@@ -17,6 +17,7 @@ app = Celery(
         "src.tasks.nutrition",
         "src.tasks.receipt_scan",
         "src.tasks.reminders",
+        "src.tasks.deduplication",
     ],
 )
 
