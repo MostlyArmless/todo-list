@@ -1570,3 +1570,37 @@ def test_recurring_task_preserves_category(client, auth_headers):
     assert new_item["name"] == "Daily Workout"
     # The new item should have the same category
     assert new_item["category_id"] == category_id
+
+
+def test_archive_list(client, auth_headers):
+    """Test archiving and unarchiving a list."""
+    # Create a list
+    response = client.post("/api/v1/lists", json={"name": "Trip List"}, headers=auth_headers)
+    assert response.status_code == 201
+    list_id = response.json()["id"]
+    assert response.json()["archived_at"] is None
+
+    # Archive it
+    response = client.post(f"/api/v1/lists/{list_id}/archive", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["archived_at"] is not None
+
+    # It should not appear in the default list query
+    response = client.get("/api/v1/lists", headers=auth_headers)
+    list_ids = [lst["id"] for lst in response.json()]
+    assert list_id not in list_ids
+
+    # It should appear when include_archived=true
+    response = client.get("/api/v1/lists?include_archived=true", headers=auth_headers)
+    list_ids = [lst["id"] for lst in response.json()]
+    assert list_id in list_ids
+
+    # Unarchive it
+    response = client.post(f"/api/v1/lists/{list_id}/unarchive", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["archived_at"] is None
+
+    # It should appear in the default list query again
+    response = client.get("/api/v1/lists", headers=auth_headers)
+    list_ids = [lst["id"] for lst in response.json()]
+    assert list_id in list_ids

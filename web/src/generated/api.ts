@@ -500,6 +500,8 @@ export type ListResponseDescription = string | null;
 
 export type ListResponseIcon = string | null;
 
+export type ListResponseArchivedAt = string | null;
+
 /**
  * List response.
  */
@@ -511,6 +513,7 @@ export interface ListResponse {
   sort_order: number;
   owner_id: number;
   list_type: string;
+  archived_at?: ListResponseArchivedAt;
   created_at: string;
   updated_at: string;
   unchecked_count?: number;
@@ -1301,6 +1304,13 @@ export interface VoiceQueueResponse {
   pending_confirmations: PendingConfirmationResponse[];
 }
 
+export type GetListsApiV1ListsGetParams = {
+/**
+ * Include archived lists
+ */
+include_archived?: boolean;
+};
+
 export type GetMyFamilyApiV1FamiliesMeGet200 = FamilyDetailResponse | null;
 
 export type GetItemsApiV1ListsListIdItemsGetParams = {
@@ -1641,13 +1651,14 @@ export const useLogoutApiV1AuthLogoutPost = <TError = unknown,
  * @summary Get Lists
  */
 export const getListsApiV1ListsGet = (
-
+    params?: GetListsApiV1ListsGetParams,
  signal?: AbortSignal
 ) => {
 
 
       return customFetch<ListResponse[]>(
-      {url: `/api/v1/lists`, method: 'GET', signal
+      {url: `/api/v1/lists`, method: 'GET',
+        params, signal
     },
       );
     }
@@ -1655,23 +1666,23 @@ export const getListsApiV1ListsGet = (
 
 
 
-export const getGetListsApiV1ListsGetQueryKey = () => {
+export const getGetListsApiV1ListsGetQueryKey = (params?: GetListsApiV1ListsGetParams,) => {
     return [
-    `/api/v1/lists`
+    `/api/v1/lists`, ...(params ? [params]: [])
     ] as const;
     }
 
 
-export const getGetListsApiV1ListsGetQueryOptions = <TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
+export const getGetListsApiV1ListsGetQueryOptions = <TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = HTTPValidationError>(params?: GetListsApiV1ListsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetListsApiV1ListsGetQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetListsApiV1ListsGetQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getListsApiV1ListsGet>>> = ({ signal }) => getListsApiV1ListsGet(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getListsApiV1ListsGet>>> = ({ signal }) => getListsApiV1ListsGet(params, signal);
 
 
 
@@ -1681,11 +1692,11 @@ const {query: queryOptions} = options ?? {};
 }
 
 export type GetListsApiV1ListsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getListsApiV1ListsGet>>>
-export type GetListsApiV1ListsGetQueryError = unknown
+export type GetListsApiV1ListsGetQueryError = HTTPValidationError
 
 
-export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>> & Pick<
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = HTTPValidationError>(
+ params: undefined |  GetListsApiV1ListsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getListsApiV1ListsGet>>,
           TError,
@@ -1694,8 +1705,8 @@ export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getLi
       >, }
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>> & Pick<
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = HTTPValidationError>(
+ params?: GetListsApiV1ListsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getListsApiV1ListsGet>>,
           TError,
@@ -1704,20 +1715,20 @@ export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getLi
       >, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = HTTPValidationError>(
+ params?: GetListsApiV1ListsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Get Lists
  */
 
-export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
+export function useGetListsApiV1ListsGet<TData = Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError = HTTPValidationError>(
+ params?: GetListsApiV1ListsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getListsApiV1ListsGet>>, TError, TData>>, }
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetListsApiV1ListsGetQueryOptions(options)
+  const queryOptions = getGetListsApiV1ListsGetQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -2013,6 +2024,134 @@ export const useDeleteListApiV1ListsListIdDelete = <TError = HTTPValidationError
       > => {
 
       const mutationOptions = getDeleteListApiV1ListsListIdDeleteMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Archive a list (owner only).
+ * @summary Archive List
+ */
+export const archiveListApiV1ListsListIdArchivePost = (
+    listId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ListResponse>(
+      {url: `/api/v1/lists/${listId}/archive`, method: 'POST', signal
+    },
+      );
+    }
+
+
+
+export const getArchiveListApiV1ListsListIdArchivePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveListApiV1ListsListIdArchivePost>>, TError,{listId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof archiveListApiV1ListsListIdArchivePost>>, TError,{listId: number}, TContext> => {
+
+const mutationKey = ['archiveListApiV1ListsListIdArchivePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof archiveListApiV1ListsListIdArchivePost>>, {listId: number}> = (props) => {
+          const {listId} = props ?? {};
+
+          return  archiveListApiV1ListsListIdArchivePost(listId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ArchiveListApiV1ListsListIdArchivePostMutationResult = NonNullable<Awaited<ReturnType<typeof archiveListApiV1ListsListIdArchivePost>>>
+
+    export type ArchiveListApiV1ListsListIdArchivePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Archive List
+ */
+export const useArchiveListApiV1ListsListIdArchivePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveListApiV1ListsListIdArchivePost>>, TError,{listId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof archiveListApiV1ListsListIdArchivePost>>,
+        TError,
+        {listId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getArchiveListApiV1ListsListIdArchivePostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+
+/**
+ * Unarchive a list (owner only).
+ * @summary Unarchive List
+ */
+export const unarchiveListApiV1ListsListIdUnarchivePost = (
+    listId: number,
+ signal?: AbortSignal
+) => {
+
+
+      return customFetch<ListResponse>(
+      {url: `/api/v1/lists/${listId}/unarchive`, method: 'POST', signal
+    },
+      );
+    }
+
+
+
+export const getUnarchiveListApiV1ListsListIdUnarchivePostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unarchiveListApiV1ListsListIdUnarchivePost>>, TError,{listId: number}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof unarchiveListApiV1ListsListIdUnarchivePost>>, TError,{listId: number}, TContext> => {
+
+const mutationKey = ['unarchiveListApiV1ListsListIdUnarchivePost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unarchiveListApiV1ListsListIdUnarchivePost>>, {listId: number}> = (props) => {
+          const {listId} = props ?? {};
+
+          return  unarchiveListApiV1ListsListIdUnarchivePost(listId,)
+        }
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnarchiveListApiV1ListsListIdUnarchivePostMutationResult = NonNullable<Awaited<ReturnType<typeof unarchiveListApiV1ListsListIdUnarchivePost>>>
+
+    export type UnarchiveListApiV1ListsListIdUnarchivePostMutationError = HTTPValidationError
+
+    /**
+ * @summary Unarchive List
+ */
+export const useUnarchiveListApiV1ListsListIdUnarchivePost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unarchiveListApiV1ListsListIdUnarchivePost>>, TError,{listId: number}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unarchiveListApiV1ListsListIdUnarchivePost>>,
+        TError,
+        {listId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getUnarchiveListApiV1ListsListIdUnarchivePostMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

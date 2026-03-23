@@ -154,6 +154,11 @@ Key routing:
 
 Tests use `todo_list_test` database. **Use `db` fixture from conftest.py, never import `SessionLocal` directly.**
 
+**Test DB schema**: The test database uses `Base.metadata.create_all` (not alembic migrations). After adding new columns/tables, you must also apply them to the test DB manually:
+```bash
+docker compose exec -T db psql -U todo_user -d todo_list_test -c "ALTER TABLE <table> ADD COLUMN IF NOT EXISTS <col> <type>;"
+```
+
 ```python
 def test_example(client, auth_headers):
     user_id = auth_headers.user_id

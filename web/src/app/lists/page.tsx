@@ -15,6 +15,8 @@ import {
   useShareListWithFamilyApiV1ListsListIdShareFamilyPost,
   useUnshareListFromFamilyApiV1ListsListIdShareFamilyDelete,
   useGetListSharesApiV1ListsListIdSharesGet,
+  useArchiveListApiV1ListsListIdArchivePost,
+  useUnarchiveListApiV1ListsListIdUnarchivePost,
   getGetListsApiV1ListsGetQueryKey,
   type ListResponse,
   ListCreateListType,
@@ -30,6 +32,8 @@ function ListCard({
   hasFamily,
   onNavigate,
   onDelete,
+  onArchive,
+  onUnarchive,
   onShareWithFamily,
   onUnshareFromFamily,
   isSharedWithFamily,
@@ -39,6 +43,8 @@ function ListCard({
   hasFamily: boolean;
   onNavigate: () => void;
   onDelete: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onShareWithFamily: () => void;
   onUnshareFromFamily: () => void;
   isSharedWithFamily: boolean;
@@ -161,6 +167,40 @@ function ListCard({
                   Unshare from Family
                 </button>
               )}
+              {isOwner && !list.archived_at && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onArchive();
+                  }}
+                  className={styles.meatballOption}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                    <rect x="1" y="3" width="22" height="5"></rect>
+                    <line x1="10" y1="12" x2="14" y2="12"></line>
+                  </svg>
+                  Archive
+                </button>
+              )}
+              {isOwner && list.archived_at && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onUnarchive();
+                  }}
+                  className={styles.meatballOption}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                    <rect x="1" y="3" width="22" height="5"></rect>
+                    <line x1="10" y1="12" x2="14" y2="12"></line>
+                  </svg>
+                  Unarchive
+                </button>
+              )}
               {isOwner && (
                 <button
                   onClick={(e) => {
@@ -214,6 +254,7 @@ export default function ListsPage() {
   const [showNewList, setShowNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [newListType, setNewListType] = useState<'grocery' | 'task'>('grocery');
+  const [showArchived, setShowArchived] = useState(false);
   const [familySharedListIds, setFamilySharedListIds] = useState<Set<number>>(new Set());
 
   // Get user at render time - only meaningful when mounted (client-side)
@@ -228,11 +269,14 @@ export default function ListsPage() {
   }, [mounted, user, router]);
 
   // Fetch lists using React Query
-  const { data: lists = [], isLoading } = useGetListsApiV1ListsGet({
-    query: {
-      select: (data) => [...data].sort((a, b) => a.name.localeCompare(b.name)),
+  const { data: lists = [], isLoading } = useGetListsApiV1ListsGet(
+    showArchived ? { include_archived: true } : undefined,
+    {
+      query: {
+        select: (data) => [...data].sort((a, b) => a.name.localeCompare(b.name)),
+      },
     },
-  });
+  );
 
   // Fetch family info
   const { data: family } = useGetMyFamilyApiV1FamiliesMeGet();
@@ -290,6 +334,32 @@ export default function ListsPage() {
     },
   });
 
+  // Archive list mutation
+  const archiveListMutation = useArchiveListApiV1ListsListIdArchivePost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey({ include_archived: true }) });
+      },
+      onError: async () => {
+        await alert({ message: 'Failed to archive list' });
+      },
+    },
+  });
+
+  // Unarchive list mutation
+  const unarchiveListMutation = useUnarchiveListApiV1ListsListIdUnarchivePost({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey({ include_archived: true }) });
+      },
+      onError: async () => {
+        await alert({ message: 'Failed to unarchive list' });
+      },
+    },
+  });
+
   // Fetch shares for each owned list to know which are family-shared
   useEffect(() => {
     if (!lists.length || !currentUserId) return;
@@ -343,6 +413,21 @@ export default function ListsPage() {
     deleteListMutation.mutate({ listId: id });
   };
 
+  const handleArchiveList = async (id: number, name: string) => {
+    const confirmed = await confirm({
+      title: 'Archive List',
+      message: `Archive "${name}"? It will be hidden from your lists but can be restored later.`,
+      confirmText: 'Archive',
+    });
+    if (!confirmed) return;
+
+    archiveListMutation.mutate({ listId: id });
+  };
+
+  const handleUnarchiveList = async (id: number) => {
+    unarchiveListMutation.mutate({ listId: id });
+  };
+
   const handleShareWithFamily = async (id: number) => {
     shareWithFamilyMutation.mutate({ listId: id, data: { permission: 'edit' } });
   };
@@ -367,12 +452,15 @@ export default function ListsPage() {
     );
   }
 
+  const activeLists = lists.filter((l) => !l.archived_at);
+  const archivedLists = lists.filter((l) => l.archived_at);
+
   return (
     <div className={styles.container}>
       <h1 className={styles.title}>My Lists</h1>
 
       <div className={styles.listContainer}>
-        {lists.map((list: ListResponse & { unchecked_count?: number }) => (
+        {activeLists.map((list: ListResponse & { unchecked_count?: number }) => (
           <ListCard
             key={list.id}
             list={list}
@@ -380,6 +468,8 @@ export default function ListsPage() {
             hasFamily={hasFamily}
             onNavigate={() => router.push(`/list/${list.id}`)}
             onDelete={() => handleDeleteList(list.id, list.name)}
+            onArchive={() => handleArchiveList(list.id, list.name)}
+            onUnarchive={() => handleUnarchiveList(list.id)}
             onShareWithFamily={() => handleShareWithFamily(list.id)}
             onUnshareFromFamily={() => handleUnshareFromFamily(list.id, list.name)}
             isSharedWithFamily={familySharedListIds.has(list.id)}
@@ -454,6 +544,44 @@ export default function ListsPage() {
           </button>
         )}
       </div>
+
+      {/* Archived lists toggle */}
+      {(showArchived ? archivedLists.length > 0 : true) && (
+        <button
+          onClick={() => setShowArchived(!showArchived)}
+          className={styles.archivedToggle}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+            <rect x="1" y="3" width="22" height="5"></rect>
+            <line x1="10" y1="12" x2="14" y2="12"></line>
+          </svg>
+          {showArchived ? 'Hide archived' : 'Show archived'}
+          {showArchived && archivedLists.length > 0 && (
+            <span className={styles.archivedCount}>{archivedLists.length}</span>
+          )}
+        </button>
+      )}
+
+      {showArchived && archivedLists.length > 0 && (
+        <div className={styles.listContainer}>
+          {archivedLists.map((list: ListResponse & { unchecked_count?: number }) => (
+            <ListCard
+              key={list.id}
+              list={list}
+              currentUserId={currentUserId}
+              hasFamily={hasFamily}
+              onNavigate={() => router.push(`/list/${list.id}`)}
+              onDelete={() => handleDeleteList(list.id, list.name)}
+              onArchive={() => handleArchiveList(list.id, list.name)}
+              onUnarchive={() => handleUnarchiveList(list.id)}
+              onShareWithFamily={() => handleShareWithFamily(list.id)}
+              onUnshareFromFamily={() => handleUnshareFromFamily(list.id, list.name)}
+              isSharedWithFamily={familySharedListIds.has(list.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

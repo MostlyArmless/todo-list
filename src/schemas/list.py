@@ -37,6 +37,7 @@ class ListResponse(BaseModel):
     sort_order: int
     owner_id: int
     list_type: str
+    archived_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     unchecked_count: int = 0

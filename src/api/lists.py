@@ -1,8 +1,9 @@
 """List API endpoints."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -59,34 +60,40 @@ def get_user_list(db: Session, list_id: int, user: User) -> List:
 def get_lists(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    include_archived: bool = Query(False, description="Include archived lists"),
 ):
     """Get all lists owned by or shared with the current user."""
     # Get owned lists
-    owned_lists = (
-        db.query(List).filter(List.owner_id == current_user.id, List.deleted_at.is_(None)).all()
-    )
+    owned_query = db.query(List).filter(List.owner_id == current_user.id, List.deleted_at.is_(None))
+    if not include_archived:
+        owned_query = owned_query.filter(List.archived_at.is_(None))
+    owned_lists = owned_query.all()
 
     # Get directly shared lists
-    shared_lists = (
+    shared_query = (
         db.query(List)
         .join(ListShare)
         .filter(ListShare.user_id == current_user.id, List.deleted_at.is_(None))
-        .all()
     )
+    if not include_archived:
+        shared_query = shared_query.filter(List.archived_at.is_(None))
+    shared_lists = shared_query.all()
 
     # Get family-shared lists
     family_shared_lists = []
     user_family = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
     if user_family:
-        family_shared_lists = (
+        family_query = (
             db.query(List)
             .join(ListFamilyShare)
             .filter(
                 ListFamilyShare.family_id == user_family.family_id,
                 List.deleted_at.is_(None),
             )
-            .all()
         )
+        if not include_archived:
+            family_query = family_query.filter(List.archived_at.is_(None))
+        family_shared_lists = family_query.all()
 
     all_lists = list(set(owned_lists + shared_lists + family_shared_lists))  # Remove duplicates
 
@@ -251,6 +258,64 @@ def delete_list(
 
     list_obj.soft_delete()
     db.commit()
+
+
+@router.post("/{list_id}/archive", response_model=ListResponse)
+def archive_list(
+    list_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Archive a list (owner only)."""
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner can archive this list",
+        )
+
+    list_obj.archived_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(list_obj)
+
+    list_response = ListResponse.model_validate(list_obj)
+    list_response.unchecked_count = 0
+    return list_response
+
+
+@router.post("/{list_id}/unarchive", response_model=ListResponse)
+def unarchive_list(
+    list_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Unarchive a list (owner only)."""
+    list_obj = get_user_list(db, list_id, current_user)
+
+    if list_obj.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the owner can unarchive this list",
+        )
+
+    list_obj.archived_at = None
+    db.commit()
+    db.refresh(list_obj)
+
+    unchecked_count = (
+        db.query(func.count(Item.id))
+        .filter(
+            Item.list_id == list_id,
+            Item.checked == False,  # noqa: E712
+            Item.deleted_at.is_(None),
+        )
+        .scalar()
+    )
+
+    list_response = ListResponse.model_validate(list_obj)
+    list_response.unchecked_count = unchecked_count or 0
+    return list_response
 
 
 @router.post("/{list_id}/share", status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,6 @@
 """List model."""
 
-from sqlalchemy import Column, Enum, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from src.database import Base
@@ -19,6 +19,7 @@ class List(Base, TimestampMixin, SoftDeleteMixin):
     description = Column(String, nullable=True)
     icon = Column(String(50), nullable=True)  # emoji or icon name
     sort_order = Column(Integer, default=0)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
     list_type = Column(
         Enum(ListType, name="listtype", values_callable=lambda x: [e.value for e in x]),
         default=ListType.GROCERY,
