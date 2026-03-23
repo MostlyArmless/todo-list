@@ -937,6 +937,10 @@ export default function ListDetailPage() {
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          autoScroll={{
+            acceleration: 30,
+            threshold: { x: 0.2, y: 0.25 },
+          }}
         >
           {/* Uncategorized Tasks */}
           {getItemsByCategory(null).length > 0 && (
@@ -1095,6 +1099,10 @@ export default function ListDetailPage() {
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          autoScroll={{
+            acceleration: 30,
+            threshold: { x: 0.2, y: 0.25 },
+          }}
         >
           {/* Uncategorized Items */}
           {getItemsByCategory(null).length > 0 && (
@@ -1687,6 +1695,7 @@ function ItemRow({
   const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id ?? null);
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moveSectionOpen, setMoveSectionOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -1917,6 +1926,22 @@ function ItemRow({
               </svg>
               Edit
             </button>
+            {categories.length > 0 && (
+              <button
+                onClick={() => {
+                  setMoveSectionOpen(true);
+                  setMenuOpen(false);
+                }}
+                className={styles.meatballOption}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 3h6v6"></path>
+                  <path d="M10 14L21 3"></path>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                </svg>
+                Move to section
+              </button>
+            )}
             <button
               onClick={() => {
                 onDelete(item.id);
@@ -1933,6 +1958,18 @@ function ItemRow({
           </div>
         )}
       </div>
+
+      {moveSectionOpen && (
+        <MoveSectionModal
+          categories={categories}
+          currentCategoryId={item.category_id ?? null}
+          onSelect={async (categoryId) => {
+            setMoveSectionOpen(false);
+            await onUpdate(item.id, { category_id: categoryId });
+          }}
+          onClose={() => setMoveSectionOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -2007,6 +2044,7 @@ function ItemRowWithDragHandle({
   const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id ?? null);
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moveSectionOpen, setMoveSectionOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -2262,6 +2300,22 @@ function ItemRowWithDragHandle({
               </svg>
               Edit
             </button>
+            {categories.length > 0 && (
+              <button
+                onClick={() => {
+                  setMoveSectionOpen(true);
+                  setMenuOpen(false);
+                }}
+                className={styles.meatballOption}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 3h6v6"></path>
+                  <path d="M10 14L21 3"></path>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                </svg>
+                Move to section
+              </button>
+            )}
             <button
               onClick={() => {
                 onDelete(item.id);
@@ -2278,6 +2332,18 @@ function ItemRowWithDragHandle({
           </div>
         )}
       </div>
+
+      {moveSectionOpen && (
+        <MoveSectionModal
+          categories={categories}
+          currentCategoryId={item.category_id ?? null}
+          onSelect={async (categoryId) => {
+            setMoveSectionOpen(false);
+            await onUpdate(item.id, { category_id: categoryId });
+          }}
+          onClose={() => setMoveSectionOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -2615,6 +2681,53 @@ function SortableTaskCategory({
             Add task
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function MoveSectionModal({
+  categories,
+  currentCategoryId,
+  onSelect,
+  onClose,
+}: {
+  categories: CategoryResponse[];
+  currentCategoryId: number | null;
+  onSelect: (categoryId: number | null) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>Move to section</h3>
+          <button onClick={onClose} className={styles.modalCloseBtn} title="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div className={styles.modalSectionList}>
+          <button
+            className={`${styles.modalSectionItem} ${currentCategoryId === null ? styles.modalSectionItemCurrent : ''}`}
+            onClick={() => { if (currentCategoryId !== null) onSelect(null); }}
+          >
+            Uncategorized
+            {currentCategoryId === null && <span className={styles.modalCurrentBadge}>Current</span>}
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              className={`${styles.modalSectionItem} ${currentCategoryId === cat.id ? styles.modalSectionItemCurrent : ''}`}
+              onClick={() => { if (currentCategoryId !== cat.id) onSelect(cat.id); }}
+            >
+              <span style={{ color: cat.color || undefined }}>{cat.name}</span>
+              {currentCategoryId === cat.id && <span className={styles.modalCurrentBadge}>Current</span>}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

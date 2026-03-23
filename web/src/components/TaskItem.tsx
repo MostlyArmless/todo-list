@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { type ItemUpdateRecurrencePattern, type CategoryResponse } from '@/generated/api';
 import styles from './TaskItem.module.css';
 
@@ -218,7 +218,22 @@ export default function TaskItem<T extends Item>({
   const [editRecurrence, setEditRecurrence] = useState(item.recurrence_pattern || '');
   const [editCategoryId, setEditCategoryId] = useState<number | null>(item.category_id ?? null);
   const [saving, setSaving] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [moveSectionOpen, setMoveSectionOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   // Real-time countdown update
   useEffect(() => {
@@ -485,47 +500,111 @@ export default function TaskItem<T extends Item>({
         </div>
       </div>
 
-      {/* Edit button */}
-      <button
-        onClick={handleStartEdit}
-        className={styles.actionBtn}
-        title="Edit task"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {/* Meatball menu */}
+      <div className={styles.meatballMenu} ref={menuRef}>
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className={styles.meatballBtn}
+          title="More options"
         >
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-        </svg>
-      </button>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="19" cy="12" r="2"></circle>
+          </svg>
+        </button>
+        {menuOpen && (
+          <div className={styles.meatballDropdown}>
+            <button
+              onClick={() => {
+                handleStartEdit();
+                setMenuOpen(false);
+              }}
+              className={styles.meatballOption}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
+              Edit
+            </button>
+            {categories.length > 0 && (
+              <button
+                onClick={() => {
+                  setMoveSectionOpen(true);
+                  setMenuOpen(false);
+                }}
+                className={styles.meatballOption}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 3h6v6"></path>
+                  <path d="M10 14L21 3"></path>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                </svg>
+                Move to section
+              </button>
+            )}
+            <button
+              onClick={() => {
+                onDelete(item.id);
+                setMenuOpen(false);
+              }}
+              className={`${styles.meatballOption} ${styles.meatballOptionDanger}`}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* Delete button */}
-      <button
-        onClick={() => onDelete(item.id)}
-        className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
-        title="Delete task"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="3 6 5 6 21 6"></polyline>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-      </button>
+      {moveSectionOpen && (
+        <div className={styles.modalOverlay} onClick={() => setMoveSectionOpen(false)}>
+          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Move to section</h3>
+              <button onClick={() => setMoveSectionOpen(false)} className={styles.modalCloseBtn} title="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div className={styles.modalSectionList}>
+              <button
+                className={`${styles.modalSectionItem} ${(item.category_id ?? null) === null ? styles.modalSectionItemCurrent : ''}`}
+                onClick={async () => {
+                  if ((item.category_id ?? null) !== null) {
+                    setMoveSectionOpen(false);
+                    await onUpdate(item.id, { category_id: null });
+                  }
+                }}
+              >
+                Uncategorized
+                {(item.category_id ?? null) === null && <span className={styles.modalCurrentBadge}>Current</span>}
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  className={`${styles.modalSectionItem} ${(item.category_id ?? null) === cat.id ? styles.modalSectionItemCurrent : ''}`}
+                  onClick={async () => {
+                    if ((item.category_id ?? null) !== cat.id) {
+                      setMoveSectionOpen(false);
+                      await onUpdate(item.id, { category_id: cat.id });
+                    }
+                  }}
+                >
+                  {cat.name}
+                  {(item.category_id ?? null) === cat.id && <span className={styles.modalCurrentBadge}>Current</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
