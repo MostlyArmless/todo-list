@@ -56,6 +56,7 @@ class ItemUpdate(BaseModel):
     name: str | None = Field(None, max_length=500)
     description: str | None = Field(None, max_length=2000)
     sort_order: int | None = None
+    list_id: int | None = None
     # Grocery-specific fields
     quantity: str | None = Field(None, max_length=50)
     category_id: int | None = None

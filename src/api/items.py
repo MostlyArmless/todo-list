@@ -291,6 +291,24 @@ def update_item(
     """Update an item."""
     item = get_item(db, item_id, current_user)
 
+    old_list_id = item.list_id
+
+    # Handle moving item to a different list
+    if item_data.list_id is not None and item_data.list_id != item.list_id:
+        target_list = get_user_list(db, item_data.list_id, current_user)
+        if (
+            target_list.list_type
+            != db.query(List).filter(List.id == item.list_id).first().list_type
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot move items between different list types",
+            )
+        item.list_id = target_list.id
+        # Reset category when moving to a new list (categories are per-list)
+        if item_data.category_id is None:
+            item.category_id = None
+
     # Get the list to validate fields
     list_obj = db.query(List).filter(List.id == item.list_id).first()
     validate_item_fields_for_list_type(item_data, list_obj)
@@ -346,6 +364,8 @@ def update_item(
     db.commit()
     db.refresh(item)
     publish_list_event(item.list_id, ListEventType.ITEM_UPDATED, {"item_id": item.id})
+    if old_list_id != item.list_id:
+        publish_list_event(old_list_id, ListEventType.ITEM_UPDATED, {"item_id": item.id})
 
     # Reschedule reminder if task reminder fields changed
     if (

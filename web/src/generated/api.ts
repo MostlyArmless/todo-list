@@ -411,6 +411,8 @@ export type ItemUpdateDescription = string | null;
 
 export type ItemUpdateSortOrder = number | null;
 
+export type ItemUpdateListId = number | null;
+
 export type ItemUpdateQuantity = string | null;
 
 export type ItemUpdateCategoryId = number | null;
@@ -433,6 +435,7 @@ export interface ItemUpdate {
   name?: ItemUpdateName;
   description?: ItemUpdateDescription;
   sort_order?: ItemUpdateSortOrder;
+  list_id?: ItemUpdateListId;
   quantity?: ItemUpdateQuantity;
   category_id?: ItemUpdateCategoryId;
   due_date?: ItemUpdateDueDate;

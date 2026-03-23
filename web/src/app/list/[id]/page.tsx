@@ -21,15 +21,19 @@ import {
   useAutoCategorizeItemsApiV1ListsListIdItemsAutoCategorizePost,
   useListPantryItemsApiV1PantryGet,
   useBulkAddPantryItemsApiV1PantryBulkPost,
+  useGetListsApiV1ListsGet,
   getGetListApiV1ListsListIdGetQueryKey,
+  getGetListsApiV1ListsGetQueryKey,
   getGetCategoriesApiV1ListsListIdCategoriesGetQueryKey,
   getGetItemsApiV1ListsListIdItemsGetQueryKey,
   type CategoryResponse,
   type ItemResponse,
+  type ListResponse,
   type PantryItemResponse,
   type ItemCreateRecurrencePattern,
 } from '@/generated/api';
 import TaskItem from '@/components/TaskItem';
+import { MoveSectionModal, MoveToListModal } from '@/components/MoveItemModal';
 import { formatQuantityTotal } from '@/lib/formatQuantity';
 import { useListSync } from '@/hooks/useListSync';
 import IconButton from '@/components/IconButton';
@@ -152,6 +156,12 @@ export default function ListDetailPage() {
   });
 
   const { data: pantryItems = [] } = useListPantryItemsApiV1PantryGet({
+    query: {
+      enabled: !!getCurrentUser(),
+    },
+  });
+
+  const { data: allLists = [] } = useGetListsApiV1ListsGet(undefined, {
     query: {
       enabled: !!getCurrentUser(),
     },
@@ -353,6 +363,7 @@ export default function ListDetailPage() {
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
     category_id?: number | null;
+    list_id?: number | null;
   }) => {
     return new Promise<void>((resolve, reject) => {
       updateItemMutation.mutate(
@@ -360,6 +371,9 @@ export default function ListDetailPage() {
         {
           onSuccess: () => {
             invalidateListData();
+            if (data.list_id) {
+              queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey() });
+            }
             resolve();
           },
           onError: (error) => reject(error),
@@ -416,13 +430,16 @@ export default function ListDetailPage() {
     );
   };
 
-  const handleUpdateItem = async (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; sort_order?: number }) => {
+  const handleUpdateItem = async (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; sort_order?: number; list_id?: number | null }) => {
     return new Promise<void>((resolve, reject) => {
       updateItemMutation.mutate(
         { itemId: id, data },
         {
           onSuccess: () => {
             invalidateListData();
+            if (data.list_id) {
+              queryClient.invalidateQueries({ queryKey: getGetListsApiV1ListsGetQueryKey() });
+            }
             resolve();
           },
           onError: (error) => reject(error),
@@ -991,6 +1008,8 @@ export default function ListDetailPage() {
                       onDelete={handleDeleteItem}
                       onUpdate={handleUpdateTask}
                       categories={categories}
+                      allLists={allLists}
+                      listId={listId}
                     />
                   ))}
                 </SortableContext>
@@ -1060,6 +1079,8 @@ export default function ListDetailPage() {
                 onDeleteItem={handleDeleteItem}
                 onUpdateItem={handleUpdateTask}
                 allCategories={categories}
+                allLists={allLists}
+                listId={listId}
                 isInlineAdding={inlineAddCategory === category.id}
                 inlineItemName={inlineItemName}
                 onInlineItemNameChange={setInlineItemName}
@@ -1157,6 +1178,8 @@ export default function ListDetailPage() {
                       onDelete={handleDeleteItem}
                       onUpdate={handleUpdateItem}
                       categories={categories}
+                      allLists={allLists}
+                      listId={listId}
                     />
                   ))}
                 </SortableContext>
@@ -1236,6 +1259,8 @@ export default function ListDetailPage() {
                 onDeleteItem={handleDeleteItem}
                 onUpdateItem={handleUpdateItem}
                 allCategories={categories}
+                allLists={allLists}
+                listId={listId}
                 isInlineAdding={inlineAddCategory === category.id}
                 inlineItemName={inlineItemName}
                 onInlineItemNameChange={setInlineItemName}
@@ -1404,6 +1429,8 @@ function SortableCategory({
   onDeleteItem,
   onUpdateItem,
   allCategories,
+  allLists,
+  listId,
   isInlineAdding,
   inlineItemName,
   onInlineItemNameChange,
@@ -1425,8 +1452,10 @@ function SortableCategory({
   onDelete: () => void;
   onToggleItemCheck: (item: ItemResponse) => void;
   onDeleteItem: (id: number) => void;
-  onUpdateItem: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  onUpdateItem: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; list_id?: number | null }) => Promise<void>;
   allCategories: CategoryResponse[];
+  allLists: ListResponse[];
+  listId: number;
   isInlineAdding: boolean;
   inlineItemName: string;
   onInlineItemNameChange: (name: string) => void;
@@ -1617,6 +1646,8 @@ function SortableCategory({
               onDelete={onDeleteItem}
               onUpdate={onUpdateItem}
               categories={allCategories}
+              allLists={allLists}
+              listId={listId}
             />
           ))}
         </SortableContext>
@@ -1681,12 +1712,16 @@ function ItemRow({
   onDelete,
   onUpdate,
   categories,
+  allLists,
+  listId,
 }: {
   item: ItemResponse;
   onToggle: (item: ItemResponse) => void;
   onDelete: (id: number) => void;
-  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; list_id?: number | null }) => Promise<void>;
   categories: CategoryResponse[];
+  allLists: ListResponse[];
+  listId: number;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -1696,6 +1731,7 @@ function ItemRow({
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveSectionOpen, setMoveSectionOpen] = useState(false);
+  const [moveToListOpen, setMoveToListOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -1942,6 +1978,20 @@ function ItemRow({
                 Move to section
               </button>
             )}
+            {allLists.filter((l) => l.id !== listId && !l.archived_at).length > 0 && (
+              <button
+                onClick={() => {
+                  setMoveToListOpen(true);
+                  setMenuOpen(false);
+                }}
+                className={styles.meatballOption}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Move to other list
+              </button>
+            )}
             <button
               onClick={() => {
                 onDelete(item.id);
@@ -1970,6 +2020,18 @@ function ItemRow({
           onClose={() => setMoveSectionOpen(false)}
         />
       )}
+
+      {moveToListOpen && (
+        <MoveToListModal
+          lists={allLists}
+          currentListId={listId}
+          onSelect={async (targetListId, categoryId) => {
+            setMoveToListOpen(false);
+            await onUpdate(item.id, { list_id: targetListId, category_id: categoryId });
+          }}
+          onClose={() => setMoveToListOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1980,12 +2042,16 @@ function SortableItem({
   onDelete,
   onUpdate,
   categories,
+  allLists,
+  listId,
 }: {
   item: ItemResponse;
   onToggle: (item: ItemResponse) => void;
   onDelete: (id: number) => void;
-  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; list_id?: number | null }) => Promise<void>;
   categories: CategoryResponse[];
+  allLists: ListResponse[];
+  listId: number;
 }) {
   const {
     attributes,
@@ -2013,6 +2079,8 @@ function SortableItem({
         onDelete={onDelete}
         onUpdate={onUpdate}
         categories={categories}
+        allLists={allLists}
+        listId={listId}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
       />
@@ -2026,14 +2094,18 @@ function ItemRowWithDragHandle({
   onDelete,
   onUpdate,
   categories,
+  allLists,
+  listId,
   dragHandleProps,
   isDragging,
 }: {
   item: ItemResponse;
   onToggle: (item: ItemResponse) => void;
   onDelete: (id: number) => void;
-  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null }) => Promise<void>;
+  onUpdate: (id: number, data: { name?: string; quantity?: string; description?: string; category_id?: number | null; list_id?: number | null }) => Promise<void>;
   categories: CategoryResponse[];
+  allLists: ListResponse[];
+  listId: number;
   dragHandleProps?: Record<string, unknown>;
   isDragging?: boolean;
 }) {
@@ -2045,6 +2117,7 @@ function ItemRowWithDragHandle({
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveSectionOpen, setMoveSectionOpen] = useState(false);
+  const [moveToListOpen, setMoveToListOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -2316,6 +2389,20 @@ function ItemRowWithDragHandle({
                 Move to section
               </button>
             )}
+            {allLists.filter((l) => l.id !== listId && !l.archived_at).length > 0 && (
+              <button
+                onClick={() => {
+                  setMoveToListOpen(true);
+                  setMenuOpen(false);
+                }}
+                className={styles.meatballOption}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Move to other list
+              </button>
+            )}
             <button
               onClick={() => {
                 onDelete(item.id);
@@ -2342,6 +2429,18 @@ function ItemRowWithDragHandle({
             await onUpdate(item.id, { category_id: categoryId });
           }}
           onClose={() => setMoveSectionOpen(false)}
+        />
+      )}
+
+      {moveToListOpen && (
+        <MoveToListModal
+          lists={allLists}
+          currentListId={listId}
+          onSelect={async (targetListId, categoryId) => {
+            setMoveToListOpen(false);
+            await onUpdate(item.id, { list_id: targetListId, category_id: categoryId });
+          }}
+          onClose={() => setMoveToListOpen(false)}
         />
       )}
     </div>
@@ -2377,6 +2476,8 @@ function SortableTaskItem({
   onDelete,
   onUpdate,
   categories,
+  allLists,
+  listId,
 }: {
   item: ItemResponse;
   onComplete: (item: ItemResponse) => void;
@@ -2389,8 +2490,11 @@ function SortableTaskItem({
     reminder_offset?: string | null;
     recurrence_pattern?: 'daily' | 'weekly' | 'monthly' | null;
     category_id?: number | null;
+    list_id?: number | null;
   }) => Promise<void>;
   categories: CategoryResponse[];
+  allLists: ListResponse[];
+  listId: number;
 }) {
   const {
     attributes,
@@ -2433,6 +2537,8 @@ function SortableTaskItem({
           onDelete={onDelete}
           onUpdate={onUpdate}
           categories={categories}
+          allLists={allLists}
+          listId={listId}
         />
       </div>
     </div>
@@ -2458,6 +2564,8 @@ function SortableTaskCategory({
   onDeleteItem,
   onUpdateItem,
   allCategories,
+  allLists,
+  listId,
   isInlineAdding,
   inlineItemName,
   onInlineItemNameChange,
@@ -2487,8 +2595,11 @@ function SortableTaskCategory({
     reminder_offset?: string | null;
     recurrence_pattern?: 'daily' | 'weekly' | 'monthly' | null;
     category_id?: number | null;
+    list_id?: number | null;
   }) => Promise<void>;
   allCategories: CategoryResponse[];
+  allLists: ListResponse[];
+  listId: number;
   isInlineAdding: boolean;
   inlineItemName: string;
   onInlineItemNameChange: (name: string) => void;
@@ -2645,6 +2756,8 @@ function SortableTaskCategory({
               onDelete={onDeleteItem}
               onUpdate={onUpdateItem}
               categories={allCategories}
+              allLists={allLists}
+              listId={listId}
             />
           ))}
         </SortableContext>
@@ -2681,53 +2794,6 @@ function SortableTaskCategory({
             Add task
           </button>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MoveSectionModal({
-  categories,
-  currentCategoryId,
-  onSelect,
-  onClose,
-}: {
-  categories: CategoryResponse[];
-  currentCategoryId: number | null;
-  onSelect: (categoryId: number | null) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>Move to section</h3>
-          <button onClick={onClose} className={styles.modalCloseBtn} title="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <div className={styles.modalSectionList}>
-          <button
-            className={`${styles.modalSectionItem} ${currentCategoryId === null ? styles.modalSectionItemCurrent : ''}`}
-            onClick={() => { if (currentCategoryId !== null) onSelect(null); }}
-          >
-            Uncategorized
-            {currentCategoryId === null && <span className={styles.modalCurrentBadge}>Current</span>}
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              className={`${styles.modalSectionItem} ${currentCategoryId === cat.id ? styles.modalSectionItemCurrent : ''}`}
-              onClick={() => { if (currentCategoryId !== cat.id) onSelect(cat.id); }}
-            >
-              <span style={{ color: cat.color || undefined }}>{cat.name}</span>
-              {currentCategoryId === cat.id && <span className={styles.modalCurrentBadge}>Current</span>}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );

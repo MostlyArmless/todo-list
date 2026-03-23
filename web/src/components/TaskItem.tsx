@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
-import { type ItemUpdateRecurrencePattern, type CategoryResponse } from '@/generated/api';
+import { type ItemUpdateRecurrencePattern, type CategoryResponse, type ListResponse } from '@/generated/api';
+import { MoveSectionModal, MoveToListModal } from '@/components/MoveItemModal';
 import styles from './TaskItem.module.css';
 
 type RecurrencePattern = NonNullable<ItemUpdateRecurrencePattern>;
@@ -74,9 +75,12 @@ interface TaskItemProps<T extends Item = Item> {
     reminder_offset?: string | null;
     recurrence_pattern?: RecurrencePattern | null;
     category_id?: number | null;
+    list_id?: number | null;
   }) => Promise<void>;
   showItemId?: boolean;
   categories?: CategoryResponse[];
+  allLists?: ListResponse[];
+  listId?: number;
 }
 
 // Field length limits for tasks (stricter than backend allows)
@@ -209,6 +213,8 @@ export default function TaskItem<T extends Item>({
   onUpdate,
   showItemId,
   categories = [],
+  allLists = [],
+  listId,
 }: TaskItemProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -220,6 +226,7 @@ export default function TaskItem<T extends Item>({
   const [saving, setSaving] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveSectionOpen, setMoveSectionOpen] = useState(false);
+  const [moveToListOpen, setMoveToListOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
 
@@ -544,6 +551,20 @@ export default function TaskItem<T extends Item>({
                 Move to section
               </button>
             )}
+            {listId && allLists.filter((l) => l.id !== listId && !l.archived_at).length > 0 && (
+              <button
+                onClick={() => {
+                  setMoveToListOpen(true);
+                  setMenuOpen(false);
+                }}
+                className={styles.meatballOption}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Move to other list
+              </button>
+            )}
             <button
               onClick={() => {
                 onDelete(item.id);
@@ -562,48 +583,27 @@ export default function TaskItem<T extends Item>({
       </div>
 
       {moveSectionOpen && (
-        <div className={styles.modalOverlay} onClick={() => setMoveSectionOpen(false)}>
-          <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Move to section</h3>
-              <button onClick={() => setMoveSectionOpen(false)} className={styles.modalCloseBtn} title="Close">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-            <div className={styles.modalSectionList}>
-              <button
-                className={`${styles.modalSectionItem} ${(item.category_id ?? null) === null ? styles.modalSectionItemCurrent : ''}`}
-                onClick={async () => {
-                  if ((item.category_id ?? null) !== null) {
-                    setMoveSectionOpen(false);
-                    await onUpdate(item.id, { category_id: null });
-                  }
-                }}
-              >
-                Uncategorized
-                {(item.category_id ?? null) === null && <span className={styles.modalCurrentBadge}>Current</span>}
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  className={`${styles.modalSectionItem} ${(item.category_id ?? null) === cat.id ? styles.modalSectionItemCurrent : ''}`}
-                  onClick={async () => {
-                    if ((item.category_id ?? null) !== cat.id) {
-                      setMoveSectionOpen(false);
-                      await onUpdate(item.id, { category_id: cat.id });
-                    }
-                  }}
-                >
-                  {cat.name}
-                  {(item.category_id ?? null) === cat.id && <span className={styles.modalCurrentBadge}>Current</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <MoveSectionModal
+          categories={categories}
+          currentCategoryId={item.category_id ?? null}
+          onSelect={async (categoryId) => {
+            setMoveSectionOpen(false);
+            await onUpdate(item.id, { category_id: categoryId });
+          }}
+          onClose={() => setMoveSectionOpen(false)}
+        />
+      )}
+
+      {moveToListOpen && listId && (
+        <MoveToListModal
+          lists={allLists}
+          currentListId={listId}
+          onSelect={async (targetListId, categoryId) => {
+            setMoveToListOpen(false);
+            await onUpdate(item.id, { list_id: targetListId, category_id: categoryId });
+          }}
+          onClose={() => setMoveToListOpen(false)}
+        />
       )}
     </div>
   );
